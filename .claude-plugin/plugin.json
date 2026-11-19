@@ -1,0 +1,6 @@
+{
+  "name": "tokenomics",
+  "version": "1.0.0",
+  "description": "Understand where your AI tokens go. Ships 'spendlens': tags every coding session as OPEX (run: insights, logs, metrics, Grafana) or CAPEX (build: code generation) and logs it by session id.",
+  "keywords": ["tokenomics", "spendlens", "opex", "capex", "finops", "hooks"]
+}

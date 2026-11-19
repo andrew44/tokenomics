@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "userPromptSubmitted": [
+      { "type": "command", "bash": "python3 scripts/spendlens.py prompt copilot", "powershell": "python scripts\\spendlens.py prompt copilot", "timeoutSec": 10 }
+    ],
+    "sessionEnd": [
+      { "type": "command", "bash": "python3 scripts/spendlens.py finalize copilot", "powershell": "python scripts\\spendlens.py finalize copilot", "timeoutSec": 20 }
+    ]
+  }
+}

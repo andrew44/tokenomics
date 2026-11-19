@@ -1,0 +1,6 @@
+{
+  "name": "tokenomics",
+  "version": "1.0.0",
+  "description": "Understand where your AI tokens go. Ships 'spendlens': tags every session as OPEX (run) or CAPEX (build) and logs it by session id.",
+  "hooks": "copilot-hooks.json"
+}
