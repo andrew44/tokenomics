@@ -18,6 +18,7 @@ When you use an AI coding assistant, every message you send and every reply you 
 | **spendlens** | Quietly labels each conversation as **OPEX** (running things) or **CAPEX** (building things) and saves it to a small file on your computer. | A timesheet that fills itself in. |
 | **pennywise** | Checks each prompt before it runs. If a cheaper model would do the job (say, a hello-world app on the priciest model), it pauses the prompt and suggests the cheaper one. | A friend who stops you buying the premium option you don't need. |
 | **statusbar** | Shows a live line at the bottom of your assistant: how full the conversation is, tokens used, what it has cost in pounds, and a countdown to when the AI's short-term memory (the "prompt cache") expires. | A fuel gauge and a meter for your session. |
+| **handoff** | Just before the AI's short-term memory (the prompt cache) runs out, writes a short "where we got to" note. You can pick the work up in a new session for a fraction of the cost of reloading the old one. | Leaving a note on the desk before you step away. |
 
 ```mermaid
 flowchart LR
@@ -344,6 +345,18 @@ To run the prompt anyway, send the same prompt again or start it with `keep-mode
 
 ---
 
+## Using handoff (the bookmark)
+
+When the prompt cache goes cold, resuming the old session means paying to re-write the whole conversation into the cache again. **handoff** (`scripts/handoff.py`) writes a small digest first, so a fresh session can carry on from that instead.
+
+Hooks cannot run on a timer, so on every `Stop` (Claude Code) or `userPromptSubmitted` (Copilot) it starts a small background watcher. The watcher reads the cache clock from the transcript (5 minutes, or 1 hour if the session uses the 1-hour cache), and writes the file 60 seconds before expiry. If you carry on working, the clock moves and the watcher simply waits for the new deadline. `SessionEnd` stops the watcher and writes a handoff if there is not already a current one.
+
+The file lands in `~/.tokenomics/handoffs/<session id>.md`: git branch and changes, tasks, your last few requests, the last reply, files edited, recent commands, an estimate of what a full resume would cost against the size of the note, and how to resume. It is built from the transcript by plain code; no model is called, so it costs no tokens.
+
+To resume cheaply, start a new session in the same folder and say `Continue from @<that file>`. A `SessionStart` hook tells you when a handoff from the last 24 hours exists for the folder (set `TOKENOMICS_HANDOFF_INJECT=1` to load it automatically instead). `python3 scripts/handoff.py write` makes one on demand. Each one is logged to the `handoff_events` table in the spendlens database. Copilot CLI support is best effort: its hook payload and transcript format are less documented, so the digest may be thinner.
+
+---
+
 ## Settings (optional)
 
 Most people never need these. They are "environment variables", set in your shell profile or in Claude Code's `settings.json` under `"env"`.
@@ -351,6 +364,10 @@ Most people never need these. They are "environment variables", set in your shel
 | Setting | Default | What it does |
 |---------|---------|--------------|
 | `TOKENOMICS_PENNYWISE` | `block` | `block`, `warn` (notice only) or `off` for pennywise. |
+| `TOKENOMICS_HANDOFF` | `on` | `off` stops handoff from writing or watching. |
+| `TOKENOMICS_HANDOFF_LEAD` | `60` | Seconds before the cache expires to write the handoff. |
+| `TOKENOMICS_HANDOFF_DIR` | `~/.tokenomics/handoffs` | Where handoff files go. The newest 30 are kept (`TOKENOMICS_HANDOFF_KEEP`). |
+| `TOKENOMICS_HANDOFF_INJECT` | off | Set to `1` to load the latest handoff into a new session automatically. |
 | `TOKENOMICS_DB` | `~/.tokenomics/spendlens.db` | Where the database file lives. Point it at a shared location to collect several machines' data. |
 | `TOKENOMICS_STORE_PROMPT` | off | Set to `1` to keep a 200-character excerpt of each prompt. Off by default for privacy. |
 | `TOKENOMICS_SKILL_MAP` | none | Path to a JSON file that tells spendlens which side a skill belongs to, e.g. `{"our-grafana-skill": "opex", "pdf": "capex"}`. This always wins over the built-in guessing. |
@@ -409,6 +426,7 @@ flowchart TD
     SC --> S2["critical_friend.py<br/>conversation analyser"]
     SC --> S3["statusbar.py<br/>live status line"]
     SC --> S4["pennywise.py<br/>cheaper-model suggester"]
+    SC --> S5["handoff.py<br/>cache-expiry handoff writer"]
 ```
 
 ```
@@ -422,6 +440,7 @@ tokenomics/
 ├── skills/critical-friend/SKILL.md   prompt and cache review skill
 ├── scripts/spendlens.py       the opex/capex classifier
 ├── scripts/pennywise.py       cheaper-model suggester (blocks over-spec'd prompts)
+├── scripts/handoff.py         writes a resume note before the cache expires
 ├── scripts/critical_friend.py transcript analyser used by the skill
 ├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
 └── README.md
