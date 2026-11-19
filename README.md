@@ -149,6 +149,18 @@ Notes:
 
 Invoke it in Claude Code with `/tokenomics:critical-friend` or just ask "critical friend, review this session". It runs `scripts/critical_friend.py` (read-only) on the newest transcript for the current directory, then gives a verdict, the top three costs with fixes, a rewrite of your weakest prompt, and what is working. Run the script directly for the raw numbers: `python3 scripts/critical_friend.py [--session ID] [--json]`. It needs a Claude Code transcript, so Copilot sessions are not analysed.
 
+## Dashboard
+
+A local web UI over the spendlens database: a headline **% OPEX vs % CAPEX** split bar, daily usage trend, per-project split, skills used and recent sessions. Switch the measure between tokens, sessions and prompts, and the range between 7d, 30d, 90d and all time. Light and dark mode follow your system.
+
+```
+python3 scripts/dashboard.py              # opens http://127.0.0.1:8765
+python3 scripts/dashboard.py --demo       # preview with seeded fake data
+python3 scripts/dashboard.py --db /path/to/spendlens.db --port 9000
+```
+
+It reads the database read-only, listens on 127.0.0.1 only, and needs nothing beyond Python 3.8+. It uses `TOKENOMICS_DB` if set.
+
 ## Configuration (environment variables)
 
 | Variable | Default | Purpose |
