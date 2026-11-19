@@ -38,6 +38,7 @@ def _token_usage(u: dict) -> TokenUsage:
         cache_creation_tokens=int(u.get("cache_creation_input_tokens") or 0),
         cache_read_tokens=int(u.get("cache_read_input_tokens") or 0),
         cache_creation_1h_tokens=int(cc.get("ephemeral_1h_input_tokens") or 0),
+        fast=u.get("speed") == "fast",
     )
 
 
@@ -132,7 +133,7 @@ class ClaudeCodeAdapter(PlatformAdapter):
         for model, u in usage.values():
             tu = _token_usage(u)
             ev.usage.add(tu)
-            ev.usage_by_model.setdefault(model, TokenUsage()).add(tu)
+            ev.usage_records.append((model, tu))
         return ev
 
     def _tool(self, name: str, inp: dict) -> ToolCall:

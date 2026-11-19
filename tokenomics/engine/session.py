@@ -79,8 +79,8 @@ def _finalize_replay(db, adapter: PlatformAdapter, ev: SessionEvidence, s: Setti
     store.upsert(db, ev.session_id, adapter.name, ev.cwd, cls.opex_score, cls.capex_score,
                  cls.prompt_count, True, label_for)
     store.write_details(db, ev.session_id, cls, usage, adapter.billing_model, "transcript")
-    if usage is not None and ev.usage_by_model and adapter.billing_model == BILLING_ANTHROPIC_TOKENS:
-        store.set_cost(db, ev.session_id, pricing.session_cost_usd(ev.usage_by_model), ev.model)
+    if usage is not None and ev.usage_records and adapter.billing_model == BILLING_ANTHROPIC_TOKENS:
+        store.set_cost(db, ev.session_id, pricing.session_cost_usd(ev.usage_records), ev.model)
     db.commit()                                   # keyword result is safe before any network call
     prompts = [p.llm_text for p in ev.prompts if p.llm_text][:5]
     _llm_step(db, ev.session_id, ev.event, prompts, [t.name for t in ev.tool_calls], cls.skill_detail, s)

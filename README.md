@@ -352,6 +352,8 @@ This adds the status line to your Claude Code and/or Copilot settings (a backup 
 
 **Pounds.** Claude Code reports the cost in dollars and the bar converts it at 0.76 pounds per dollar. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rate, or set `"usd_gbp"` in the same file.
 
+**Prices.** When the assistant doesn't report a cost itself (Copilot, older Claude Code), and always for budget and the spend report, tokenomics prices each request from a table of Anthropic list prices **per model version**: Fable 5.2 is $8/$40 per million input/output tokens, Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50 (and $0.50/$2.50 for prompts over 100K tokens), with older versions such as Opus 4.8 ($5/$25) or Opus 4.1 ($15/$75) at their own rates. Cache reads use each model's own rate (e.g. $0.20 on Fable 5.2, $0.10 on Sonnet 5.5), cache writes 1.25x input (5-minute) or 2x (1-hour), and fast mode 2x. A model switch mid-session is priced message by message. To change a price, add it to `~/.tokenomics/statusbar.json` by model version: `{"prices": {"opus-5-5": [4, 20], "sonnet-5-5": [2, 10, 0.1]}}` (input, output and optionally cache read, dollars per million tokens). Prices change; the table is in `scripts/statusbar.py` and `tokenomics/engine/pricing.py`.
+
 <details>
 <summary><b>Good to know about the countdown</b></summary>
 
@@ -453,7 +455,7 @@ Most people never need these. They are "environment variables", set in your shel
 | `TOKENOMICS_LLM_MODEL` | `gpt-4o-mini` | Which model to ask. |
 | `TOKENOMICS_LLM_TIMEOUT` | `12` | Seconds to wait before falling back to keywords (capped at 15 to fit the 20-second hook limit). |
 | `TOKENOMICS_THEME` | `system` | Status bar colours: `light`, `dark` or `system`. |
-| `TOKENOMICS_USD_GBP` | `0.76` | Pounds per dollar, used for the status bar, budget and spend report. Prices per model can be overridden with `"prices"` in `~/.tokenomics/statusbar.json`. |
+| `TOKENOMICS_USD_GBP` | `0.76` | Pounds per dollar, used for the status bar, budget and spend report. Prices per model version can be overridden with `"prices"` in `~/.tokenomics/statusbar.json` (see "Using the status bar"). |
 | `TOKENOMICS_CACHE_TTL` | auto | Cache lifetime in seconds for the status bar's countdown. |
 
 ---

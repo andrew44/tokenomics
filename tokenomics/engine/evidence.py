@@ -6,7 +6,7 @@ platform payloads. Usage is None when the platform does not report it (never zer
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import List, Optional, Tuple
 
 # Billing models. Kept distinct on purpose: Anthropic bills tokens, Copilot bills premium
 # requests. The engine never converts one into the other or invents a money value.
@@ -58,6 +58,7 @@ class TokenUsage:
     cache_creation_tokens: int = 0
     cache_read_tokens: int = 0
     cache_creation_1h_tokens: int = 0     # the part of cache_creation_tokens written with the 1-hour TTL
+    fast: bool = False                    # served in fast mode (priced higher); per request only
 
     def add(self, other: "TokenUsage") -> None:
         self.input_tokens += other.input_tokens
@@ -82,6 +83,6 @@ class SessionEvidence:
     tool_calls: List[ToolCall] = field(default_factory=list)
     skills: List[SkillUse] = field(default_factory=list)
     usage: Optional[TokenUsage] = None
-    usage_by_model: Dict[str, TokenUsage] = field(default_factory=dict)   # for pricing; {} = unknown
+    usage_records: List[Tuple[str, TokenUsage]] = field(default_factory=list)  # (model, usage) per request
     model: Optional[str] = None   # last model used
     billing_model: str = BILLING_UNKNOWN

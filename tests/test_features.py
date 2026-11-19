@@ -32,15 +32,52 @@ def sonnet_msg(mid, usage=SONNET):
 class PricingTests(unittest.TestCase):
     def test_matches_statusbar(self):
         """statusbar.py keeps its own copy of the table (it is installed as a single file)."""
-        self.assertEqual(pricing.PRICES, statusbar.PRICES)
-        self.assertEqual(pricing.DEFAULT_PRICE, statusbar.DEFAULT_PRICE)
-        raw = {"input_tokens": 1000, "output_tokens": 500, "cache_creation_input_tokens": 3000,
-               "cache_read_input_tokens": 9000, "cache_creation": {"ephemeral_1h_input_tokens": 1000,
-                                                                     "ephemeral_5m_input_tokens": 2000}}
-        tu = TokenUsage(1000, 500, 3000, 9000, cache_creation_1h_tokens=1000)
-        for model in ("claude-opus-4-6", "claude-haiku", "mystery"):
-            self.assertAlmostEqual(pricing.usage_cost_usd(tu, model, pricing.PRICES),
-                                   statusbar.usage_cost_usd(raw, model, {}))
+        def block(path):
+            text = path.read_text(encoding="utf-8")
+            start = text.index("\n", text.index("# BEGIN PRICE TABLE")) + 1
+            return text[start:text.index("# END PRICE TABLE")]
+        self.assertEqual(block(ROOT / "tokenomics" / "engine" / "pricing.py"), block(SCRIPTS / "statusbar.py"))
+        for fast in (False, True):
+            raw = {"input_tokens": 1000, "output_tokens": 500, "cache_creation_input_tokens": 3000,
+                   "cache_read_input_tokens": 9000, "cache_creation": {"ephemeral_1h_input_tokens": 1000,
+                                                                         "ephemeral_5m_input_tokens": 2000},
+                   "speed": "fast" if fast else "standard"}
+            tu = TokenUsage(1000, 500, 3000, 9000, cache_creation_1h_tokens=1000, fast=fast)
+            for model in ("claude-opus-4-6", "claude-fable-5-2", "claude-haiku-5-5", "mystery"):
+                self.assertAlmostEqual(pricing.usage_cost_usd(tu, model, {}), statusbar.usage_cost_usd(raw, model, {}))
+
+    def test_versions_priced_separately(self):
+        cases = {
+            "claude-fable-5-2": (8, 40, 0.20), "claude-mythos-5-2": (8, 40, 0.20),
+            "claude-fable-5-1": (10, 50, 0.25), "claude-fable-5": (10, 50, 1.00),
+            "claude-fable-5-20260101": (10, 50, 1.00),                     # a date is not version 5.2
+            "claude-opus-5-5": (4, 20, 0.20), "claude-opus-5": (5, 25, 0.50), "claude-opus-4-8": (5, 25, 0.50),
+            "claude-opus-4-1-20250805": (15, 75, 1.50), "claude-opus-4-20250514": (15, 75, 1.50),
+            "claude-opus-4-5@20251101": (5, 25, 0.50), "claude-sonnet-5-5": (2, 10, 0.10),
+            "claude-sonnet-5": (2, 10, 0.20), "us.anthropic.claude-sonnet-4-5-20250929-v1:0": (3, 15, 0.30),
+            "claude-haiku-5-5": (0.10, 0.50, 0.01), "claude-haiku-4-5-20251001": (1, 5, 0.10),
+            "claude-3-5-haiku-20241022": (0.80, 4, 0.08), "claude-3-haiku-20240307": (0.25, 1.25, 0.03),
+            "Opus 4.8": (5, 25, 0.50), "Sonnet 5.5": (2, 10, 0.10), "claude-opus-5-5[1m]": (4, 20, 0.20),
+            "Fable": (8, 40, 0.20), "gpt-5": (2.5, 10, 0.25), "mystery": pricing.DEFAULT_PRICE,
+        }
+        for model, want in cases.items():
+            with self.subTest(model=model):
+                self.assertEqual(pricing.price_for(model, {}), tuple(float(x) for x in want))
+
+    def test_long_prompt_tier_fast_mode_and_overrides(self):
+        small = TokenUsage(input_tokens=1_000_000)
+        self.assertAlmostEqual(pricing.usage_cost_usd(small, "claude-haiku-5-5", {}), 0.50)     # > 100K prompt
+        self.assertAlmostEqual(pricing.usage_cost_usd(TokenUsage(input_tokens=100_000), "claude-haiku-5-5", {}), 0.01)
+        fast = TokenUsage(input_tokens=1_000_000, fast=True)
+        self.assertAlmostEqual(pricing.usage_cost_usd(fast, "claude-opus-5-5", {}), 8.0)
+        cfg = {"prices": {"haiku-5-5": [0.2, 1.0], "claude-opus-5-5": [3, 15, 0.1]}}
+        for got, want in zip(pricing.price_for("claude-haiku-5-5", cfg, 500_000), (0.2, 1.0, 0.02)):
+            self.assertAlmostEqual(got, want)
+        self.assertEqual(pricing.price_for("claude-opus-5-5", cfg), (3.0, 15.0, 0.1))
+        cache = TokenUsage(cache_creation_tokens=1_000_000, cache_creation_1h_tokens=400_000,
+                           cache_read_tokens=1_000_000)
+        self.assertAlmostEqual(pricing.usage_cost_usd(cache, "claude-fable-5-2", {}),
+                               0.6 * 8 * 1.25 + 0.4 * 8 * 2 + 0.20)
 
     def test_usd_gbp_env(self):
         with mock.patch.dict(os.environ, {"TOKENOMICS_USD_GBP": "0.5", "TOKENOMICS_HOME": "/nonexistent"}):
@@ -64,11 +101,11 @@ class CostRecordingTests(unittest.TestCase):
         self._finalize([user("hi"), sonnet_msg("m1")])
         r = self.t.session("c1")
         self.assertEqual(r["model"], "claude-sonnet-5-5")
-        self.assertAlmostEqual(r["cost_usd"], 3.0 + 1.5)                 # 1M in @3 + 0.1M out @15
+        self.assertAlmostEqual(r["cost_usd"], 2.0 + 1.0)                 # 1M in @2 + 0.1M out @10
         self._finalize([user("hi"), sonnet_msg("m1"), sonnet_msg("m2")])  # one more turn
-        self.assertAlmostEqual(self.t.session("c1")["cost_usd"], 9.0)
+        self.assertAlmostEqual(self.t.session("c1")["cost_usd"], 6.0)
         events = self.t.rows("SELECT usd FROM cost_events WHERE session_id='c1' ORDER BY id")
-        self.assertEqual([round(e["usd"], 2) for e in events], [4.5, 4.5])
+        self.assertEqual([round(e["usd"], 2) for e in events], [3.0, 3.0])
         self._finalize([user("hi"), sonnet_msg("m1"), sonnet_msg("m2")])  # nothing new: no event
         self.assertEqual(len(self.t.rows("SELECT * FROM cost_events")), 2)
 
@@ -76,7 +113,7 @@ class CostRecordingTests(unittest.TestCase):
         opus = assistant("m2", usage=SONNET)
         opus["message"]["model"] = "claude-opus-4-6"
         self._finalize([user("hi"), sonnet_msg("m1"), opus])
-        self.assertAlmostEqual(self.t.session("c1")["cost_usd"], 4.5 + 7.5)
+        self.assertAlmostEqual(self.t.session("c1")["cost_usd"], 3.0 + 7.5)     # Sonnet 5.5 + Opus 4.6
 
     def test_copilot_never_priced(self):
         cp = get_adapter("copilot")
@@ -298,13 +335,13 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(p.returncode, 0)
         r = report.build(self.t.db, 7, usd_gbp=1)
         self.assertFalse(r["empty"])
-        self.assertEqual(r["spend_gbp"], 4.5)
+        self.assertEqual(r["spend_gbp"], 3.0)
         self.assertEqual(r["by_label"]["capex"]["sessions"], 1)
         self.assertEqual(r["by_project"][0]["project"], "api")
         self.assertEqual(r["top_sessions"][0]["model"], "claude-sonnet-5-5")
         self.assertEqual(r["helpers"]["diet"][0]["rule"], "unbounded-git-log")
         md = report.markdown(r)
-        self.assertIn("**Spend: £4.50**", md)
+        self.assertIn("**Spend: £3.00**", md)
         self.assertIn("unbounded-git-log x1", md)
         p = subprocess.run([sys.executable, str(SCRIPTS / "report.py"), "--json", "--days", "0"],
                            capture_output=True, text=True, env=self.t.env(), timeout=30)

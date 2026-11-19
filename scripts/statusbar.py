@@ -44,12 +44,78 @@ STATE_FILE = CFG_DIR / "statusbar-state.json"
 DEFAULT_CFG = {"theme": "system", "usd_gbp": 0.76, "cache_ttl": None,
                "width": 12, "warn": 75, "crit": 90}
 
-# Fallback price table (USD per million tokens: input, output). Only used when the CLI does not
-# report a cost itself (Copilot, or older Claude Code). Marked with "~" on screen. Override with
-# {"prices": {"opus": [5, 25], "sonnet": [3, 15]}} in statusbar.json.
-PRICES = {"opus": (5.0, 25.0), "sonnet": (3.0, 15.0), "haiku": (1.0, 5.0),
-          "gpt": (2.5, 10.0), "gemini": (1.25, 10.0)}
-DEFAULT_PRICE = (3.0, 15.0)
+# ---- prices: keep identical to tokenomics/engine/pricing.py (tests/test_features.py checks) ---
+# Only used when the CLI does not report a cost itself (Copilot, or older Claude Code); shown with "~".
+# BEGIN PRICE TABLE
+# Anthropic list prices, USD per million tokens: (input, output, cache read). Cache writes cost
+# 1.25x input (5-minute) or 2x input (1-hour). Keys are model ids without "claude-", with dots
+# and spaces turned into dashes, so ids, dated ids, Bedrock/Vertex ids and display names all
+# match ("claude-opus-4-1-20250805", "us.anthropic.claude-sonnet-4-5-v1:0", "Opus 4.5"). The
+# longest matching key wins; the bare family names are fallbacks for versions not listed and
+# point at the current model. Source: Anthropic pricing as of 2026-11. Override any entry with
+# {"prices": {"opus-5-5": [4, 20]}} in statusbar.json (a third value sets the cache-read price).
+PRICES = {
+    "fable-5-2": (8.0, 40.0, 0.20), "mythos-5-2": (8.0, 40.0, 0.20),
+    "fable-5-1": (10.0, 50.0, 0.25), "mythos-5-1": (10.0, 50.0, 0.25),
+    "fable-5": (10.0, 50.0, 1.00), "mythos-5": (10.0, 50.0, 1.00),
+    "fable": (8.0, 40.0, 0.20), "mythos": (8.0, 40.0, 0.20),
+    "opus-5-5": (4.0, 20.0, 0.20), "opus-5": (5.0, 25.0, 0.50),
+    "opus-4-8": (5.0, 25.0, 0.50), "opus-4-7": (5.0, 25.0, 0.50), "opus-4-6": (5.0, 25.0, 0.50),
+    "opus-4-5": (5.0, 25.0, 0.50), "opus-4-1": (15.0, 75.0, 1.50), "opus-4": (15.0, 75.0, 1.50),
+    "3-opus": (15.0, 75.0, 1.50), "opus": (4.0, 20.0, 0.20),
+    "sonnet-5-5": (2.0, 10.0, 0.10), "sonnet-5": (2.0, 10.0, 0.20),
+    "sonnet-4-6": (3.0, 15.0, 0.30), "sonnet-4-5": (3.0, 15.0, 0.30), "sonnet-4": (3.0, 15.0, 0.30),
+    "3-7-sonnet": (3.0, 15.0, 0.30), "3-5-sonnet": (3.0, 15.0, 0.30), "3-sonnet": (3.0, 15.0, 0.30),
+    "sonnet": (2.0, 10.0, 0.10),
+    "haiku-5-5": (0.10, 0.50, 0.01), "haiku-4-5": (1.0, 5.0, 0.10), "3-5-haiku": (0.80, 4.0, 0.08),
+    "3-haiku": (0.25, 1.25, 0.03), "haiku": (0.10, 0.50, 0.01),
+    "gpt": (2.5, 10.0, 0.25), "gemini": (1.25, 10.0, 0.125),     # rough, for Copilot's non-Claude models
+}
+DEFAULT_PRICE = (3.0, 15.0, 0.30)
+# Above this many prompt tokens (input + cache) in one request, these rates apply instead.
+LONG_PROMPT = {"haiku-5-5": (100_000, (0.50, 2.50, 0.05))}
+FAST_MULTIPLIER = 2.0             # usage.speed == "fast": fast mode bills 2x the standard rates
+CACHE_WRITE_5M, CACHE_WRITE_1H = 1.25, 2.0
+
+
+def model_key(model):
+    m = (model or "").lower().replace("[1m]", "")
+    return re.sub(r"[\s._]+", "-", m)
+
+
+def _match(table, model):
+    m = model_key(model)
+    hits = [k for k in table if k and re.search(r"(?<![a-z0-9])" + re.escape(k) + r"(?![0-9])", m)]
+    return max(hits, key=len) if hits else None
+
+
+def _overrides(cfg):
+    out = {}
+    for k, v in ((cfg or {}).get("prices") or {}).items():
+        try:
+            pin, pout = float(v[0]), float(v[1])
+            out[model_key(k)] = (pin, pout, float(v[2]) if len(v) > 2 else pin * 0.1)
+        except (TypeError, ValueError, IndexError):
+            pass
+    return out
+
+
+def price_table(cfg):
+    return {**PRICES, **_overrides(cfg)}
+
+
+def price_for(model, cfg, prompt_tokens=0):
+    """(input, output, cache read) USD per million tokens for this model and request size."""
+    overrides = _overrides(cfg)
+    table = {**PRICES, **overrides}
+    key = _match(table, model)
+    if key is None:
+        return DEFAULT_PRICE
+    long = LONG_PROMPT.get(key)
+    if long and key not in overrides and prompt_tokens > long[0]:
+        return long[1]
+    return table[key]
+# END PRICE TABLE
 
 # ----------------------------------------------------------------------------- config ---
 
@@ -212,29 +278,19 @@ def mmss(seconds):
     return f"{seconds // 60:02d}:{seconds % 60:02d}"
 
 
-def price_for(model, cfg):
-    table = dict(PRICES)
-    for k, v in (cfg.get("prices") or {}).items():
-        try:
-            table[k.lower()] = (float(v[0]), float(v[1]))
-        except (TypeError, ValueError, IndexError):
-            pass
-    m = (model or "").lower()
-    hits = [k for k in table if k and k in m]
-    return table[max(hits, key=len)] if hits else DEFAULT_PRICE
-
-
 def usage_cost_usd(u, model, cfg):
-    """Cost of one usage dict in USD (cache writes 1.25x/2x input, reads 0.1x input)."""
-    pin, pout = price_for(model, cfg)
+    """Cost in USD of one Anthropic usage dict (one request): per-model input, output and
+    cache-read rates, cache writes at 1.25x (5-minute) / 2x (1-hour) input, fast mode at 2x."""
     cc = u.get("cache_creation") or {}
     w1h = int(cc.get("ephemeral_1h_input_tokens") or 0)
     w5m = int(cc.get("ephemeral_5m_input_tokens") or 0)
     if not (w1h or w5m):
         w5m = int(u.get("cache_creation_input_tokens") or 0)
-    return (int(u.get("input_tokens") or 0) * pin + int(u.get("output_tokens") or 0) * pout
-            + w5m * pin * 1.25 + w1h * pin * 2.0
-            + int(u.get("cache_read_input_tokens") or 0) * pin * 0.1) / 1e6
+    inp, out = int(u.get("input_tokens") or 0), int(u.get("output_tokens") or 0)
+    cr = int(u.get("cache_read_input_tokens") or 0)
+    pin, pout, pcr = price_for(model, cfg, inp + w5m + w1h + cr)
+    usd = (inp * pin + out * pout + w5m * pin * CACHE_WRITE_5M + w1h * pin * CACHE_WRITE_1H + cr * pcr) / 1e6
+    return usd * FAST_MULTIPLIER if u.get("speed") == "fast" else usd
 
 
 # ----------------------------------------------------------------------------- transcript
