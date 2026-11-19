@@ -9,7 +9,7 @@ from unittest import mock
 from helpers import ROOT, TempEnv, assistant, user, write_transcript
 
 from tokenomics.config import Settings
-from tokenomics.engine import budget, diet, pricing, session, store
+from tokenomics.engine import budget, currency, diet, pricing, session, store
 from tokenomics.engine.evidence import TOOL_READ, TOOL_SHELL, TokenUsage, ToolCall
 from tokenomics.platform.registry import get_adapter
 
@@ -79,9 +79,69 @@ class PricingTests(unittest.TestCase):
         self.assertAlmostEqual(pricing.usage_cost_usd(cache, "claude-fable-5-2", {}),
                                0.6 * 8 * 1.25 + 0.4 * 8 * 2 + 0.20)
 
-    def test_usd_gbp_env(self):
-        with mock.patch.dict(os.environ, {"TOKENOMICS_USD_GBP": "0.5", "TOKENOMICS_HOME": "/nonexistent"}):
-            self.assertEqual(pricing.usd_gbp(), 0.5)
+
+
+class CurrencyTests(unittest.TestCase):
+    def setUp(self):
+        self.env = mock.patch.dict(os.environ, {"TOKENOMICS_HOME": "/nonexistent"})
+        self.env.start()
+        for k in ("TOKENOMICS_CURRENCY", "TOKENOMICS_USD_GBP", "TOKENOMICS_USD_EUR"):
+            os.environ.pop(k, None)
+
+    def tearDown(self):
+        self.env.stop()
+
+    def test_block_matches_statusbar(self):
+        def block(path):
+            text = path.read_text(encoding="utf-8")
+            start = text.index("\n", text.index("# BEGIN CURRENCY")) + 1
+            return text[start:text.index("# END CURRENCY")]
+        self.assertEqual(block(ROOT / "tokenomics" / "engine" / "currency.py"), block(SCRIPTS / "statusbar.py"))
+
+    def test_choice_and_aliases(self):
+        self.assertEqual(currency.current(), ("GBP", "£", 0.76))                # default unchanged
+        for spelling, code in (("usd", "USD"), ("$", "USD"), ("Euro", "EUR"), ("€", "EUR"), ("£", "GBP"),
+                               (" pounds ", "GBP"), ("yen", None), ("", None)):
+            self.assertEqual(currency.currency_code(spelling), code, spelling)
+        self.assertEqual(currency.current({"currency": "eur"}), ("EUR", "€", 0.86))
+        self.assertEqual(currency.current({"currency": "USD", "usd_gbp": 0.5}), ("USD", "$", 1.0))
+        self.assertEqual(currency.current({"currency": "nonsense"})[0], "GBP")
+
+    def test_env_beats_config_and_rates(self):
+        with mock.patch.dict(os.environ, {"TOKENOMICS_CURRENCY": "EUR", "TOKENOMICS_USD_EUR": "0.9"}):
+            self.assertEqual(currency.current({"currency": "USD", "usd_eur": 0.8}), ("EUR", "€", 0.9))
+        self.assertEqual(currency.current({"currency": "EUR", "usd_eur": 0.8}), ("EUR", "€", 0.8))
+        self.assertEqual(currency.current({"usd_gbp": "bad"}), ("GBP", "£", 0.76))
+
+    def test_format(self):
+        self.assertEqual(currency.format_money(1234.5, "€"), "€1,234.50")
+        self.assertEqual(currency.format_money(-3, "$"), "-$3.00")
+        self.assertEqual(currency.format_money(250.4, "£", whole_above=100), "£250")
+
+    def test_statusbar_shows_chosen_currency(self):
+        style = statusbar.Style("dark", color=False, ascii_only=True)
+        payload = {"model": {"id": "claude-opus-5-5"}, "cost": {"total_cost_usd": 2.0},
+                   "context_window": {"used_percentage": 10}}
+        for cfg, want in (({}, "£1.52"), ({"currency": "USD"}, "$2.00"), ({"currency": "EUR"}, "€1.72")):
+            cfg = {**statusbar.DEFAULT_CFG, **cfg}
+            line = statusbar.render(statusbar.gather(payload, cfg, {}), style, cfg)
+            self.assertIn(want, line)
+
+    def test_statusbar_flags(self):
+        t = TempEnv()
+        try:
+            env = t.env(TOKENOMICS_HOME=str(t.home))
+            payload = json.dumps({"cost": {"total_cost_usd": 1.0}})
+            run = lambda *a: subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), "--no-color", *a],  # noqa: E731
+                                            input=payload, capture_output=True, text=True, env=env, timeout=30)
+            self.assertIn("$1.00", run("--currency", "usd").stdout)
+            self.assertIn("£0.76", run().stdout)
+            self.assertIn("now show in EUR", run("--set-currency", "€").stdout)
+            self.assertIn("€0.86", run().stdout)
+            self.assertEqual(json.loads((t.home / "statusbar.json").read_text())["currency"], "EUR")
+            self.assertEqual(run("--set-currency", "yen").returncode, 1)
+        finally:
+            t.cleanup()
 
 
 class CostRecordingTests(unittest.TestCase):
@@ -244,6 +304,7 @@ class BudgetTests(unittest.TestCase):
         self.db = store.connect(self.t.db)
         self.env = mock.patch.dict(os.environ, {"TOKENOMICS_USD_GBP": "1", "TOKENOMICS_HOME": str(self.t.home)})
         self.env.start()
+        os.environ.pop("TOKENOMICS_CURRENCY", None)
 
     def tearDown(self):
         self.env.stop()
@@ -263,35 +324,58 @@ class BudgetTests(unittest.TestCase):
 
     def test_warn_then_block_then_override(self):
         self.spend("a", 8.5)
-        d = self.check("a", "next", daily_gbp=10)
+        d = self.check("a", "next", daily=10)
         self.assertEqual(d.action, "warned")
         self.assertIn("85%", d.message)
-        self.assertIsNone(self.check("a", "again", daily_gbp=10))          # warned once only
+        self.assertIsNone(self.check("a", "again", daily=10))          # warned once only
         self.spend("a", 10.5)
-        d = self.check("a", "do the thing", daily_gbp=10)
+        d = self.check("a", "do the thing", daily=10)
         self.assertEqual(d.action, "blocked")
         self.assertIn("£10.50", d.message)
-        self.assertEqual(self.check("a", "something else", daily_gbp=10).action, "blocked")
-        self.assertIsNone(self.check("a", "something else", daily_gbp=10))  # same prompt again = carry on
-        self.assertIsNone(self.check("a", "more", daily_gbp=10))            # not paused again today
+        self.assertEqual(self.check("a", "something else", daily=10).action, "blocked")
+        self.assertIsNone(self.check("a", "something else", daily=10))  # same prompt again = carry on
+        self.assertIsNone(self.check("a", "more", daily=10))            # not paused again today
 
     def test_prefix_bypass_and_daily_sums_sessions(self):
         self.spend("a", 6)
         self.spend("b", 6)
-        self.assertEqual(self.check("c", "hi", daily_gbp=10).action, "blocked")
-        self.assertIsNone(self.check("c", "over-budget: hi", daily_gbp=10))
+        self.assertEqual(self.check("c", "hi", daily=10).action, "blocked")
+        self.assertIsNone(self.check("c", "over-budget: hi", daily=10))
 
     def test_session_limit_is_per_session(self):
         self.spend("a", 6)
-        self.assertEqual(self.check("a", "hi", session_gbp=5).action, "blocked")
-        self.assertIsNone(self.check("b", "hi", session_gbp=5))
+        self.assertEqual(self.check("a", "hi", session=5).action, "blocked")
+        self.assertIsNone(self.check("b", "hi", session=5))
+
+    def test_limits_and_messages_in_chosen_currency(self):
+        self.spend("a", 10)                                                   # $10 spent
+        with mock.patch.dict(os.environ, {"TOKENOMICS_CURRENCY": "EUR", "TOKENOMICS_USD_EUR": "0.9"}):
+            d = self.check("a", "hi", daily=8)                                 # €9 > €8
+        self.assertEqual(d.action, "blocked")
+        self.assertIn("€9.00, over the €8.00 limit", d.message)
+        self.db.commit()
+        row = self.t.rows("SELECT spent, limit_amount, currency FROM budget_events WHERE action='blocked'")[0]
+        self.assertEqual((round(row["spent"], 2), row["limit_amount"], row["currency"]), (9.0, 8.0, "EUR"))
+        with mock.patch.dict(os.environ, {"TOKENOMICS_CURRENCY": "USD"}):
+            self.assertEqual(self.check("b", "hi", daily=12).action, "warned")  # $10 of $12
+
+    def test_limit_values_accept_symbols(self):
+        with mock.patch.dict(os.environ, {"TOKENOMICS_BUDGET_DAILY": "€1,500", "TOKENOMICS_BUDGET_SESSION": "$5"}):
+            lim = budget.load_limits()
+        self.assertEqual((lim.daily, lim.session), (1500.0, 5.0))
+
+    def test_old_budget_table_is_migrated(self):
+        self.db.execute("""CREATE TABLE budget_events(id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT,
+                           ts TEXT, day TEXT, kind TEXT, action TEXT, spent_gbp REAL, limit_gbp REAL, digest TEXT)""")
+        self.spend("a", 20)
+        self.assertEqual(self.check("a", "hi", daily=10).action, "blocked")
 
     def test_warn_mode_never_blocks(self):
         self.spend("a", 20)
-        d = self.check("a", "hi", daily_gbp=10, mode="warn")
+        d = self.check("a", "hi", daily=10, mode="warn")
         self.assertEqual(d.action, "warned")
         self.assertNotIn("same prompt again", d.message)
-        self.assertIsNone(self.check("a", "hi", daily_gbp=10, mode="warn"))
+        self.assertIsNone(self.check("a", "hi", daily=10, mode="warn"))
 
     def test_hook_end_to_end(self):
         self.spend("a", 50)
@@ -306,7 +390,7 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(run("copilot", TOKENOMICS_BUDGET_DAILY="10").stdout, "")  # cannot block there
         st = subprocess.run([sys.executable, str(SCRIPTS / "budget.py"), "status"], capture_output=True,
                             text=True, timeout=30, env=self.t.env(TOKENOMICS_USD_GBP="1"))
-        self.assertIn("Spent today: £50.00", st.stdout)
+        self.assertIn("Spent today: £50.00 (GBP)", st.stdout)
 
 
 class ReportTests(unittest.TestCase):
@@ -317,7 +401,7 @@ class ReportTests(unittest.TestCase):
         self.t.cleanup()
 
     def test_empty(self):
-        r = report.build(str(self.t.home / "none.db"), 7, usd_gbp=1)
+        r = report.build(str(self.t.home / "none.db"), 7, money=("GBP", "£", 1.0))
         self.assertEqual(r["reason"], "no-database")
         self.assertIn("No database", report.markdown(r))
 
@@ -333,19 +417,23 @@ class ReportTests(unittest.TestCase):
                                              "tool_input": {"command": "git log"}}),
                            capture_output=True, text=True, env=self.t.env())
         self.assertEqual(p.returncode, 0)
-        r = report.build(self.t.db, 7, usd_gbp=1)
+        r = report.build(self.t.db, 7, money=("GBP", "£", 1.0))
         self.assertFalse(r["empty"])
-        self.assertEqual(r["spend_gbp"], 3.0)
+        self.assertEqual(r["spend"], 3.0)
         self.assertEqual(r["by_label"]["capex"]["sessions"], 1)
         self.assertEqual(r["by_project"][0]["project"], "api")
         self.assertEqual(r["top_sessions"][0]["model"], "claude-sonnet-5-5")
         self.assertEqual(r["helpers"]["diet"][0]["rule"], "unbounded-git-log")
         md = report.markdown(r)
-        self.assertIn("**Spend: £3.00**", md)
+        self.assertIn("**Spend: £3.00** GBP", md)
+        eur = report.markdown(report.build(self.t.db, 7, money=("EUR", "€", 0.5)))
+        self.assertIn("**Spend: €1.50** EUR", eur)
+        self.assertNotIn("£", eur)
         self.assertIn("unbounded-git-log x1", md)
-        p = subprocess.run([sys.executable, str(SCRIPTS / "report.py"), "--json", "--days", "0"],
+        p = subprocess.run([sys.executable, str(SCRIPTS / "report.py"), "--json", "--days", "0", "--currency", "$"],
                            capture_output=True, text=True, env=self.t.env(), timeout=30)
-        self.assertEqual(json.loads(p.stdout)["days"], 0)
+        out = json.loads(p.stdout)
+        self.assertEqual((out["days"], out["currency"], out["spend"]), (0, "USD", 3.0))
 
 
 class WiringTests(unittest.TestCase):

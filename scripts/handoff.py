@@ -256,15 +256,16 @@ def git(cwd, *args):
 
 
 def cold_cost(ctx, model):
-    """(usd, gbp) to re-write `ctx` tokens to the cache, via statusbar's price table if available."""
+    """(usd, amount in the display currency, symbol) to re-write `ctx` tokens to the cache."""
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         import statusbar
         cfg = statusbar.load_cfg()
         usd = statusbar.usage_cost_usd({"cache_creation_input_tokens": ctx}, model, cfg)
-        return usd, usd * float(cfg["usd_gbp"])
+        _, symbol, rate = statusbar.currency(cfg)
+        return usd, usd * rate, symbol
     except Exception:
-        return None, None
+        return None, None, None
 
 
 def trim(s, n):
@@ -275,7 +276,7 @@ def trim(s, n):
 def build(d, path, sid, reason, last_ts, ttl):
     r = digest(path)
     cwd = d.get("cwd") or ""
-    usd, gbp = cold_cost(r["ctx"], r["model"])
+    usd, amount, symbol = cold_cost(r["ctx"], r["model"])
     lines = [f"# Handoff: session {sid}",
              f"Written {time.strftime('%Y-%m-%d %H:%M')} ({reason}). Folder: {cwd or 'unknown'}. "
              f"Model: {r['model'] or 'unknown'}.", ""]
@@ -302,8 +303,8 @@ def build(d, path, sid, reason, last_ts, ttl):
         body += ["## Recent commands"] + [f"- `{x}`" for x in r["cmds"]] + [""]
     text_est = max(1, sum(len(x) for x in body) // 4)
     cost = ""
-    if gbp is not None:
-        cost = f", about £{gbp:.2f} at the cache-write rate (estimate)"
+    if amount is not None:
+        cost = f", about {symbol}{amount:,.2f} at the cache-write rate (estimate)"
     lines += [f"Rebuilding this session's full context on resume = about {r['ctx']:,} tokens{cost}. "
               f"This file is about {text_est:,} tokens.", ""]
     lines += body

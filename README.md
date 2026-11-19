@@ -17,11 +17,11 @@ When you use an AI coding assistant, every message you send and every reply you 
 | **critical-friend** | Reads your conversation and tells you where tokens were wasted, with simple fixes. | A coach who reviews your prompts. |
 | **spendlens** | Quietly labels each conversation as **OPEX** (running things) or **CAPEX** (building things) and saves it to a small file on your computer. | A timesheet that fills itself in. |
 | **pennywise** | Checks each prompt before it runs. If a cheaper model would do the job (say, a hello-world app on the priciest model), it pauses the prompt and suggests the cheaper one. | A friend who stops you buying the premium option you don't need. |
-| **statusbar** | Shows a live line at the bottom of your assistant: how full the conversation is, tokens used, what it has cost in pounds, and a countdown to when the AI's short-term memory (the "prompt cache") expires. | A fuel gauge and a meter for your session. |
+| **statusbar** | Shows a live line at the bottom of your assistant: how full the conversation is, tokens used, what it has cost (in pounds, dollars or euros), and a countdown to when the AI's short-term memory (the "prompt cache") expires. | A fuel gauge and a meter for your session. |
 | **handoff** | Just before the AI's short-term memory (the prompt cache) runs out, writes a short "where we got to" note. You can pick the work up in a new session for a fraction of the cost of reloading the old one. | Leaving a note on the desk before you step away. |
 | **diet** | Stops the AI from pulling huge, low-value text into the conversation (a whole lockfile, every log line ever, the entire git history) and tells it to ask for just the part it needs. | A friend who stops you printing the whole manual to read one page. |
-| **budget** | Lets you set a daily or per-session spending limit in pounds. Warns you at 80% and pauses at 100%, with a one-step way to carry on. | A spending limit on a bank card. |
-| **spend-report** | Say "spend report" and get a short summary of the week: pounds spent, OPEX vs CAPEX, the costliest projects and sessions, what the other helpers saved, and three ways to spend less. | A monthly statement with advice. |
+| **budget** | Lets you set a daily or per-session spending limit in your currency. Warns you at 80% and pauses at 100%, with a one-step way to carry on. | A spending limit on a bank card. |
+| **spend-report** | Say "spend report" and get a short summary of the week: money spent, OPEX vs CAPEX, the costliest projects and sessions, what the other helpers saved, and three ways to spend less. | A monthly statement with advice. |
 
 ```mermaid
 flowchart LR
@@ -337,7 +337,7 @@ A live line that sits at the bottom of Claude Code or GitHub Copilot CLI:
 |------|-------------------|
 | `ctx ████▒▒ 76%` | How full the conversation is. The bar goes **green**, turns **yellow at 75%** and **red at 90%**. A `▲` appears from 90%. When it is nearly full, start a fresh conversation. |
 | `Σ 8.5M` | Total tokens used so far, in short form (`950`, `12.3K`, `8.5M`). |
-| `£1.37` | What the session has cost, in pounds. A `~` in front (`~£1.37`) means it is an estimate. |
+| `£1.37` | What the session has cost, in your currency (pounds unless you choose dollars or euros). A `~` in front (`~£1.37`) means it is an estimate. |
 | `⧗ 04:12` | A countdown to when the prompt cache expires. While it runs, repeated context is cheap. The egg timer starts **full (green)**, is **half-empty (amber)** at about half time and **empty (red)** when it is running out. `00:00` means the cache has gone cold, and `--:--` means nothing has been cached yet. |
 
 **To install it** (needs Python 3.8 or newer, nothing else). From the repo folder:
@@ -350,7 +350,14 @@ This adds the status line to your Claude Code and/or Copilot settings (a backup 
 
 **Light or dark.** It follows your computer's setting by default. To force one, put `{"theme": "dark"}` (or `"light"`) in `~/.tokenomics/statusbar.json`. To preview all the states, run `python3 scripts/statusbar.py --demo --theme light`. For very plain terminals use `--ascii` or set `NO_COLOR=1`.
 
-**Pounds.** Claude Code reports the cost in dollars and the bar converts it at 0.76 pounds per dollar. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rate, or set `"usd_gbp"` in the same file.
+**Currency.** Costs show in pounds (£) by default. To use US dollars ($) or euros (€) instead, run one of:
+
+```
+python3 scripts/statusbar.py --set-currency USD     # or EUR, or GBP
+export TOKENOMICS_CURRENCY=EUR                      # or set it per shell / in Claude Code's "env"
+```
+
+The choice is saved as `"currency"` in `~/.tokenomics/statusbar.json`, and the status bar, budget, spend report and handoff notes all use it (`$`, `€` and `£` work too, e.g. `--set-currency €`). `TOKENOMICS_CURRENCY` wins over the saved choice, and `--currency USD` on a single status bar or report run wins over both. Prices are in dollars, so dollars need no conversion; pounds and euros are converted at 0.76 and 0.86 per dollar unless you set the rate. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rates, or set `"usd_gbp"` / `"usd_eur"` in the same file (or `TOKENOMICS_USD_GBP` / `TOKENOMICS_USD_EUR`).
 
 **Prices.** When the assistant doesn't report a cost itself (Copilot, older Claude Code), and always for budget and the spend report, tokenomics prices each request from a table of Anthropic list prices **per model version**: Fable 5.2 is $8/$40 per million input/output tokens, Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50 (and $0.50/$2.50 for prompts over 100K tokens), with older versions such as Opus 4.8 ($5/$25) or Opus 4.1 ($15/$75) at their own rates. Cache reads use each model's own rate (e.g. $0.20 on Fable 5.2, $0.10 on Sonnet 5.5), cache writes 1.25x input (5-minute) or 2x (1-hour), and fast mode 2x. A model switch mid-session is priced message by message. To change a price, add it to `~/.tokenomics/statusbar.json` by model version: `{"prices": {"opus-5-5": [4, 20], "sonnet-5-5": [2, 10, 0.1]}}` (input, output and optionally cache read, dollars per million tokens). Prices change; the table is in `scripts/statusbar.py` and `tokenomics/engine/pricing.py`.
 
@@ -403,11 +410,11 @@ A command that already pipes (`| grep`, `| head`), redirects to a file, or limit
 
 ## Using budget (the spending limit)
 
-Set a limit and **budget** (`scripts/budget.py`, a `UserPromptSubmit` hook) keeps an eye on it:
+Set a limit and **budget** (`scripts/budget.py`, a `UserPromptSubmit` hook) keeps an eye on it. Limits are in your chosen currency (see "Currency" above; pounds by default), so `20` means £20, $20 or €20:
 
 ```
-export TOKENOMICS_BUDGET_DAILY=20      # pounds per day, all sessions together
-export TOKENOMICS_BUDGET_SESSION=5     # pounds per session
+export TOKENOMICS_BUDGET_DAILY=20      # per day, all sessions together
+export TOKENOMICS_BUDGET_SESSION=5     # per session
 ```
 
 At 80% of a limit you get one notice. Once a limit is reached, your next prompt is paused with what you've spent and some cheaper ways on (`/compact`, a smaller model, a fresh session). To carry on anyway, send the same prompt again or start it with `over-budget:`; you won't be paused again for that limit that day. `TOKENOMICS_BUDGET_MODE=warn` only ever shows notices. Check where you are with `python3 scripts/budget.py status`.
@@ -418,13 +425,14 @@ Spend is worked out from the token counts spendlens records at the end of each t
 
 ## Getting a spend report
 
-Say **"spend report"** (or "where did my tokens go this week?") and the **spend-report** skill runs `scripts/report.py` and summarises it: pounds spent and the OPEX/CAPEX split of that spend, top projects and models, the costliest sessions, what pennywise, handoff, diet and budget did, and three suggestions tied to your own numbers. Ask for any period ("this month", "today", "all time").
+Say **"spend report"** (or "where did my tokens go this week?") and the **spend-report** skill runs `scripts/report.py` and summarises it: money spent (in your currency) and the OPEX/CAPEX split of that spend, top projects and models, the costliest sessions, what pennywise, handoff, diet and budget did, and three suggestions tied to your own numbers. Ask for any period ("this month", "today", "all time").
 
 You can also run it yourself:
 
 ```
 python3 scripts/report.py               # last 7 days, as Markdown
 python3 scripts/report.py --days 30 --json
+python3 scripts/report.py --currency EUR        # GBP, USD or EUR for this run
 ```
 
 ---
@@ -438,8 +446,8 @@ Most people never need these. They are "environment variables", set in your shel
 | `TOKENOMICS_PENNYWISE` | `block` | `block`, `warn` (notice only) or `off` for pennywise. |
 | `TOKENOMICS_DIET` | `block` | `block`, `warn` (notice only, never stops a call) or `off` for diet. |
 | `TOKENOMICS_DIET_MAX_KB` | `64` | diet never blocks a file smaller than this. |
-| `TOKENOMICS_BUDGET_DAILY` | none | Daily spending limit in pounds, e.g. `20`. No limit = budget does nothing. |
-| `TOKENOMICS_BUDGET_SESSION` | none | Per-session spending limit in pounds. |
+| `TOKENOMICS_BUDGET_DAILY` | none | Daily spending limit in your currency, e.g. `20`. No limit = budget does nothing. |
+| `TOKENOMICS_BUDGET_SESSION` | none | Per-session spending limit in your currency. |
 | `TOKENOMICS_BUDGET_WARN` | `80` | Percent of a limit at which budget shows a notice. |
 | `TOKENOMICS_BUDGET_MODE` | `block` | `block`, `warn` (notices only) or `off`. |
 | `TOKENOMICS_HANDOFF` | `on` | `off` stops handoff from writing or watching. |
@@ -455,7 +463,9 @@ Most people never need these. They are "environment variables", set in your shel
 | `TOKENOMICS_LLM_MODEL` | `gpt-4o-mini` | Which model to ask. |
 | `TOKENOMICS_LLM_TIMEOUT` | `12` | Seconds to wait before falling back to keywords (capped at 15 to fit the 20-second hook limit). |
 | `TOKENOMICS_THEME` | `system` | Status bar colours: `light`, `dark` or `system`. |
-| `TOKENOMICS_USD_GBP` | `0.76` | Pounds per dollar, used for the status bar, budget and spend report. Prices per model version can be overridden with `"prices"` in `~/.tokenomics/statusbar.json` (see "Using the status bar"). |
+| `TOKENOMICS_CURRENCY` | `GBP` | Currency for every cost shown: `GBP` (£), `USD` ($) or `EUR` (€). Also saved by `statusbar.py --set-currency`. |
+| `TOKENOMICS_USD_EUR` | `0.86` | Euros per dollar, when the currency is EUR. |
+| `TOKENOMICS_USD_GBP` | `0.76` | Pounds per dollar, when the currency is GBP. Prices per model version can be overridden with `"prices"` in `~/.tokenomics/statusbar.json` (see "Using the status bar"). |
 | `TOKENOMICS_CACHE_TTL` | auto | Cache lifetime in seconds for the status bar's countdown. |
 
 ---

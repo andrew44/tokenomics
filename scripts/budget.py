@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""tokenomics / budget: daily and per-session spending limits, in pounds.
+"""tokenomics / budget: daily and per-session spending limits, in your currency (GBP, USD or EUR).
 
 Prompt hook (Claude Code: UserPromptSubmit). Shows a notice at 80% of a limit and pauses the
 next prompt once a limit is reached; send the same prompt again (or start it with
 "over-budget:") to carry on. Spend is what spendlens recorded, priced like the status bar.
+Limits are in the display currency: TOKENOMICS_CURRENCY = GBP (default) | USD | EUR.
 Copilot bills premium requests, not tokens, so it has no spend to budget against.
 
 Usage (hook command):  budget.py [source]      source = claude-code (default) | copilot
        budget.py status                         print today's spend and the limits
 
 Env (no limit set = budget does nothing):
-  TOKENOMICS_BUDGET_DAILY    e.g. 20     pounds per calendar day, all sessions together
-  TOKENOMICS_BUDGET_SESSION  e.g. 5      pounds per session
+  TOKENOMICS_BUDGET_DAILY    e.g. 20     per calendar day, all sessions together
+  TOKENOMICS_BUDGET_SESSION  e.g. 5      per session
   TOKENOMICS_BUDGET_WARN     80          percent of a limit at which to show a notice
   TOKENOMICS_BUDGET_MODE     block (default) | warn (notices only) | off
 Stdlib only. Always exits 0 on hook runs; a crash never blocks a prompt (errors go to <db>.err).
@@ -29,16 +30,17 @@ if str(ROOT) not in sys.path:
 
 def status():
     from tokenomics.config import load_settings
-    from tokenomics.engine import budget, pricing, store
+    from tokenomics.engine import budget, currency, store
     lim = budget.load_limits()
+    code, symbol, rate = currency.current()
     db = store.connect(load_settings().db_path)
     try:
-        today = store.day_cost_usd(db) * pricing.usd_gbp()
+        today = store.day_cost_usd(db) * rate
     finally:
         db.close()
-    fmt = lambda v: f"£{v:,.2f}" if v else "not set"   # noqa: E731
-    print(f"Spent today: £{today:,.2f}\nDaily limit: {fmt(lim.daily_gbp)}\n"
-          f"Session limit: {fmt(lim.session_gbp)}\nMode: {lim.mode}")
+    fmt = lambda v: currency.format_money(v, symbol) if v else "not set"   # noqa: E731
+    print(f"Spent today: {currency.format_money(today, symbol)} ({code})\nDaily limit: {fmt(lim.daily)}\n"
+          f"Session limit: {fmt(lim.session)}\nMode: {lim.mode}")
 
 
 def main():

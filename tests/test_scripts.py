@@ -160,7 +160,7 @@ class StatusbarTests(unittest.TestCase):
 
     def test_render_plain(self):
         cfg = dict(statusbar.DEFAULT_CFG)
-        info = {"model": "Sonnet", "total": 12_300, "gbp": 1.5, "estimated": True,
+        info = {"model": "Sonnet", "total": 12_300, "cost": 1.5, "symbol": "£", "estimated": True,
                 "pct": 50, "ttl": 300, "remaining": 90}
         line = statusbar.render(info, statusbar.Style("dark", color=False, ascii_only=True), cfg)
         self.assertEqual(line, "* Sonnet | ctx ######------ 50% | tok 12.3K | ~£1.50 | [# ] 01:30")

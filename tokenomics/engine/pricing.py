@@ -2,8 +2,8 @@
 
 The price table block below is identical to the one in scripts/statusbar.py, which must stay a
 single self-contained file and so keeps its own copy; tests/test_features.py checks they agree.
-Overrides come from the same place as the status bar's: "prices" and "usd_gbp" in
-~/.tokenomics/statusbar.json (or $TOKENOMICS_HOME/statusbar.json), then TOKENOMICS_USD_GBP.
+Overrides come from the same place as the status bar's: "prices" in ~/.tokenomics/statusbar.json
+(or $TOKENOMICS_HOME/statusbar.json). Converting to the display currency: engine/currency.py.
 
 Copilot bills premium requests, not tokens: nothing here is ever applied to Copilot sessions.
 """
@@ -16,9 +16,6 @@ from pathlib import Path
 from typing import Iterable, Mapping, Optional, Tuple
 
 from .evidence import TokenUsage
-
-DEFAULT_USD_GBP = 0.76
-
 
 def _cfg() -> dict:
     home = Path(os.environ.get("TOKENOMICS_HOME", str(Path.home() / ".tokenomics")))
@@ -116,14 +113,3 @@ def session_cost_usd(records: Iterable[Tuple[str, TokenUsage]], cfg: Optional[Ma
     """Sum over (model, usage) per request: rates depend on the model and on the request size."""
     cfg = _cfg() if cfg is None else cfg
     return sum(usage_cost_usd(u, m, cfg) for m, u in records)
-
-
-def usd_gbp(cfg: Optional[Mapping] = None) -> float:
-    cfg = _cfg() if cfg is None else cfg
-    for v in (os.environ.get("TOKENOMICS_USD_GBP"), cfg.get("usd_gbp")):
-        try:
-            if v not in (None, ""):
-                return float(v)
-        except (TypeError, ValueError):
-            pass
-    return DEFAULT_USD_GBP
