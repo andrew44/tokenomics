@@ -31,6 +31,7 @@ How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press
 | Component | Type  | What it does |
 |-----------|-------|--------------|
 | **spendlens** | hooks | Tags each session **OPEX** (run: insights, logs, metrics, Grafana, incidents) or **CAPEX** (build: code generation), or `mixed` / `unknown`, and logs it with the session id to SQLite. |
+| **pennywise** | hook | *Penny wise, pound foolish.* Checks each prompt before it runs; if a cheaper model would do (e.g. "create a hello-world console app" on Fable), it blocks the prompt once and suggests Haiku or Sonnet. Resend the same prompt, or prefix it with `keep-model:`, to override. Claude Code only. |
 | **critical-friend** | skill | Reviews your prompts and prompt-cache usage for the current session and suggests improvements (cache hit ratio, cache rebuilds, vague or correction-heavy prompts, oversized context, repeated file reads, mixed topics). Ask: "critical friend", "review my prompts", "why was that session expensive?". |
 
 More hooks, tools and skills will be added here.
@@ -149,10 +150,17 @@ Notes:
 
 Invoke it in Claude Code with `/tokenomics:critical-friend` or just ask "critical friend, review this session". It runs `scripts/critical_friend.py` (read-only) on the newest transcript for the current directory, then gives a verdict, the top three costs with fixes, a rewrite of your weakest prompt, and what is working. Run the script directly for the raw numbers: `python3 scripts/critical_friend.py [--session ID] [--json]`. It needs a Claude Code transcript, so Copilot sessions are not analysed.
 
+## pennywise
+
+A `UserPromptSubmit` hook (`scripts/pennywise.py`). It rates the prompt (small and self-contained, short and routine, or complex/unclear), finds the session's model (hook payload, then transcript, `ANTHROPIC_MODEL`, `settings.json`), and if a cheaper tier would cope it blocks with a suggestion such as `/model haiku`. Complex or ambiguous prompts are never blocked. Each decision (`blocked`, `warned`, `overridden`) is logged to the `pennywise_events` table in the spendlens database.
+
+Set `TOKENOMICS_PENNYWISE=warn` to show a notice without blocking, or `off` to disable. The heuristics are keyword-based; tune `SIMPLE` / `HARD` in the script. Copilot CLI ignores hook output on prompt submit, so pennywise is not wired up there.
+
 ## Configuration (environment variables)
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
+| `TOKENOMICS_PENNYWISE` | `block` | `block`, `warn` or `off` for the pennywise model-downgrade hook. |
 | `TOKENOMICS_DB` | `~/.tokenomics/spendlens.db` | SQLite database path. Point it at a shared location to collect several machines' data. |
 | `TOKENOMICS_STORE_PROMPT` | off | Set to `1` to keep a 200-character excerpt of each prompt. Off by default for privacy. |
 | `TOKENOMICS_SKILL_MAP` | none | Path to a JSON file mapping skill names to a side, e.g. `{"our-grafana-skill": "opex", "pdf": "capex"}`. Overrides the built-in name matching. |
@@ -227,6 +235,7 @@ tokenomics/
 ├── copilot-hooks.json      Copilot CLI hooks
 ├── skills/critical-friend/SKILL.md   prompt and cache review skill
 ├── scripts/spendlens.py       the opex/capex classifier
+├── scripts/pennywise.py       cheaper-model suggester (blocks over-spec'd prompts)
 ├── scripts/critical_friend.py transcript analyser used by the skill
 └── README.md
 ```
