@@ -2,6 +2,30 @@
 
 Understand where your AI tokens go. Works with **Claude Code** and **GitHub Copilot CLI**.
 
+## Quickstart (about a minute)
+
+1. Open a terminal and paste this:
+
+   ```
+   npx skills@latest add andrew44/tokenomics
+   ```
+
+2. Pick **critical-friend** and the assistant(s) you use. (Arrow keys to move, space to tick, Enter to confirm.)
+3. Restart your assistant and say: **"critical friend, review my prompts"**.
+
+That's it. You now have a prompt coach that shows where your session is wasting tokens, and how to fix it.
+
+<details>
+<summary><b>"npx: command not found"?</b> You need Node.js first.</summary>
+
+1. Go to [nodejs.org](https://nodejs.org), download the version marked **LTS**, and run the installer.
+2. **Close and reopen** your terminal, then paste the command from step 1 again.
+
+How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press Enter. On **Windows** click Start, type `PowerShell`, press Enter.
+</details>
+
+> **Heads up:** `npx skills` installs the **skill** only. For the automatic OPEX/CAPEX tracking (**spendlens**) and the full cache numbers, add the plugin: see [Want the automatic tracking too?](#want-the-automatic-tracking-too-install-the-plugin) below.
+
 ## Components
 
 | Component | Type  | What it does |
@@ -11,98 +35,100 @@ Understand where your AI tokens go. Works with **Claude Code** and **GitHub Copi
 
 More hooks, tools and skills will be added here.
 
-## Easiest install: `npx skills` (no technical knowledge needed)
+## Want the automatic tracking too? Install the plugin
 
-This adds the **critical-friend** skill to your AI assistant in about two minutes. You copy and paste one line; you don't need to write any code.
+The plugin gives you **everything**: the `critical-friend` skill *and* spendlens tracking in the background. Pick where you use Claude Code.
 
-### Before you start
-You need **Node.js** on your computer (it is a free, standard tool, and it is what provides the `npx` command).
-1. Go to [nodejs.org](https://nodejs.org) and download the version marked **LTS**.
-2. Open the downloaded file and click through the installer.
+| I use Claude Code in... | Jump to |
+|-------------------------|---------|
+| The terminal (the `claude` command) | [Terminal](#terminal) |
+| The Claude desktop app (**Code** tab) | [Desktop app](#desktop-app) |
+| The browser (claude.ai/code) | [Web](#web-claudeaicode) |
 
-Not sure if you already have it? Open the terminal (step 1 below) and type `node --version`. If it prints a number, you're ready.
+### Terminal
 
-### Install
-1. **Open a terminal** (the window where you type commands).
-   - **Mac:** press `Cmd + Space`, type `Terminal`, press Enter.
-   - **Windows:** click Start, type `PowerShell`, press Enter.
-2. **Copy this line, paste it into the terminal, and press Enter:**
+1. Start Claude Code: type `claude` and press Enter.
+2. Paste these two lines, one at a time, pressing Enter after each:
+
    ```
-   npx skills add andrew44/tokenomics
-   ```
-   If it asks to install a package called `skills`, say yes. That is normal.
-3. **Answer the questions on screen.** Use the arrow keys to move, the space bar to tick an option, and Enter to confirm. Tick **critical-friend**, then tick the assistant(s) you use (for example Claude Code).
-4. **Restart your assistant** (close it and open it again).
-5. **Try it.** Type: `critical friend, review my prompts`.
-
-### Want it to work in every project?
-By default the skill is added to the folder you ran the command from. To add it for all your projects instead, put `-g` on the end:
-```
-npx skills add andrew44/tokenomics -g
-```
-
-### Later on
-| I want to... | Paste this |
-|--------------|-----------|
-| See what I've installed | `npx skills list` |
-| Get the newest version | `npx skills update` |
-| Remove it | `npx skills remove critical-friend` |
-| Look at what's inside before installing | `npx skills add andrew44/tokenomics --list` |
-
-### What this does and doesn't give you
-- **You get:** the `critical-friend` skill, which reviews how you write prompts and where your session is wasting tokens (and money), with suggestions to fix it.
-- **You don't get:** the automatic OPEX/CAPEX tracking (**spendlens**). That runs in the background as a "hook", and `npx skills` can't set up hooks. To get it, use the plugin install further down this page.
-- **Heads up:** the skill's number-crunching helper (`scripts/critical_friend.py`) is not part of the skill folder, so with `npx skills` alone `critical-friend` may only be able to review the prompts it can see in your current conversation. For the full version with the exact cache numbers, use the plugin install.
-
-### If something goes wrong
-| What you see | What to do |
-|--------------|-----------|
-| `npx: command not found` or `'npx' is not recognized` | Node.js isn't installed yet. Do "Before you start" above, then **close and reopen** the terminal. |
-| The skill doesn't seem to be there | Restart your assistant, then run `npx skills list` to confirm it installed. |
-| Still stuck | Open an issue on this repo and paste what the terminal printed. |
-
-## Requirements
-
-- Python 3.8+ on your PATH (`python3` on macOS/Linux, `python` on Windows). No packages needed.
-- Claude Code and/or GitHub Copilot CLI.
-- Somewhere to host the plugin: a Git repo (recommended) or a local folder.
-
-## Install: Claude Code
-
-> Prefer the simple route? See [Easiest install](#easiest-install-npx-skills-no-technical-knowledge-needed) above. The plugin install below is the full version: it also turns on spendlens tracking.
-
-### Option A: from a Git repo (recommended for teams)
-1. Push this folder to a Git repo, e.g. `your-org/tokenomics`.
-2. In Claude Code:
-   ```
-   /plugin marketplace add your-org/tokenomics
+   /plugin marketplace add andrew44/tokenomics
    /plugin install tokenomics@tokenomics
    ```
-3. Restart Claude Code (or run `/reload-plugins`) so the hooks load.
 
-The repo doubles as a marketplace (`.claude-plugin/marketplace.json`), so teammates use the same two commands.
+3. A panel opens. Choose **Install for you (user scope)** so it works in every project.
+4. Check it worked: type `/` and look for `/tokenomics:critical-friend`.
 
-### Option B: from a local folder
+If Claude says `Run /reload-plugins to apply`, it does that for you. Needs Python 3.8+ on your computer (nothing else to install).
+
+### Desktop app
+
+Works in **local** and **SSH** sessions (not cloud sessions).
+
+1. Do the **Terminal** steps above once. The terminal and the desktop app share the same settings on your computer, so the plugin shows up in both.
+2. Open the desktop app, go to the **Code** tab and start a local session.
+3. Click **+** next to the prompt box, then **Add plugins** (or **Plugins**, then **Manage plugins**) to see **tokenomics** and switch it on or off.
+
+Just want the skill in the desktop app? Run the [Quickstart](#quickstart-about-a-minute) command with `-g` on the end: `npx skills@latest add andrew44/tokenomics -g`.
+
+### Web (claude.ai/code)
+
+Plugins **can't be installed** in Claude Code on the web. Cloud sessions have no plugin browser and don't load plugins from your computer or from a repo's settings. You have two options:
+
+- **Use the terminal or desktop app** for the full plugin and spendlens tracking.
+- **Add just the skill to your repo.** Files in a repo's `.claude/skills/` folder do load on the web. In your repo folder, run the command below, then commit the new `critical-friend` skill folder it adds:
+
+  ```
+  npx skills@latest add andrew44/tokenomics --copy
+  ```
+
+  (`--copy` makes real files instead of shortcuts, which is what you want when committing.) The skill's helper script isn't part of the skill folder, so on the web it may only be able to review the prompts it can see in the conversation.
+
+On the web, spendlens would save its data on a temporary cloud machine rather than your computer, so tracking there isn't useful.
+
+<details>
+<summary><b>Update, remove, or check the plugin</b></summary>
+
+| I want to... | Do this |
+|--------------|---------|
+| Check it's installed | In Claude Code, run `/plugin` and open the **Installed** tab. Or run `claude plugin list` in a terminal. Run `/hooks` to see the three spendlens hooks (`UserPromptSubmit`, `Stop`, `SessionEnd`). |
+| Update it | `/plugin marketplace update tokenomics`, then `claude plugin update tokenomics@tokenomics` in a terminal. (Third-party marketplaces don't update on their own.) |
+| Remove it | `/plugin uninstall tokenomics@tokenomics` (or `claude plugin uninstall tokenomics@tokenomics` in a terminal) |
+| Update or remove the **skill** (from the Quickstart) | `npx skills update` or `npx skills remove critical-friend`. `npx skills list` shows what's installed. |
+| Install for a whole team | Choose **project scope** at the install panel, or run `claude plugin install tokenomics@tokenomics --scope project`. Each teammate also runs that command once. |
+
+</details>
+
+<details>
+<summary><b>For developers: other ways to install</b></summary>
+
+One command from a normal terminal (no Claude session needed). The plugin switches on next time you start Claude Code:
+```
+claude plugin marketplace add andrew44/tokenomics
+claude plugin install tokenomics@tokenomics
+```
+Add and install in one step (recent Claude Code; v2.1.275+ in a session, v2.1.292+ from a shell):
+```
+/plugin install tokenomics --marketplace andrew44/tokenomics
+```
+From a local folder:
 ```
 /plugin marketplace add ./path/to/tokenomics
 /plugin install tokenomics@tokenomics
 ```
-
-### Option C: try it for one session, no install
+Try it for one session without installing:
 ```
 claude --plugin-dir ./path/to/tokenomics
 ```
+To host your own copy for a team, push the folder to your own Git repo and use `your-org/tokenomics` in place of `andrew44/tokenomics`. The repo doubles as a marketplace (`.claude-plugin/marketplace.json`).
 
-### Verify
-- Run `/plugin` and check `tokenomics` is listed and enabled.
-- Run `/hooks` and look for `UserPromptSubmit`, `Stop` and `SessionEnd` entries.
-- Send any prompt, then run the query under "Check the data".
+Choosing what the skill can see: `npx skills@latest add andrew44/tokenomics --list` previews the skills without installing, and `--skill critical-friend` installs one by name.
+</details>
 
-### Update / remove
-```
-/plugin marketplace update tokenomics
-/plugin uninstall tokenomics
-```
+## Requirements
+
+- **Quickstart (skill only):** Node.js (gives you `npx`). Nothing else.
+- **Full plugin:** Python 3.8+ on your PATH (`python3` on macOS/Linux, `python` on Windows). No packages needed.
+- Claude Code and/or GitHub Copilot CLI.
 
 ## Install: GitHub Copilot CLI
 
