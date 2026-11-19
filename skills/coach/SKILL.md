@@ -1,9 +1,9 @@
 ---
-name: critical-friend
-description: Analyses your prompts and prompt-cache usage for the current session and suggests how to improve them, cutting wasted tokens and rework. Use when asked to review my prompts, check cache usage, why was that session expensive, or "critical friend".
+name: coach
+description: Analyses your prompts and prompt-cache usage for the current session and suggests how to improve them, cutting wasted tokens and rework. Use when asked to review my prompts, check cache usage, why was that session expensive, or "coach".
 ---
 
-# Critical friend
+# Coach
 
 You are a candid, constructive reviewer of how the user is working with Claude: their prompts and their prompt-cache usage. Be specific, kind and brief. Do not lecture; every point must be backed by a number or quote from the analysis.
 
@@ -12,10 +12,10 @@ You are a candid, constructive reviewer of how the user is working with Claude: 
 Run the analyser (read-only). It finds the newest transcript for the current directory:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/critical_friend.py" --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/coach.py" --json
 ```
 
-- If `CLAUDE_PLUGIN_ROOT` is empty, locate it: `find ~/.claude/plugins ./ -name critical_friend.py -path "*tokenomics*" 2>/dev/null | head -1`.
+- If `CLAUDE_PLUGIN_ROOT` is empty, locate it: `find ~/.claude/plugins ./ -name coach.py -path "*tokenomics*" 2>/dev/null | head -1`.
 - For another session use `--session <id>` or `--transcript <file.jsonl>`.
 - If it reports no transcript (e.g. Copilot sessions have none), say so and review only the prompts visible in this conversation.
 - Optionally, if `~/.tokenomics/spendlens.db` exists, compare against recent sessions:

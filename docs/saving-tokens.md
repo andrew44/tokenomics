@@ -185,7 +185,7 @@ These costs are mostly cached and cheap per message, but they add up over hundre
 Habits are easier to change when you can see the effect.
 
 - **statusbar** shows tokens used, cost so far and the cache timer as you work.
-- **critical-friend** reviews a finished conversation and points out the biggest wastes, such as large pastes, cache rebuilds and long outputs.
+- **coach** reviews a finished conversation and points out the biggest wastes, such as large pastes, cache rebuilds and long outputs.
 - **spendlens** records every session so you can compare before and after.
 - In Claude Code, `/cost` and `/context` show what the current session has used and what is taking up room.
 
