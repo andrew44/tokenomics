@@ -1,0 +1,11 @@
+{
+  "name": "tokenomics",
+  "owner": { "name": "Tokenomics" },
+  "plugins": [
+    {
+      "name": "tokenomics",
+      "source": "./",
+      "description": "Understand where your AI tokens go. Ships 'spendlens': tags sessions as OPEX or CAPEX."
+    }
+  ]
+}
