@@ -4,6 +4,12 @@
 
 Works with **Claude Code** and **GitHub Copilot CLI**.
 
+<p align="center">
+  <a href="https://buymeacoffee.com/andrewgoadm">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee at buymeacoffee.com/andrewgoadm" height="60">
+  </a>
+</p>
+
 ---
 
 ## What is this, in plain English?
