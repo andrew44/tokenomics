@@ -258,11 +258,19 @@ A live line at the bottom of Claude Code or GitHub Copilot CLI.
 | `£1.37` | What the session has cost, in your currency. A `~` in front (`~£1.37`) means it is an estimate. |
 | `⧗ 04:12` | A countdown to when the prompt cache expires. While it runs, repeated context is cheap. The egg timer starts **full (green)**, is **half-empty (amber)** at about half time and **empty (red)** when it is running out. `00:00` means the cache has gone cold, and `--:--` means nothing has been cached yet. |
 
-**Install** (Python 3.8+, nothing else):
+**Install** (Python 3.8+, nothing else). With the plugin, in Claude Code:
+
+```text
+/tokenomics:statusbar                 # or: /tokenomics:statusbar both   (Claude Code + Copilot CLI)
+/tokenomics:statusbar uninstall       # to remove
+```
+
+The plugin keeps the installed copy up to date at each session start, and `TOKENOMICS_STATUSBAR=auto` installs it for you if no other status line is set. Without the plugin, from a clone:
 
 ```bash
 python3 scripts/statusbar.py --install claude     # or: copilot, both
 python3 scripts/statusbar.py --uninstall claude   # to remove
+python3 scripts/statusbar.py --status             # where is it installed?
 ```
 
 **Light or dark.** It follows your computer's setting by default. To force one, put `{"theme": "dark"}` (or `"light"`) in `~/.tokenomics/statusbar.json`. Preview every state with `python3 scripts/statusbar.py --demo --theme light`. For very plain terminals use `--ascii` or set `NO_COLOR=1`.

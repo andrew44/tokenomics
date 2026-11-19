@@ -13,7 +13,8 @@
       { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/handoff.py\" arm claude-code", "timeout": 10 } ] }
     ],
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/handoff.py\" start claude-code", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/handoff.py\" start claude-code", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/statusbar.py\" --sync", "timeout": 10 } ] }
     ],
     "SessionEnd": [
       { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/spendlens.py\" finalize claude-code", "timeout": 20 } ] },
