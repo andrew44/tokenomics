@@ -103,7 +103,7 @@ sequenceDiagram
     participant Hooks
     participant AI as Assistant
     You->>Hooks: send prompt
-    Note over Hooks: spendlens scores it<br/>pennywise: cheaper model?<br/>budget: over limit?
+    Note over Hooks: spendlens scores it<br/>pennywise: route to cheaper model?<br/>budget: over limit?
     Hooks->>AI: prompt (unless paused)
     AI->>Hooks: wants to Read / run Bash
     Note over Hooks: diet: will this flood the context?
@@ -126,11 +126,11 @@ sequenceDiagram
 
 ### pennywise
 
-**What it does.** Rates each prompt (small and self-contained, short and routine, or complex/unclear) against the model you're on. If a cheaper tier would cope, it pauses the prompt and suggests, say, `/model haiku`. Complex or ambiguous prompts are never paused.
+**What it does.** A model router. Rates each prompt (small and self-contained, short and routine, or complex/unclear) against the model you're on. If a cheaper tier would cope, it routes the prompt to a subagent on that tier (say, Haiku) automatically. Complex or ambiguous prompts stay on your model.
 
-**Reach for it (keep it on) when:** you tend to leave a top-tier model selected all day, or a team is new to choosing models. Turn it to `warn` if pauses annoy you but you still want the nudge, or `off` if you always pick models deliberately.
+**Reach for it (keep it on) when:** you tend to leave a top-tier model selected all day, or a team is new to choosing models. Set it to `block` if you'd rather be asked to switch with `/model`, or `off` if you always pick models deliberately.
 
-**When it pauses you:** send the same prompt again, or start it with `keep-model:`, to run it anyway. Claude Code only. Details: [Using pennywise](reference.md#pennywise).
+**To keep a prompt on your model:** start it with `keep-model:`. Claude Code only. Details: [Using pennywise](reference.md#pennywise).
 
 ### diet
 

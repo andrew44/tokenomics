@@ -113,7 +113,7 @@ The prompt cache lets the AI re-read recent conversation at roughly a tenth of t
 
 ## 5. Pick the model for the job, not for the price tag
 
-Cheaper models are a great way to save money **on the right tasks**: renaming things, writing simple tests, boilerplate, reading and summarising (see tip 2). **pennywise** nudges you towards them for exactly that reason.
+Cheaper models are a great way to save money **on the right tasks**: renaming things, writing simple tests, boilerplate, reading and summarising (see tip 2). **pennywise** routes simple prompts to them automatically for exactly that reason.
 
 But **the cheapest model per token is not always the cheapest model per finished job.** If a cheaper model needs several attempts at something a stronger model would get right first time, every retry re-sends the growing conversation, and the savings evaporate.
 

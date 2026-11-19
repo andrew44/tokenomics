@@ -24,7 +24,7 @@ Settings are environment variables. Set them in your shell profile, or in Claude
 
 | Setting | Default | What it does |
 |---|---|---|
-| `TOKENOMICS_PENNYWISE` | `block` | `block`, `warn` (notice only) or `off` for pennywise. |
+| `TOKENOMICS_PENNYWISE` | `route` | `route` (hand simple prompts to a cheaper-model subagent), `block` (pause and suggest `/model`), `warn` (notice only) or `off`. |
 | `TOKENOMICS_DIET` | `block` | `block`, `warn` (notice only, never stops a call) or `off` for diet. |
 | `TOKENOMICS_DIET_MAX_KB` | `64` | diet never blocks a file smaller than this. |
 | `TOKENOMICS_BUDGET_DAILY` | none | Daily spending limit in your currency, e.g. `20`. No limit = budget does nothing. |

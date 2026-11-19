@@ -54,7 +54,7 @@ tokenomics/
 │   └── util.py                     shared helpers
 ├── scripts/
 │   ├── spendlens.py                the OPEX/CAPEX hook runner (calls the engine)
-│   ├── pennywise.py                cheaper-model suggester
+│   ├── pennywise.py                model router (cheaper-model subagent)
 │   ├── handoff.py                  writes a resume note before the cache expires
 │   ├── diet.py                     stops tool calls that would flood the context
 │   ├── budget.py                   daily / per-session spending limits

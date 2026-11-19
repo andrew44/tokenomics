@@ -85,7 +85,7 @@ The hooks (`spendlens`, `pennywise`, `diet`, `budget`, `handoff`) ship together 
 
 | Hook | Switch it off | Or soften it |
 |---|---|---|
-| **pennywise** | `TOKENOMICS_PENNYWISE=off` | `warn` shows a notice but never pauses |
+| **pennywise** | `TOKENOMICS_PENNYWISE=off` | `block` asks you to switch with `/model` instead of routing; `warn` only shows a notice |
 | **diet** | `TOKENOMICS_DIET=off` | `warn` shows a notice but never blocks |
 | **budget** | `TOKENOMICS_BUDGET_MODE=off` (or just don't set a limit) | `warn` |
 | **handoff** | `TOKENOMICS_HANDOFF=off` | |
