@@ -283,6 +283,25 @@ flowchart LR
 </details>
 
 <details>
+<summary><b>Optional: let an AI model decide instead of keywords</b></summary>
+
+Keywords miss prompts that use none of your words. Set `TOKENOMICS_LLM=1` and a model reads the session and decides; if the call fails or times out, the keyword label is used instead, so nothing is ever lost.
+
+- It runs **once per session**, not per prompt. `Stop` fires every turn, so it only classifies the first time there; at `SessionEnd` (or Copilot's `sessionEnd`) it re-classifies if the session has changed. Identical input is never classified twice.
+- The model sees the first 5 prompts (300 characters each), the **names and counts** of tools used (never their arguments or file contents), and the skills used with their descriptions.
+- Text is redacted first (API keys, tokens, emails, long opaque strings), but **it still leaves your machine**. Point it at a local model if your prompts are sensitive.
+- It works with any OpenAI-compatible endpoint: OpenAI, OpenRouter, or a local server such as Ollama or LM Studio.
+
+| Column (`sessions` table) | Meaning |
+|---------------------------|---------|
+| `label` | The label to use: the model's if it succeeded, otherwise the keyword label |
+| `label_source` | `llm` or `keywords` |
+| `llm_label`, `llm_confidence`, `llm_reason`, `llm_model` | The model's verdict (`opex`, `capex`, `mixed` or `unknown`), a 0 to 1 confidence, a one-sentence reason, and which model said it |
+
+The keyword scores are always stored too, so you can compare the two. Failures are written to `spendlens.db.err`; the hook still never blocks a session.
+</details>
+
+<details>
 <summary><b>Token columns explained</b></summary>
 
 | Column (`sessions` table) | Meaning |
@@ -371,11 +390,28 @@ Most people never need these. They are "environment variables", set in your shel
 | `TOKENOMICS_DB` | `~/.tokenomics/spendlens.db` | Where the database file lives. Point it at a shared location to collect several machines' data. |
 | `TOKENOMICS_STORE_PROMPT` | off | Set to `1` to keep a 200-character excerpt of each prompt. Off by default for privacy. |
 | `TOKENOMICS_SKILL_MAP` | none | Path to a JSON file that tells spendlens which side a skill belongs to, e.g. `{"our-grafana-skill": "opex", "pdf": "capex"}`. This always wins over the built-in guessing. |
+| `TOKENOMICS_LLM` | off | Set to `1` to have an AI model decide OPEX or CAPEX at session end (see "How does it decide" above). Sends redacted prompt text to the endpoint. |
+| `TOKENOMICS_LLM_URL` | `https://api.openai.com/v1/chat/completions` | Any OpenAI-compatible chat endpoint. A non-default URL needs no key, so local models work. |
+| `TOKENOMICS_LLM_KEY` | `OPENAI_API_KEY` | API key for that endpoint. |
+| `TOKENOMICS_LLM_MODEL` | `gpt-4o-mini` | Which model to ask. |
+| `TOKENOMICS_LLM_TIMEOUT` | `12` | Seconds to wait before falling back to keywords (capped at 15 to fit the 20-second hook limit). |
 | `TOKENOMICS_THEME` | `system` | Status bar colours: `light`, `dark` or `system`. |
 | `TOKENOMICS_USD_GBP` | `0.76` | Pounds per dollar, used for the status bar's cost. |
 | `TOKENOMICS_CACHE_TTL` | auto | Cache lifetime in seconds for the status bar's countdown. |
 
 ---
+
+## Dashboard
+
+A local web UI over the spendlens database: a headline **% OPEX vs % CAPEX** split bar, daily usage trend, per-project split, skills used and recent sessions. Switch the measure between tokens, sessions and prompts, and the range between 7d, 30d, 90d and all time. Light and dark mode follow your system.
+
+```
+python3 scripts/dashboard.py              # opens http://127.0.0.1:8765
+python3 scripts/dashboard.py --demo       # preview with seeded fake data
+python3 scripts/dashboard.py --db /path/to/spendlens.db --port 9000
+```
+
+It reads the database read-only, listens on 127.0.0.1 only, and needs nothing beyond Python 3.8+. It uses `TOKENOMICS_DB` if set.
 
 ## Looking at your data
 
@@ -426,7 +462,9 @@ flowchart TD
     SC --> S2["critical_friend.py<br/>conversation analyser"]
     SC --> S3["statusbar.py<br/>live status line"]
     SC --> S4["pennywise.py<br/>cheaper-model suggester"]
-    SC --> S5["handoff.py<br/>cache-expiry handoff writer"]
+    SC --> S5["dashboard.py<br/>local usage dashboard"]
+    SC --> S6["handoff.py<br/>cache-expiry handoff writer"]
+    R --> D["dashboard/index.html<br/>dashboard page"]
 ```
 
 ```
@@ -443,6 +481,8 @@ tokenomics/
 ├── scripts/handoff.py         writes a resume note before the cache expires
 ├── scripts/critical_friend.py transcript analyser used by the skill
 ├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
+├── scripts/dashboard.py       local web server over the spendlens database
+├── dashboard/index.html       the dashboard page
 └── README.md
 ```
 
