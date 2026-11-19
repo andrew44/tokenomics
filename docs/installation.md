@@ -6,7 +6,7 @@ Everything you need to get tokenomics running, from the one-minute install to te
 
 **On this page**
 
-- [Install the whole toolkit](#install-the-whole-toolkit) (recommended)
+- [Install the whole toolkit](#install-the-whole-toolkit) (recommended, one line)
 - [Install pieces individually](#install-pieces-individually)
 - [Where do you use Claude Code?](#where-do-you-use-claude-code): terminal, desktop app, web
 - [GitHub Copilot CLI](#github-copilot-cli)
@@ -19,66 +19,66 @@ Everything you need to get tokenomics running, from the one-minute install to te
 
 ## Install the whole toolkit
 
-Two steps, about a minute. You need **Python 3.8+** (no packages) and **Claude Code**.
+One line. No git, no `pip`, nothing to clone.
 
-### Step 1: the plugin (skills + all hooks)
+**macOS / Linux** (in Terminal):
 
-Inside Claude Code (type `claude` in a terminal, then paste these one at a time):
+```bash
+curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh | sh
+```
+
+**Windows** (in PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/andrew44/tokenomics/main/install.ps1 | iex
+```
+
+Then **restart Claude Code** (or Copilot CLI). That's it.
+
+How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press Enter. On **Windows** click Start, type `PowerShell`, press Enter.
+
+### What the installer does
+
+1. **Checks for Python 3.8+.** It only uses Python's standard library. On Windows, if Python is missing, it installs it for you with `winget`. On a Mac without Python it tells you the one command to get it (`xcode-select --install`).
+2. **Downloads tokenomics** to `~/.tokenomics/app` (a plain download, not a git clone).
+3. **Adds the plugin** to every assistant it finds: Claude Code (`claude plugin install`, user scope) and/or GitHub Copilot CLI (`copilot plugin install`).
+4. **Switches on the status bar** for those assistants. If you already have a status line, it's left alone (replace it later with `tokenomics statusbar --install claude`).
+5. **Adds a `tokenomics` command** (in `~/.local/bin` on macOS/Linux, `~/.tokenomics/bin` on Windows, put on your PATH for you).
+
+It's safe to run again: it repairs and updates what's there. Want to look before you run? Read [install.sh](../install.sh) and [install.ps1](../install.ps1).
+
+**Options.** Skip parts with `sh -s -- --no-plugin` or `--no-statusbar` (on Windows set `$env:TOKENOMICS_SETUP_ARGS = "--no-statusbar"` first). To install from a fork or a tag, set `TOKENOMICS_REPO=your-org/tokenomics` or `TOKENOMICS_REF=v1.2.0`.
+
+**Check it worked:** run `tokenomics`. It shows which assistants it found and where the status bar is installed. In Claude Code, type `/` and look for `/tokenomics:coach`; `/hooks` lists the hooks.
+
+### The `tokenomics` command
+
+| Command | What it does |
+|---|---|
+| `tokenomics` | What's installed and where your data is |
+| `tokenomics dashboard` | Opens the dashboard in your browser (`--demo` for sample data, `--stop` to stop it) |
+| `tokenomics report` | Spend report in the terminal (`--days 30`, `--json`) |
+| `tokenomics statusbar ...` | Status bar options: `--demo`, `--set-currency USD`, `--install both`, `--uninstall claude` |
+| `tokenomics update` | Downloads the latest version and updates the plugins and status bar |
+| `tokenomics uninstall` | Removes the plugins, status bar and command (keeps your data; `--purge` deletes it too) |
+
+### Already inside Claude Code?
+
+You can install the plugin from there instead:
 
 ```text
 /plugin marketplace add andrew44/tokenomics
 /plugin install tokenomics@tokenomics
 ```
 
-When the panel opens, choose **Install for you (user scope)** so it works in every project. If Claude says `Run /reload-plugins to apply`, it does that for you.
+Choose **Install for you (user scope)**. You get every skill and hook, plus:
 
-Prefer a plain shell? This does the same and switches on the next time you start Claude Code:
+- **The status bar switches itself on** at the next session start, as long as no other status line is set. It keeps itself up to date whenever the plugin updates. Set `TOKENOMICS_STATUSBAR=ask` to be asked first instead, or `off` to leave it off. `/tokenomics:statusbar` installs, removes or changes it.
+- **The dashboard** is `/tokenomics:dashboard` (or just ask: *"open the tokenomics dashboard"*).
 
-```bash
-claude plugin marketplace add andrew44/tokenomics && claude plugin install tokenomics@tokenomics
-```
+You won't get the `tokenomics` terminal command this way; run the one-liner if you want it.
 
-**You now have:** `coach`, `spend-report`, `statusbar` (the installer skill), `spendlens`, `pennywise`, `diet`, `budget` and `handoff`.
-
-**Check it worked:** type `/` and look for `/tokenomics:coach`. Run `/hooks` to see the hooks.
-
-### Step 2: the status bar
-
-The status bar ships with the plugin, but Claude Code only lets one thing own the status line, so it's opt-in. Switch it on from inside Claude Code:
-
-```text
-/tokenomics:statusbar
-```
-
-Or just ask: *"install the tokenomics status bar"*. Add `copilot` or `both` (e.g. `/tokenomics:statusbar both`) if you also use Copilot CLI. Restart your assistant and the bar appears.
-
-What it does: copies the script and the price list into `~/.tokenomics/`, backs up your `settings.json` and points `statusLine` at the copy. If you already have a different status line, it asks before replacing it.
-
-- **It updates itself.** Each time a session starts, the plugin refreshes `~/.tokenomics/statusbar.py` and the price list if the plugin has a newer version.
-- **A one-time tip.** If you have no status line, the first session after installing the plugin shows a single tip pointing to `/tokenomics:statusbar`. It never shows again.
-- **Fully automatic?** Set `TOKENOMICS_STATUSBAR=auto` (in your shell profile or `settings.json` under `"env"`) and the plugin installs the bar at the next session start, as long as no other status line is set. `TOKENOMICS_STATUSBAR=off` silences the tip.
-
-<details>
-<summary><b>Without the plugin</b></summary>
-
-```bash
-git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install claude
-```
-
-`--install` copies everything it needs into `~/.tokenomics/`, so you can delete the clone afterwards. Without the plugin it won't update itself: run `--install` again from a fresh clone.
-</details>
-
-> On Windows, use `python` in place of `python3`.
-
-### Step 3 (optional): the dashboard
-
-From that same clone:
-
-```bash
-python3 tokenomics/scripts/dashboard.py          # opens http://127.0.0.1:8765
-```
-
-It reads what spendlens records, so it fills up as you work. Try `--demo` to see it with sample data straight away.
+> On Windows, use `python` in place of `python3` in any command below.
 
 ---
 
@@ -91,9 +91,9 @@ Every helper works on its own. Pick what you want:
 | **coach** (prompt review skill) | `npx skills@latest add andrew44/tokenomics --skill coach` | Needs Node.js. Works in Claude Code and other assistants the `skills` CLI supports. Without the plugin it reviews the prompts it can see; with the plugin it also gets exact token and cache numbers. |
 | **spend-report** (weekly spend skill) | `npx skills@latest add andrew44/tokenomics --skill spend-report` | Reports on what **spendlens** has recorded, so install the plugin too. |
 | **Both skills** | `npx skills@latest add andrew44/tokenomics` | Pick from the list (arrows to move, space to tick, Enter to confirm). Add `-g` to install globally, `--list` to preview. |
-| **statusbar** | `/tokenomics:statusbar` (with the plugin), or `git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install claude` | Standalone, needs only Python. `--uninstall` removes it. |
-| **dashboard** | `python3 tokenomics/scripts/dashboard.py` (from a clone) | Read-only view of the spendlens database. |
-| **Just some of the hooks** | Install the plugin, then switch off the ones you don't want | See below. |
+| **statusbar** only | `curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh \| sh -s -- --no-plugin` | Status bar and the `tokenomics` command, no hooks. Needs only Python. `tokenomics statusbar --uninstall claude` removes it. |
+| **dashboard** | `tokenomics dashboard`, or `/tokenomics:dashboard` with the plugin | Read-only view of the spendlens database. |
+| **Just some of the hooks** | Install everything, then switch off the ones you don't want | See below. |
 
 ### Choosing which hooks run
 
@@ -138,18 +138,18 @@ flowchart TD
     Start{"Where do you use<br/>Claude Code?"} -->|"Terminal<br/>(the 'claude' command)"| T["Follow Install the whole toolkit"]
     Start -->|"Claude desktop app<br/>(the Code tab)"| D["Do the terminal install once,<br/>then follow Desktop app"]
     Start -->|"In the browser<br/>(claude.ai/code)"| W["Plugins can't be installed here.<br/>See Web"]
-    Start -->|"GitHub Copilot CLI"| G["Follow GitHub Copilot CLI"]
+    Start -->|"GitHub Copilot CLI"| G["Run the one-line installer"]
 ```
 
 ### Terminal
 
-Follow [Install the whole toolkit](#install-the-whole-toolkit). That's it.
+Run the [one-line installer](#install-the-whole-toolkit). That's it.
 
 ### Desktop app
 
 Works in **local** and **SSH** sessions (not cloud sessions).
 
-1. Do the terminal install once. The terminal and the desktop app share the same settings on your computer, so the plugin shows up in both.
+1. Run the [one-line installer](#install-the-whole-toolkit) once. The terminal and the desktop app share the same settings on your computer, so the plugin shows up in both.
 2. Open the desktop app, go to the **Code** tab and start a local session.
 3. Click **+** next to the prompt box, then **Add plugins** (or **Plugins**, then **Manage plugins**) to see **tokenomics** and switch it on or off.
 
@@ -174,12 +174,14 @@ Tracking on the web isn't useful: the data would be saved on a temporary cloud m
 
 ## GitHub Copilot CLI
 
+The [one-line installer](#install-the-whole-toolkit) sets up Copilot CLI too: the plugin and the status bar. To do it by hand instead:
+
 ```bash
 copilot plugin install andrew44/tokenomics          # from GitHub
 copilot plugin install ./path/to/tokenomics         # from a local folder
 ```
 
-Then start `copilot`, check that `/plugin list` shows `tokenomics`, and send a prompt. Add the status bar with `python3 tokenomics/scripts/statusbar.py --install copilot`.
+Then start `copilot`, check that `/plugin list` shows `tokenomics`, and send a prompt. Add the status bar with `tokenomics statusbar --install copilot`.
 
 What works on Copilot:
 
@@ -210,7 +212,7 @@ What works on Copilot:
 
 | You want... | You need |
 |---|---|
-| The plugin, status bar or dashboard | **Python 3.8+** (`python3` on Mac/Linux, `python` on Windows). No extra packages, ever. |
+| The plugin, status bar or dashboard | **Python 3.8+** (`python3` on Mac/Linux, `python` on Windows). No extra packages, ever. The Windows installer gets it for you if it's missing. |
 | Skills via `npx skills` | Node.js |
 | Any of it | Claude Code and/or GitHub Copilot CLI |
 
@@ -221,9 +223,9 @@ What works on Copilot:
 | I want to... | Do this |
 |---|---|
 | Check it's installed | In Claude Code, run `/plugin` and open the **Installed** tab, or run `claude plugin list` in a terminal. `/hooks` shows the hooks. |
-| Update it | `/plugin marketplace update tokenomics`, then `claude plugin update tokenomics@tokenomics` in a terminal. (Third-party marketplaces don't update on their own.) |
-| Remove it | `/plugin uninstall tokenomics@tokenomics` (or `claude plugin uninstall tokenomics@tokenomics` in a terminal) |
-| Update or remove the status bar | With the plugin it updates itself. `/tokenomics:statusbar uninstall` (or `python3 ~/.tokenomics/statusbar.py --uninstall claude`) removes it; `--status` shows where it's installed. Without the plugin, run `--install` again from a fresh clone to update. |
+| Update it | `tokenomics update` (or re-run the one-liner). Installed from inside Claude Code? `/plugin marketplace update tokenomics`, then `claude plugin update tokenomics@tokenomics`. (Third-party marketplaces don't update on their own.) |
+| Remove it | `tokenomics uninstall` removes the plugins, status bar and command and keeps your data (`--purge` deletes `~/.tokenomics` too). Or `/plugin uninstall tokenomics@tokenomics`. |
+| Update or remove the status bar | It updates itself with the plugin (or `tokenomics update`). `tokenomics statusbar --uninstall claude` or `/tokenomics:statusbar uninstall` removes it; `tokenomics statusbar --status` shows where it's installed. |
 | Update or remove skills installed with `npx` | `npx skills update` or `npx skills remove coach`. `npx skills list` shows what's installed. |
 | Install for a whole team | Choose **project scope** at the install panel, or run `claude plugin install tokenomics@tokenomics --scope project` and commit `.claude/settings.json`. Each teammate also runs that command once. |
 
@@ -258,11 +260,13 @@ To host your own copy for a team, push the folder to your own Git repo and use `
 
 | What you see | Try this |
 |---|---|
+| `tokenomics: command not found` | Open a new terminal (the installer added it to your PATH). Or run `~/.local/bin/tokenomics` directly. |
+| The installer says Python is missing | Mac: `xcode-select --install`. Linux: `sudo apt install python3` (or your distro's equivalent). Windows: [python.org/downloads](https://www.python.org/downloads/), ticking **Add python.exe to PATH**. Then run the installer again. |
 | No database file appears | Check Python is installed: run `python3 --version`. On Windows, change the hook to use `python`. |
 | Hooks don't seem to run (Claude Code) | Restart Claude Code, then run `/hooks`. Make sure the plugin is switched on in `/plugin`. |
 | Sessions are missing, or labelled `unknown` | Look for `spendlens.db.err` next to the database (`~/.tokenomics/`). Errors go there, never on screen. |
 | *Everything* is labelled `unknown` | Your prompts didn't match any keywords. Add terms to the pattern lists in `tokenomics/engine/classifier.py`, or switch on the [AI classifier](reference.md#optional-let-an-ai-model-decide). |
-| The status bar doesn't show | Restart the assistant. Run `python3 ~/.tokenomics/statusbar.py --status` to see which settings file it's in, or re-run `/tokenomics:statusbar`. |
+| The status bar doesn't show | Restart the assistant. Run `tokenomics statusbar --status` to see which settings file it's in (another status line wins until you replace it), or re-run `/tokenomics:statusbar`. |
 | Odd characters in the status bar | Use `--ascii`, or set `NO_COLOR=1` for no colours. |
 
 ---

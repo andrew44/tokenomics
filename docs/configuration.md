@@ -63,7 +63,7 @@ Settings are environment variables. Set them in your shell profile, or in Claude
 
 | Setting | Default | What it does |
 |---|---|---|
-| `TOKENOMICS_STATUSBAR` | (unset) | What the plugin does at session start when no status line is set: unset shows a one-time tip, `auto` installs the status bar, `off` stays quiet. An installed bar is always kept up to date. |
+| `TOKENOMICS_STATUSBAR` | `auto` | What the plugin does at session start when no status line is set: `auto` (or unset) installs the status bar, `ask` shows a one-time tip instead, `off` stays quiet. Someone else's status line is never replaced, and an installed bar is always kept up to date. |
 | `TOKENOMICS_THEME` | `system` | Status bar colours: `light`, `dark` or `system`. |
 | `TOKENOMICS_CURRENCY` | `GBP` | Currency for every cost shown: `GBP` (£), `USD` ($) or `EUR` (€). Also saved by `statusbar.py --set-currency`. |
 | `TOKENOMICS_USD_EUR` | `0.86` | Euros per dollar, when the currency is EUR. |

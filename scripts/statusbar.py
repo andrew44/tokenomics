@@ -13,12 +13,13 @@ stdout. Stdlib only. Never raises: on any problem it prints a minimal line and e
 
 Usage
   statusbar.py                      render once from the stdin JSON (what the CLIs do)
-  statusbar.py --install [claude|copilot|both]   wire it into the CLI settings (backs them up)
+  statusbar.py --install [claude|copilot|both]   wire it into the CLI settings (backs them up);
+                                    add --keep-existing to skip a CLI that has another status line
   statusbar.py --uninstall [claude|copilot|both]
   statusbar.py --status             say where the status bar is installed
   statusbar.py --sync               SessionStart hook (plugin): refresh the installed copy after a
-                                    plugin update; offer it once if no status line is set
-                                    (TOKENOMICS_STATUSBAR=auto installs it, =off stays quiet)
+                                    plugin update; install it if no status line is set
+                                    (TOKENOMICS_STATUSBAR=ask only suggests it once, =off stays quiet)
   statusbar.py --watch [--path FILE]  live-refresh every second (for terminals/CLIs that only
                                     redraw on activity, so the timer keeps ticking)
   statusbar.py --demo               preview every state (use with --theme light|dark)
@@ -804,10 +805,19 @@ def _is_ours(command):
     return bool(command) and "statusbar.py" in command and str(CFG_DIR) in command
 
 
-def install(target, remove=False):
+def install(target, remove=False, keep_existing=False):
     targets = ("claude", "copilot") if target == "both" else (target,)
     for t in targets:
         _settings_path(t)                                 # validate before touching anything
+    if keep_existing:                                     # never replace someone else's status line
+        for t in targets:
+            other = _status_line(t)
+            if other and not _is_ours(other):
+                print(f"Skipped {t}: it already has a status line ({other}). "
+                      f"Run --install {t} to replace it.")
+        targets = tuple(t for t in targets if not (_status_line(t) and not _is_ours(_status_line(t))))
+        if not targets:
+            return
     if not remove:
         dest = _copy_files()
     command = f'"{sys.executable}" "{_installed_copy()}"'
@@ -870,7 +880,8 @@ def sync():
 
     * Installed already: refresh ~/.tokenomics/statusbar.py and the price list from the plugin, so
       the bar updates whenever the plugin does.
-    * No status line at all: with TOKENOMICS_STATUSBAR=auto, install it; otherwise say once how to.
+    * No status line at all: install it (TOKENOMICS_STATUSBAR=ask only says once how to; =off
+      does nothing).
     * Someone else's status line: leave it alone.
     """
     try:
@@ -887,7 +898,7 @@ def sync():
             return 0
         if cmd or mode == "off":
             return 0
-        if mode == "auto":
+        if mode not in ("ask", "tip", "manual"):          # default (unset / auto): install it
             import contextlib
             import io
             with contextlib.redirect_stdout(io.StringIO()):
@@ -898,8 +909,8 @@ def sync():
                 return 0
             CFG_DIR.mkdir(parents=True, exist_ok=True)
             HINT_FILE.write_text(datetime.now(timezone.utc).isoformat(), encoding="utf-8")
-            msg = ("tokenomics: want the live cost and cache status bar? Run /tokenomics:statusbar "
-                   "(or set TOKENOMICS_STATUSBAR=auto). This tip shows once.")
+            msg = ("tokenomics: want the live cost and cache status bar? Run /tokenomics:statusbar. "
+                   "This tip shows once.")
         sys.stdout.write(json.dumps({"systemMessage": msg}))
     except Exception:
         pass
@@ -916,7 +927,7 @@ def main():
         flag = "--install" if "--install" in args else "--uninstall"
         i = args.index(flag)
         target = args[i + 1] if i + 1 < len(args) and not args[i + 1].startswith("-") else "claude"
-        install(target, remove=(flag == "--uninstall"))
+        install(target, remove=(flag == "--uninstall"), keep_existing="--keep-existing" in args)
         return
     if "--sync" in args:
         sys.exit(sync())

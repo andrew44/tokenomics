@@ -45,6 +45,7 @@ tokenomics/
 ├── skills/
 │   ├── coach/SKILL.md              prompt and cache review skill
 │   ├── spend-report/SKILL.md       weekly spend report skill
+│   ├── dashboard/SKILL.md          opens the dashboard (/tokenomics:dashboard)
 │   └── statusbar/SKILL.md          installs / removes the status bar (/tokenomics:statusbar)
 ├── tokenomics/
 │   ├── engine/                     shared logic: classifier.py, llm.py, store.py, session.py, evidence.py,
@@ -53,7 +54,9 @@ tokenomics/
 │   ├── adapters/                   claude_code.py, copilot.py (translation only)
 │   ├── config.py                   shared settings
 │   └── util.py                     shared helpers
+├── install.sh / install.ps1        one-line installers (download, then run scripts/cli.py setup)
 ├── scripts/
+│   ├── cli.py                      the `tokenomics` command: setup, update, uninstall, dashboard, report
 │   ├── spendlens.py                the OPEX/CAPEX hook runner (calls the engine)
 │   ├── pennywise.py                model router (cheaper-model subagent)
 │   ├── handoff.py                  writes a resume note before the cache expires
@@ -62,7 +65,7 @@ tokenomics/
 │   ├── report.py                   spend report (used by the spend-report skill)
 │   ├── coach.py                    transcript analyser used by the coach skill
 │   ├── statusbar.py                status line for Claude Code and Copilot CLI
-│   ├── dashboard.py                local web server over the spendlens database
+│   ├── dashboard.py                local web server over the spendlens database (--background)
 │   └── update_prices.py            refreshes data/model-prices.json from Claude's pricing page
 ├── data/model-prices.json          Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly
 ├── dashboard/index.html            the dashboard page

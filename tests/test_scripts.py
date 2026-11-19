@@ -189,10 +189,23 @@ class StatusbarInstallTests(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stderr)
         return p.stdout
 
-    def test_offers_once_then_stays_quiet(self):
-        self.assertIn("/tokenomics:statusbar", json.loads(self.run_bar("--sync"))["systemMessage"])
-        self.assertEqual(self.run_bar("--sync"), "")
+    def test_installs_by_default(self):
+        self.assertIn("installed", json.loads(self.run_bar("--sync"))["systemMessage"])
+        self.assertIn(str(self.copy), json.loads(self.settings.read_text())["statusLine"]["command"])
+
+    def test_ask_offers_once_then_stays_quiet(self):
+        msg = json.loads(self.run_bar("--sync", TOKENOMICS_STATUSBAR="ask"))["systemMessage"]
+        self.assertIn("/tokenomics:statusbar", msg)
+        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSBAR="ask"), "")
         self.assertFalse(self.settings.exists())
+
+    def test_install_keep_existing_skips_another_status_line(self):
+        self.settings.parent.mkdir(parents=True)
+        self.settings.write_text(json.dumps({"statusLine": {"type": "command", "command": "mine"}}))
+        self.assertIn("Skipped claude", self.run_bar("--install", "claude", "--keep-existing"))
+        self.assertEqual(json.loads(self.settings.read_text())["statusLine"]["command"], "mine")
+        self.run_bar("--install", "claude")                   # without the flag it replaces it
+        self.assertIn(str(self.copy), json.loads(self.settings.read_text())["statusLine"]["command"])
 
     def test_off_never_offers(self):
         self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSBAR="off"), "")
@@ -254,3 +267,87 @@ class PennywiseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CliTests(unittest.TestCase):
+    """scripts/cli.py: the `tokenomics` command the one-line installer sets up."""
+
+    def setUp(self):
+        self.t = TempEnv()
+        h = self.t.home
+        self.fakebin = h / "fakebin"
+        self.fakebin.mkdir()
+        self.log = h / "claude.log"
+        if sys.platform != "win32":
+            claude = self.fakebin / "claude"
+            claude.write_text(f'#!/bin/sh\necho "$*" >> "{self.log}"\n')
+            claude.chmod(0o755)
+        self.env = self.t.env(TOKENOMICS_HOME=str(h / ".tokenomics"), CLAUDE_CONFIG_DIR=str(h / ".claude"),
+                              COPILOT_HOME=str(h / ".copilot"), SHELL="/bin/bash",
+                              PATH=str(self.fakebin) + ":/usr/bin:/bin")
+        self.settings = h / ".claude" / "settings.json"
+
+    def tearDown(self):
+        self.t.cleanup()
+
+    def cli(self, *args):
+        p = subprocess.run([sys.executable, str(SCRIPTS / "cli.py"), *args], capture_output=True, text=True,
+                           env=self.env, timeout=60, stdin=subprocess.DEVNULL)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        return p.stdout
+
+    @unittest.skipIf(sys.platform == "win32", "uses a shell-script stand-in for claude")
+    def test_setup_installs_plugin_statusbar_and_launcher(self):
+        out = self.cli("setup")
+        self.assertIn("plugin installed", out)
+        self.assertIn("plugin install tokenomics@tokenomics", self.log.read_text())
+        self.assertIn("statusbar.py", json.loads(self.settings.read_text())["statusLine"]["command"])
+        launcher = self.t.home / ".local" / "bin" / "tokenomics"
+        self.assertTrue(launcher.is_file())
+        self.assertIn("added by the tokenomics installer", (self.t.home / ".bashrc").read_text())
+        self.cli("setup")                                       # idempotent: one PATH line only
+        self.assertEqual((self.t.home / ".bashrc").read_text().count("tokenomics installer"), 1)
+
+        self.cli("uninstall")
+        self.assertNotIn("statusLine", json.loads(self.settings.read_text()))
+        self.assertFalse(launcher.exists())
+        self.assertNotIn("tokenomics", (self.t.home / ".bashrc").read_text())
+        self.assertIn("plugin uninstall tokenomics@tokenomics", self.log.read_text())
+
+    @unittest.skipIf(sys.platform == "win32", "uses a shell-script stand-in for claude")
+    def test_setup_keeps_someone_elses_status_line(self):
+        self.settings.parent.mkdir(parents=True)
+        self.settings.write_text(json.dumps({"statusLine": {"type": "command", "command": "mine"}}))
+        self.assertIn("kept your existing status line", self.cli("setup", "--no-plugin"))
+        self.assertEqual(json.loads(self.settings.read_text())["statusLine"]["command"], "mine")
+        self.cli("uninstall")                                   # and uninstall leaves it alone too
+        self.assertEqual(json.loads(self.settings.read_text())["statusLine"]["command"], "mine")
+
+    def test_no_assistant_found_still_gives_a_command(self):
+        self.env["PATH"] = str(self.t.home / "empty")
+        self.assertIn("Neither Claude Code", self.cli("setup"))
+
+    def test_dashboard_runs_in_background_and_stops(self):
+        import socket
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = str(s.getsockname()[1])
+        out = self.cli("dashboard", "--demo", "--no-open", "--port", port)
+        try:
+            self.assertIn("running on", out)
+            self.assertTrue(dashboard._port_busy(int(port)))
+        finally:
+            self.assertIn("Stopped", self.cli("dashboard", "--stop"))
+
+
+class InstallerScriptTests(unittest.TestCase):
+    def test_install_sh_is_valid_and_runs_cli_setup(self):
+        text = (ROOT / "install.sh").read_text()
+        self.assertIn("scripts/cli.py\" setup", text)
+        self.assertTrue(text.rstrip().endswith('main "$@"'))     # nothing runs until fully downloaded
+        if sys.platform != "win32":
+            r = subprocess.run(["sh", "-n", str(ROOT / "install.sh")], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_install_ps1_runs_cli_setup(self):
+        self.assertIn("scripts\\cli.py') setup", (ROOT / "install.ps1").read_text())

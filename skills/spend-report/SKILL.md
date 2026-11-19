@@ -35,4 +35,4 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/report.py" --json --days 7
 
 Copilot sessions are counted (sessions and prompts) but not priced: Copilot bills premium requests, which tokenomics cannot see. Say so if Copilot appears in `by_source`.
 
-Keep it under about 25 lines. Offer the dashboard (`python3 scripts/dashboard.py`) for charts.
+Keep it under about 25 lines. Offer the dashboard (`/tokenomics:dashboard`) for charts.

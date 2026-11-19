@@ -170,11 +170,11 @@ Scripts you run yourself. All need only Python 3.8+ and live in `scripts/`. Run 
 
 | Command | Use it to |
 |---------|-----------|
-| `/tokenomics:statusbar` (plugin) or `python3 scripts/statusbar.py --install claude` (or `copilot`, `both`) | Install it (backs up your settings first). `--uninstall` removes it, `--status` says where it is. |
-| `python3 scripts/statusbar.py --set-currency USD` | Choose £, $ or € for every cost tokenomics shows. |
-| `python3 scripts/statusbar.py --update-rate` | Fetch today's exchange rates. |
-| `python3 scripts/statusbar.py --watch` | A smoothly ticking countdown in a spare terminal pane. |
-| `python3 scripts/statusbar.py --demo --theme light` | Preview every state and colour. |
+| `/tokenomics:statusbar` (plugin) or `tokenomics statusbar --install claude` (or `copilot`, `both`) | Install it (backs up your settings first). `--uninstall` removes it, `--status` says where it is. |
+| `tokenomics statusbar --set-currency USD` | Choose £, $ or € for every cost tokenomics shows. |
+| `tokenomics statusbar --update-rate` | Fetch today's exchange rates. |
+| `tokenomics statusbar --watch` | A smoothly ticking countdown in a spare terminal pane. |
+| `tokenomics statusbar --demo --theme light` | Preview every state and colour. |
 
 Details: [statusbar reference](reference.md#statusbar).
 
@@ -185,8 +185,8 @@ Details: [statusbar reference](reference.md#statusbar).
 **Reach for it when:** you want trends or a picture to share (a team review, a finance question), rather than a written summary. `--demo` shows it with fake data before you have any of your own.
 
 ```
-python3 scripts/dashboard.py              # http://127.0.0.1:8765
-python3 scripts/dashboard.py --demo
+tokenomics dashboard              # http://127.0.0.1:8765
+tokenomics dashboard --demo
 ```
 
 Read-only, local only. Details: [dashboard reference](reference.md#dashboard).
