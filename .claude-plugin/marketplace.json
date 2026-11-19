@@ -1,6 +1,6 @@
 {
   "name": "tokenomics",
-  "owner": { "name": "Tokenomics" },
+  "owner": { "name": "andrew44" },
   "plugins": [
     {
       "name": "tokenomics",
