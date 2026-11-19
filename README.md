@@ -24,7 +24,7 @@ When you use an AI coding assistant, every message you send and every reply you 
 
 | Helper | What it does | Think of it as... |
 |--------|--------------|-------------------|
-| **critical-friend** | Reads your conversation and tells you where tokens were wasted, with simple fixes. | A coach who reviews your prompts. |
+| **coach** | Reads your conversation and tells you where tokens were wasted, with simple fixes. | A personal trainer for your prompts. |
 | **spendlens** | Quietly labels each conversation as **OPEX** (running things) or **CAPEX** (building things) and saves it to a small file on your computer. | A timesheet that fills itself in. |
 | **pennywise** | Checks each prompt before it runs. If a cheaper model would do the job (say, a hello-world app on the priciest model), it pauses the prompt and suggests the cheaper one. | A friend who stops you buying the premium option you don't need. |
 | **statusbar** | Shows a live line at the bottom of your assistant: how full the conversation is, tokens used, what it has cost (in pounds, dollars or euros), and a countdown to when the AI's short-term memory (the "prompt cache") expires. | A fuel gauge and a meter for your session. |
@@ -37,8 +37,8 @@ When you use an AI coding assistant, every message you send and every reply you 
 flowchart LR
     A["You chat with<br/>your AI assistant"] --> B["spendlens<br/>watches quietly<br/>in the background"]
     B --> C[("Small file on<br/>your computer")]
-    A --> D["You ask:<br/>'critical friend,<br/>review my prompts'"]
-    D --> E["critical-friend<br/>reads the conversation"]
+    A --> D["You ask:<br/>'coach,<br/>review my prompts'"]
+    D --> E["coach<br/>reads the conversation"]
     E --> F["Plain-English advice:<br/>what cost the most<br/>and how to fix it"]
 ```
 
@@ -73,7 +73,7 @@ You only need to do this once.
 
 ```mermaid
 flowchart LR
-    A["1. Open a terminal"] --> B["2. Paste the<br/>install command"] --> C["3. Pick<br/>critical-friend"] --> D["4. Restart your<br/>assistant"] --> E["5. Say:<br/>'critical friend,<br/>review my prompts'"]
+    A["1. Open a terminal"] --> B["2. Paste the<br/>install command"] --> C["3. Pick<br/>coach"] --> D["4. Restart your<br/>assistant"] --> E["5. Say:<br/>'coach,<br/>review my prompts'"]
 ```
 
 1. Open a terminal and paste this:
@@ -82,8 +82,8 @@ flowchart LR
    npx skills@latest add andrew44/tokenomics
    ```
 
-2. Pick **critical-friend** and the assistant(s) you use. (Arrow keys to move, space to tick, Enter to confirm.)
-3. Restart your assistant and say: **"critical friend, review my prompts"**.
+2. Pick **coach** and the assistant(s) you use. (Arrow keys to move, space to tick, Enter to confirm.)
+3. Restart your assistant and say: **"coach, review my prompts"**.
 
 That's it. You now have a prompt coach.
 
@@ -96,7 +96,7 @@ That's it. You now have a prompt coach.
 How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press Enter. On **Windows** click Start, type `PowerShell`, press Enter.
 </details>
 
-> **Heads up:** this quick start installs the **critical-friend coach only**. For the automatic OPEX/CAPEX tracking (**spendlens**) and the full token numbers, install the plugin as described next.
+> **Heads up:** this quick start installs the **coach only**. For the automatic OPEX/CAPEX tracking (**spendlens**) and the full token numbers, install the plugin as described next.
 
 ---
 
@@ -125,7 +125,7 @@ flowchart TD
    ```
 
 3. A panel opens. Choose **Install for you (user scope)** so it works in every project.
-4. Check it worked: type `/` and look for `/tokenomics:critical-friend`.
+4. Check it worked: type `/` and look for `/tokenomics:coach`.
 
 If Claude says `Run /reload-plugins to apply`, it does that for you. You need Python 3.8 or newer on your computer (nothing else to install).
 
@@ -144,7 +144,7 @@ Just want the coach in the desktop app? Run the quick start command with `-g` on
 Plugins **can't be installed** in Claude Code on the web. You have two options:
 
 - **Use the terminal or desktop app** for the full plugin and tracking.
-- **Add just the coach to your repo.** In your repo folder, run the command below, then commit the new `critical-friend` folder it adds:
+- **Add just the coach to your repo.** In your repo folder, run the command below, then commit the new `coach` folder it adds:
 
   ```
   npx skills@latest add andrew44/tokenomics --copy
@@ -169,7 +169,7 @@ Then start `copilot`, check that `/plugin list` shows `tokenomics`, and send a p
 - Copilot reads `plugin.json` and `copilot-hooks.json` at the plugin root (`userPromptSubmitted`, `postToolUse` and `sessionEnd` hooks).
 - Copilot sends a session id with every hook, and spendlens logs each session under it. If one is ever missing, spendlens builds one from the working directory and date.
 - Copilot sessions are labelled from the words in each prompt **and** the tools Copilot used (file edits lean CAPEX, observability tools and commands like `kubectl logs` lean OPEX). Same scoring as Claude Code.
-- Copilot doesn't tell hooks how many tokens or premium requests a session used, so those columns stay empty (`usage_status = unavailable`). spendlens never guesses a number for them. The critical-friend coach doesn't work for Copilot either, because there's no conversation file to read.
+- Copilot doesn't tell hooks how many tokens or premium requests a session used, so those columns stay empty (`usage_status = unavailable`). spendlens never guesses a number for them. The coach doesn't work for Copilot either, because there's no conversation file to read.
 - The hook commands use the relative path `scripts/spendlens.py`. If Copilot runs them from a different folder and you see "file not found" in `<db>.err`, change the path in `copilot-hooks.json` to an absolute one.
 - Copilot's plugin format is still changing; check the current Copilot docs if the install fails.
 </details>
@@ -190,7 +190,7 @@ Then start `copilot`, check that `/plugin list` shows `tokenomics`, and send a p
 | Check it's installed | In Claude Code, run `/plugin` and open the **Installed** tab. Or run `claude plugin list` in a terminal. Run `/hooks` to see the three spendlens hooks (`UserPromptSubmit`, `Stop`, `SessionEnd`). |
 | Update it | `/plugin marketplace update tokenomics`, then `claude plugin update tokenomics@tokenomics` in a terminal. (Third-party marketplaces don't update on their own.) |
 | Remove it | `/plugin uninstall tokenomics@tokenomics` (or `claude plugin uninstall tokenomics@tokenomics` in a terminal) |
-| Update or remove the **coach** (from the quick start) | `npx skills update` or `npx skills remove critical-friend`. `npx skills list` shows what's installed. |
+| Update or remove the **coach** (from the quick start) | `npx skills update` or `npx skills remove coach`. `npx skills list` shows what's installed. |
 | Install for a whole team | Choose **project scope** at the install panel, or run `claude plugin install tokenomics@tokenomics --scope project`. Each teammate also runs that command once. |
 
 </details>
@@ -218,18 +218,18 @@ claude --plugin-dir ./path/to/tokenomics
 ```
 To host your own copy for a team, push the folder to your own Git repo and use `your-org/tokenomics` in place of `andrew44/tokenomics`. The repo doubles as a marketplace (`.claude-plugin/marketplace.json`).
 
-Choosing what gets installed: `npx skills@latest add andrew44/tokenomics --list` previews the skills without installing, and `--skill critical-friend` installs one by name.
+Choosing what gets installed: `npx skills@latest add andrew44/tokenomics --list` previews the skills without installing, and `--skill coach` installs one by name.
 </details>
 
 ---
 
-## Using critical-friend (the coach)
+## Using the coach
 
 Just ask in Claude Code:
 
-- *"critical friend, review my prompts"*
+- *"coach, review my prompts"*
 - *"why was that session expensive?"*
-- or type `/tokenomics:critical-friend`
+- or type `/tokenomics:coach`
 
 ```mermaid
 flowchart LR
@@ -252,7 +252,7 @@ flowchart LR
 
 > The coach needs a Claude Code conversation record, so Copilot sessions can't be reviewed.
 
-Developers can run the script directly for raw numbers: `python3 scripts/critical_friend.py [--session ID] [--json]`
+Developers can run the script directly for raw numbers: `python3 scripts/coach.py [--session ID] [--json]`
 
 ---
 
@@ -557,7 +557,7 @@ flowchart LR
 - See what each assistant supports: `python3 scripts/spendlens.py capabilities`
 - Run the tests (no installs needed): `cd tests && python3 -m unittest`
 
-The older tools (status bar, pennywise, handoff, critical-friend) are still standalone scripts; the status bar must stay a single file because `--install` copies it.
+The older tools (status bar, pennywise, handoff, coach) are still standalone scripts; the status bar must stay a single file because `--install` copies it.
 
 ### What's in the repo
 
@@ -567,12 +567,12 @@ flowchart TD
     R --> H["hooks/hooks.json<br/>Claude Code hooks"]
     R --> PJ["plugin.json<br/>Copilot CLI manifest"]
     R --> CH["copilot-hooks.json<br/>Copilot CLI hooks"]
-    R --> SK["skills/<br/>critical-friend, spend-report"]
+    R --> SK["skills/<br/>coach, spend-report"]
     R --> EN["tokenomics/<br/>shared engine + adapters"]
     R --> TS["tests/<br/>automated tests"]
     R --> SC["scripts/"]
     SC --> S1["spendlens.py<br/>OPEX/CAPEX hook runner"]
-    SC --> S2["critical_friend.py<br/>conversation analyser"]
+    SC --> S2["coach.py<br/>conversation analyser"]
     SC --> S3["statusbar.py<br/>live status line"]
     SC --> S4["pennywise.py<br/>cheaper-model suggester"]
     SC --> S5["dashboard.py<br/>local usage dashboard"]
@@ -592,7 +592,7 @@ tokenomics/
 ├── hooks/hooks.json        Claude Code hooks
 ├── plugin.json             Copilot CLI manifest
 ├── copilot-hooks.json      Copilot CLI hooks
-├── skills/critical-friend/SKILL.md   prompt and cache review skill
+├── skills/coach/SKILL.md   prompt and cache review skill
 ├── skills/spend-report/SKILL.md     weekly spend report skill
 ├── tokenomics/
 │   ├── engine/             shared logic: classifier.py, llm.py, store.py, session.py, evidence.py,
@@ -608,7 +608,7 @@ tokenomics/
 ├── scripts/diet.py            stops tool calls that would flood the context
 ├── scripts/budget.py          daily / per-session spending limits
 ├── scripts/report.py          spend report (used by the spend-report skill)
-├── scripts/critical_friend.py transcript analyser used by the skill
+├── scripts/coach.py transcript analyser used by the skill
 ├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
 ├── scripts/update_prices.py   refreshes data/model-prices.json from Claude's pricing page
 ├── data/model-prices.json     Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly

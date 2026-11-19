@@ -31,7 +31,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/report.py" --json --days 7
    - Large `handoff.tokens_avoided_if_used`: start new sessions from the handoff file instead of `--resume`.
    - Many diet blocks of one rule: that habit (e.g. dumping logs) is costly; suggest a project instruction in CLAUDE.md.
    - OPEX share high: observability questions are often cheaper with a dedicated, narrow skill or a smaller model.
-   - One session dominating spend: suggest `critical friend` on that session id for a detailed review.
+   - One session dominating spend: suggest `coach` on that session id for a detailed review.
 
 Copilot sessions are counted (sessions and prompts) but not priced: Copilot bills premium requests, which tokenomics cannot see. Say so if Copilot appears in `by_source`.
 

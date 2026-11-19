@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""critical-friend: analyse a Claude Code session's prompts and prompt-cache usage.
+"""coach: analyse a Claude Code session's prompts and prompt-cache usage.
 
 Usage:
-  critical_friend.py                    # newest transcript for the current directory
-  critical_friend.py --session <id>     # a specific session
-  critical_friend.py --transcript <p>   # a specific .jsonl
-  critical_friend.py --json             # machine-readable output
+  coach.py                    # newest transcript for the current directory
+  coach.py --session <id>     # a specific session
+  coach.py --transcript <p>   # a specific .jsonl
+  coach.py --json             # machine-readable output
 Stdlib only. Read-only: never modifies the transcript or the database.
 """
 import argparse, json, os, re, sys

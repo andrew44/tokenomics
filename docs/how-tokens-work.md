@@ -230,7 +230,7 @@ Things to keep in mind when reading them:
 
 - **Total prompt size is the sum** `input_tokens + cache_creation_input_tokens + cache_read_input_tokens`. A tiny `input_tokens` in a long session doesn't mean a small prompt, just a well-cached one.
 - **Healthy sessions look like this:** `cache_read` grows turn by turn, while `cache_creation` stays small (just the latest turn).
-- **Unhealthy sessions look like this:** `cache_creation` close to the full conversation size on many turns, or `cache_read` stuck at zero. Something is invalidating the prefix (a long idle gap, a model switch, or changing content near the top of the prompt). critical-friend flags these as "cache rebuilds".
+- **Unhealthy sessions look like this:** `cache_creation` close to the full conversation size on many turns, or `cache_read` stuck at zero. Something is invalidating the prefix (a long idle gap, a model switch, or changing content near the top of the prompt). coach flags these as "cache rebuilds".
 - **Raw totals overstate cost.** Cache reads are often the biggest number but the cheapest tokens, which is why `total_tokens` alone is misleading and a cost figure weights each column by its price.
 
 ### 2.6 Putting it together: what a turn costs

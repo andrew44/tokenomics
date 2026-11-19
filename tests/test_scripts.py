@@ -1,4 +1,4 @@
-"""The standalone scripts: critical_friend, dashboard, handoff, statusbar, pennywise."""
+"""The standalone scripts: coach, dashboard, handoff, statusbar, pennywise."""
 import json
 import subprocess
 import sys
@@ -31,7 +31,7 @@ class ImportTests(unittest.TestCase):
             self.assertEqual(r.returncode, 0, f"{m}: {r.stderr}")
 
 
-class CriticalFriendTests(unittest.TestCase):
+class CoachTests(unittest.TestCase):
     def setUp(self):
         self.t = TempEnv()
 
@@ -49,7 +49,7 @@ class CriticalFriendTests(unittest.TestCase):
             user("check the grafana dashboard metrics and alerts"),
             assistant("m4"),
         ])
-        r = subprocess.run([sys.executable, str(SCRIPTS / "critical_friend.py"), "--transcript", path, "--json"],
+        r = subprocess.run([sys.executable, str(SCRIPTS / "coach.py"), "--transcript", path, "--json"],
                            capture_output=True, text=True, env=self.t.env(), timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout)

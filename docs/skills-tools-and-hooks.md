@@ -16,7 +16,7 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 
 | I want to... | Reach for | Kind |
 |--------------|-----------|------|
-| Know why a session was expensive, or get better at prompting | [critical-friend](#critical-friend) | Skill |
+| Know why a session was expensive, or get better at prompting | [coach](#coach) | Skill |
 | See what I spent this week / month, and where | [spend-report](#spend-report) | Skill |
 | Know how full the conversation is and what it has cost, right now | [statusbar](#statusbar) | Tool |
 | Know how long until the prompt cache goes cold | [statusbar](#statusbar) | Tool |
@@ -27,12 +27,12 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 | Stop the AI pulling huge files or logs into the conversation | [diet](#diet) | Hook |
 | Pick up tomorrow where I left off, cheaply | [handoff](#handoff) | Hook (plus `handoff.py write`) |
 | Know how much AI time went on building vs running things | [spendlens](#spendlens) + [dashboard](#dashboard) / [spend-report](#spend-report) | Hook + Tool / Skill |
-| Get raw numbers for a script or spreadsheet | [critical_friend.py --json](#critical_friendpy), [report.py --json](#reportpy), or [sqlite3](../README.md#looking-at-your-data) | Tool |
+| Get raw numbers for a script or spreadsheet | [coach.py --json](#coachpy), [report.py --json](#reportpy), or [sqlite3](../README.md#looking-at-your-data) | Tool |
 | Refresh model prices | [update_prices.py](#update_pricespy) | Tool |
 
 ```mermaid
 flowchart TD
-    Q{"What do you need?"} -->|"Advice on how I'm working"| CF["critical-friend<br/>(skill)"]
+    Q{"What do you need?"} -->|"Advice on how I'm working"| CF["coach<br/>(skill)"]
     Q -->|"A summary of spend over time"| SR["spend-report<br/>(skill)"]
     Q -->|"A live view while I work"| SB["statusbar<br/>(tool)"]
     Q -->|"Charts"| DB["dashboard<br/>(tool)"]
@@ -46,7 +46,7 @@ flowchart TD
 
 Skills are instructions the assistant follows when you ask. They only run when you ask for them, so they cost tokens only then.
 
-### critical-friend
+### coach
 
 **What it does.** Reads the current conversation's transcript (read-only) and tells you, with numbers, where tokens were wasted: low cache hit ratio, cache rebuilds, oversized context, vague or correction-heavy prompts, repeated file reads, huge tool results, model switches, mixed topics. It rewrites your weakest prompt and points out what you are doing well.
 
@@ -59,7 +59,7 @@ Skills are instructions the assistant follows when you ask. They only run when y
 
 **Don't reach for it when:** you want spend across many sessions (use [spend-report](#spend-report)), or you're on Copilot CLI (there is no transcript to read).
 
-**How:** say *"critical friend, review my prompts"*, *"why was that session expensive?"*, or type `/tokenomics:critical-friend`. Script behind it: [`critical_friend.py`](#critical_friendpy).
+**How:** say *"coach, review my prompts"*, *"why was that session expensive?"*, or type `/tokenomics:coach`. Script behind it: [`coach.py`](#coachpy).
 
 ### spend-report
 
@@ -72,7 +72,7 @@ Skills are instructions the assistant follows when you ask. They only run when y
 - You want to check whether the guard-rail hooks are actually saving anything.
 - You've hit a budget pause and want context ("am I always this high?").
 
-**Don't reach for it when:** you want to look inside one session (use [critical-friend](#critical-friend)) or want charts (use the [dashboard](#dashboard)).
+**Don't reach for it when:** you want to look inside one session (use [coach](#coach)) or want charts (use the [dashboard](#dashboard)).
 
 **How:** say *"spend report"*, *"where did my tokens go this week?"*, or name a period: *"spend report for this month in dollars"*. Script behind it: [`report.py`](#reportpy). Needs the plugin installed so spendlens has been recording.
 
@@ -205,16 +205,16 @@ python3 scripts/report.py --currency EUR
 
 `python3 scripts/budget.py status` shows today's and this session's spend against your limits. **Reach for it** before a big piece of work, or after a budget notice, to see how much headroom is left.
 
-### critical_friend.py
+### coach.py
 
-`scripts/critical_friend.py`: the analyser behind the [critical-friend](#critical-friend) skill.
+`scripts/coach.py`: the analyser behind the [coach](#coach) skill.
 
 **Reach for it directly when:** you want the raw flags and numbers without spending tokens on the assistant's write-up, or want to analyse an older session.
 
 ```
-python3 scripts/critical_friend.py                     # newest transcript for this folder
-python3 scripts/critical_friend.py --session <id> --json
-python3 scripts/critical_friend.py --transcript path/to/file.jsonl
+python3 scripts/coach.py                     # newest transcript for this folder
+python3 scripts/coach.py --session <id> --json
+python3 scripts/coach.py --transcript path/to/file.jsonl
 ```
 
 ### handoff.py write
@@ -243,7 +243,7 @@ python3 scripts/update_prices.py --check    # exit 1 if out of date
 - **Everyone:** install the plugin (spendlens, diet, handoff and pennywise run by default) and the [statusbar](#statusbar).
 - **Paying personally or on an allowance:** also set a [budget](#budget).
 - **Weekly:** ask for a [spend-report](#spend-report).
-- **After any session that surprised you:** ask the [critical-friend](#critical-friend).
+- **After any session that surprised you:** ask the [coach](#coach).
 - **Teams:** share a database with `TOKENOMICS_DB` and look at the [dashboard](#dashboard) together.
 
 See the [README](../README.md) for installation, every setting and troubleshooting.
