@@ -4,6 +4,12 @@
 
 Works with **Claude Code** and **GitHub Copilot CLI**.
 
+<p align="center">
+  <a href="https://buymeacoffee.com/andrewgoadm">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee at buymeacoffee.com/andrewgoadm" height="60">
+  </a>
+</p>
+
 > **Disclaimer: the prices, token counts and costs shown by tokenomics are a rough indication of what your current session has cost, not a bill. They may be inaccurate, incomplete or out of date. The authors and contributors accept no liability for any loss or cost arising from prices or costs that turn out to be wrong, or from decisions made using them. You are responsible for checking your actual usage and charges in the Claude app (or your provider's billing page) and should not rely solely on this tool. tokenomics is provided "as is", without warranty of any kind; see sections 7 (Disclaimer of Warranty) and 8 (Limitation of Liability) of the [Apache License 2.0](LICENSE).**
 
 ---
