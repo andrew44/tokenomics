@@ -10,12 +10,13 @@ Works with **Claude Code** and **GitHub Copilot CLI**.
 
 When you use an AI coding assistant, every message you send and every reply you get uses up *tokens*. Tokens are the "units" you are charged for, a bit like minutes on a phone plan. Some conversations use a lot more than they need to.
 
-**tokenomics** gives you two helpers:
+**tokenomics** gives you three helpers:
 
 | Helper | What it does | Think of it as... |
 |--------|--------------|-------------------|
 | **critical-friend** | Reads your conversation and tells you where tokens were wasted, with simple fixes. | A coach who reviews your prompts. |
 | **spendlens** | Quietly labels each conversation as **OPEX** (running things) or **CAPEX** (building things) and saves it to a small file on your computer. | A timesheet that fills itself in. |
+| **statusbar** | Shows a live line at the bottom of your assistant: how full the conversation is, tokens used, what it has cost in pounds, and a countdown to when the AI's short-term memory (the "prompt cache") expires. | A fuel gauge and a meter for your session. |
 
 ```mermaid
 flowchart LR
@@ -315,6 +316,44 @@ Tokens are counted once per message. Work done by sub-agents in separate transcr
 
 ---
 
+## Using the status bar
+
+A live line that sits at the bottom of Claude Code or GitHub Copilot CLI:
+
+```
+◆ Sonnet 5.5 │ ctx █████████▏▒▒ 76% │ Σ 8.5M │ £1.37 │ ⏳︎ 02:29
+```
+
+| Part | What it tells you |
+|------|-------------------|
+| `ctx ████▒▒ 76%` | How full the conversation is. The bar goes **green**, turns **yellow at 75%** and **red at 90%**. A `▲` appears from 90%. When it is nearly full, start a fresh conversation. |
+| `Σ 8.5M` | Total tokens used so far, in short form (`950`, `12.3K`, `8.5M`). |
+| `£1.37` | What the session has cost, in pounds. A `~` in front (`~£1.37`) means it is an estimate. |
+| `⧗ 04:12` | A countdown to when the prompt cache expires. While it runs, repeated context is cheap. The egg timer starts **full (green)**, is **half-empty (amber)** at about half time and **empty (red)** when it is running out. `00:00` means the cache has gone cold, and `--:--` means nothing has been cached yet. |
+
+**To install it** (needs Python 3.8 or newer, nothing else). From the repo folder:
+
+```
+python3 scripts/statusbar.py --install claude     # or: copilot, both
+```
+
+This adds the status line to your Claude Code and/or Copilot settings (a backup of the old settings is saved first), then restart the assistant. To remove it, run the same command with `--uninstall`.
+
+**Light or dark.** It follows your computer's setting by default. To force one, put `{"theme": "dark"}` (or `"light"`) in `~/.tokenomics/statusbar.json`. To preview all the states, run `python3 scripts/statusbar.py --demo --theme light`. For very plain terminals use `--ascii` or set `NO_COLOR=1`.
+
+**Pounds.** Claude Code reports the cost in dollars and the bar converts it at 0.76 pounds per dollar. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rate, or set `"usd_gbp"` in the same file.
+
+<details>
+<summary><b>Good to know about the countdown</b></summary>
+
+- It counts from the last request that used the cache. The cache lasts 5 minutes, or 1 hour if your session uses the 1-hour cache. Override with `"cache_ttl"` (seconds).
+- Claude Code redraws the line every second (this needs a recent version; on older ones it updates after each message).
+- Copilot CLI doesn't say how often it redraws or when its cache expires, so there the countdown is approximate and may only move when Copilot redraws.
+- For a smoothly ticking countdown in any assistant, run `python3 scripts/statusbar.py --watch` in a spare terminal pane.
+</details>
+
+---
+
 ## Settings (optional)
 
 Most people never need these. They are "environment variables", set in your shell profile or in Claude Code's `settings.json` under `"env"`.
@@ -329,6 +368,9 @@ Most people never need these. They are "environment variables", set in your shel
 | `TOKENOMICS_LLM_KEY` | `OPENAI_API_KEY` | API key for that endpoint. |
 | `TOKENOMICS_LLM_MODEL` | `gpt-4o-mini` | Which model to ask. |
 | `TOKENOMICS_LLM_TIMEOUT` | `12` | Seconds to wait before falling back to keywords (capped at 15 to fit the 20-second hook limit). |
+| `TOKENOMICS_THEME` | `system` | Status bar colours: `light`, `dark` or `system`. |
+| `TOKENOMICS_USD_GBP` | `0.76` | Pounds per dollar, used for the status bar's cost. |
+| `TOKENOMICS_CACHE_TTL` | auto | Cache lifetime in seconds for the status bar's countdown. |
 
 ---
 
@@ -379,6 +421,7 @@ flowchart TD
     R --> SC["scripts/"]
     SC --> S1["spendlens.py<br/>OPEX/CAPEX classifier"]
     SC --> S2["critical_friend.py<br/>conversation analyser"]
+    SC --> S3["statusbar.py<br/>live status line"]
 ```
 
 ```
@@ -392,6 +435,7 @@ tokenomics/
 ├── skills/critical-friend/SKILL.md   prompt and cache review skill
 ├── scripts/spendlens.py       the opex/capex classifier
 ├── scripts/critical_friend.py transcript analyser used by the skill
+├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
 └── README.md
 ```
 
