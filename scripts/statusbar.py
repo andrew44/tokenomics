@@ -5,7 +5,7 @@ Shows, on one line:
   * model
   * context gauge   (smooth green -> yellow at 75% -> red at 90%, with the percentage)
   * total tokens    (compact: 950, 12.3K, 8.5M)
-  * session cost    (in GBP, e.g. £1.37)
+  * session cost    (in GBP, USD or EUR, e.g. £1.37)
   * prompt-cache expiry countdown (MM:ss) with an egg-timer that empties as the cache goes cold
 
 Both CLIs run this as a command, pipe a JSON payload on stdin and print whatever we write to
@@ -18,12 +18,15 @@ Usage
   statusbar.py --watch [--path FILE]  live-refresh every second (for terminals/CLIs that only
                                     redraw on activity, so the timer keeps ticking)
   statusbar.py --demo               preview every state (use with --theme light|dark)
-  statusbar.py --update-rate        fetch today's USD->GBP rate and save it
-  Flags: --theme light|dark|system   --ascii   --no-color
+  statusbar.py --update-rate        fetch today's USD->GBP and USD->EUR rates and save them
+  statusbar.py --set-currency GBP|USD|EUR   save the display currency
+  Flags: --theme light|dark|system   --currency GBP|USD|EUR   --ascii   --no-color
 
 Config: ~/.tokenomics/statusbar.json (or $TOKENOMICS_HOME/statusbar.json), all optional:
-  {"theme": "system", "usd_gbp": 0.76, "cache_ttl": null, "width": 12, "warn": 75, "crit": 90}
-Env overrides: TOKENOMICS_THEME, TOKENOMICS_USD_GBP, TOKENOMICS_CACHE_TTL (seconds),
+  {"theme": "system", "currency": "GBP", "usd_gbp": 0.76, "usd_eur": 0.86, "cache_ttl": null,
+   "width": 12, "warn": 75, "crit": 90}
+Env overrides: TOKENOMICS_THEME, TOKENOMICS_CURRENCY, TOKENOMICS_USD_GBP, TOKENOMICS_USD_EUR,
+  TOKENOMICS_CACHE_TTL (seconds),
   TOKENOMICS_ASCII=1, TOKENOMICS_TIMER_ICONS="full,half,empty", NO_COLOR.
 """
 import json
@@ -41,8 +44,54 @@ CFG_DIR = Path(os.environ.get("TOKENOMICS_HOME", str(HOME / ".tokenomics")))
 CFG_FILE = CFG_DIR / "statusbar.json"
 STATE_FILE = CFG_DIR / "statusbar-state.json"
 
-DEFAULT_CFG = {"theme": "system", "usd_gbp": 0.76, "cache_ttl": None,
+DEFAULT_CFG = {"theme": "system", "cache_ttl": None,
                "width": 12, "warn": 75, "crit": 90}
+
+# ---- currency: keep identical to tokenomics/engine/currency.py (tests/test_features.py checks) ---
+# BEGIN CURRENCY
+# Display currency: USD, EUR or GBP (default). Chosen by TOKENOMICS_CURRENCY, then "currency" in
+# statusbar.json; "$", "€", "£", "usd", "euro", "pounds" ... are accepted too. Prices are in USD
+# and converted at the rate in TOKENOMICS_USD_EUR / TOKENOMICS_USD_GBP, then "usd_eur" /
+# "usd_gbp" in statusbar.json, then the defaults below (`statusbar.py --update-rate` saves
+# today's rates).
+CURRENCIES = {"USD": ("$", None, 1.0), "EUR": ("€", "usd_eur", 0.86), "GBP": ("£", "usd_gbp", 0.76)}
+DEFAULT_CURRENCY = "GBP"
+CURRENCY_ALIASES = {"$": "USD", "US$": "USD", "DOLLAR": "USD", "DOLLARS": "USD", "€": "EUR", "EURO": "EUR",
+                    "EUROS": "EUR", "£": "GBP", "POUND": "GBP", "POUNDS": "GBP", "STERLING": "GBP"}
+
+
+def currency_code(value):
+    """'eur', '€', 'Euro' ... -> 'EUR'; None if not a supported currency."""
+    v = str(value or "").strip().upper()
+    v = CURRENCY_ALIASES.get(v, v)
+    return v if v in CURRENCIES else None
+
+
+def currency(cfg):
+    """-> (code, symbol, units of that currency per US dollar)."""
+    cfg = cfg or {}
+    code = (currency_code(os.environ.get("TOKENOMICS_CURRENCY")) or currency_code(cfg.get("currency"))
+            or DEFAULT_CURRENCY)
+    symbol, key, rate = CURRENCIES[code]
+    if key:
+        for v in (os.environ.get("TOKENOMICS_" + key.upper()), cfg.get(key)):
+            try:
+                if v not in (None, "") and float(v) > 0:
+                    rate = float(v)
+                    break
+            except (TypeError, ValueError):
+                pass
+    return code, symbol, rate
+
+
+def format_money(amount, symbol, whole_above=None):
+    """'£1,234.50'; with whole_above=100, amounts from 100 up drop the pence/cents."""
+    amount = float(amount or 0)
+    sign = "-" if amount < 0 else ""
+    if whole_above is not None and abs(amount) >= whole_above:
+        return f"{sign}{symbol}{abs(amount):,.0f}"
+    return f"{sign}{symbol}{abs(amount):,.2f}"
+# END CURRENCY
 
 # Price tables (USD per million tokens). Only used when the CLI does not report a cost itself
 # (Copilot, or older Claude Code). Marked with "~" on screen.
@@ -53,7 +102,11 @@ DEFAULT_CFG = {"theme": "system", "usd_gbp": 0.76, "cache_ttl": None,
 PRICES = {"opus": (5.0, 25.0), "sonnet": (3.0, 15.0), "haiku": (1.0, 5.0),
           "gpt": (2.5, 10.0), "gemini": (1.25, 10.0)}
 DEFAULT_PRICE = (3.0, 15.0)
-MODEL_PRICES_FILE = Path(__file__).resolve().parent.parent / "data" / "model-prices.json"
+FAST_MULTIPLIER = 2.0             # usage.speed == "fast": fast mode bills 2x the standard rates
+CACHE_WRITE_5M, CACHE_WRITE_1H, CACHE_READ = 1.25, 2.0, 0.1       # x input, when a model has no listed rate
+# data/model-prices.json sits two levels up in the repo; `--install` copies it next to the installed script.
+MODEL_PRICES_FILES = (Path(__file__).resolve().parent / "model-prices.json",
+                      Path(__file__).resolve().parent.parent / "data" / "model-prices.json")
 _CLAUDE_FAMILIES = "fable|mythos|opus|sonnet|haiku"
 _FAMILY_FIRST = re.compile(rf"({_CLAUDE_FAMILIES})[\s_-]*(\d+)(?:[.-](\d)(?!\d))?")
 _VERSION_FIRST = re.compile(rf"(\d+)[.-](\d)(?!\d)[\s_-]*({_CLAUDE_FAMILIES})")
@@ -71,8 +124,7 @@ def load_cfg():
     env = os.environ
     if env.get("TOKENOMICS_THEME"):
         cfg["theme"] = env["TOKENOMICS_THEME"].lower()
-    for key, name, cast in (("usd_gbp", "TOKENOMICS_USD_GBP", float),
-                            ("cache_ttl", "TOKENOMICS_CACHE_TTL", int)):
+    for key, name, cast in (("cache_ttl", "TOKENOMICS_CACHE_TTL", int),):
         try:
             if env.get(name):
                 cfg[key] = cast(env[name])
@@ -209,10 +261,8 @@ def human(n):
     return str(int(n))
 
 
-def money(gbp):
-    if gbp >= 100:
-        return f"£{gbp:,.0f}"
-    return f"£{gbp:,.2f}"
+def money(amount, symbol="£"):
+    return format_money(amount, symbol, whole_above=100)
 
 
 def mmss(seconds):
@@ -224,10 +274,13 @@ def load_model_prices():
     """{model_id: entry} from data/model-prices.json ({} if missing or unreadable)."""
     global _model_prices_cache
     if _model_prices_cache is None:
-        try:
-            _model_prices_cache = json.loads(MODEL_PRICES_FILE.read_text(encoding="utf-8")).get("models") or {}
-        except (OSError, ValueError, AttributeError):
-            _model_prices_cache = {}
+        _model_prices_cache = {}
+        for path in MODEL_PRICES_FILES:
+            try:
+                _model_prices_cache = json.loads(path.read_text(encoding="utf-8")).get("models") or {}
+                break
+            except (OSError, ValueError, AttributeError):
+                continue
     return _model_prices_cache
 
 
@@ -250,14 +303,19 @@ def rates_for(model, cfg):
     """Per-million-token USD rates: input, output, cache_write_5m, cache_write_1h, cache_read
     (plus long_context when the model has a long-prompt tier)."""
     m = (model or "").lower()
-    for k, v in (cfg.get("prices") or {}).items():
+    best = None
+    for k, v in (cfg.get("prices") or {}).items():            # user overrides: most specific key wins
         try:
-            if k.lower() in m:
-                pin, pout = float(v[0]), float(v[1])
-                return {"input": pin, "output": pout, "cache_write_5m": pin * 1.25,
-                        "cache_write_1h": pin * 2.0, "cache_read": pin * 0.1}
+            key = re.sub(r"[\s._]+", "-", str(k).lower())
+            if key and re.search(r"(?<![a-z0-9])" + re.escape(key) + r"(?![0-9])", re.sub(r"[\s._]+", "-", m)) \
+                    and (best is None or len(key) > len(best[0])):
+                best = (key, float(v[0]), float(v[1]), float(v[2]) if len(v) > 2 else None)
         except (TypeError, ValueError, IndexError):
             pass
+    if best:
+        _, pin, pout, pread = best
+        return {"input": pin, "output": pout, "cache_write_5m": pin * CACHE_WRITE_5M,
+                "cache_write_1h": pin * CACHE_WRITE_1H, "cache_read": pin * CACHE_READ if pread is None else pread}
     entry = load_model_prices().get(claude_model_id(m) or "")
     if entry:
         try:
@@ -287,7 +345,8 @@ def price_for(model, cfg):
 
 
 def usage_cost_usd(u, model, cfg):
-    """Cost of one usage dict in USD, at the model's input/output/cache-write/cache-read rates."""
+    """Cost of one usage dict (one request) in USD: the model's input, output, cache-write and
+    cache-read rates, Haiku-style long-prompt tiers, and fast mode at 2x."""
     r = rates_for(model, cfg)
     cc = u.get("cache_creation") or {}
     w1h = int(cc.get("ephemeral_1h_input_tokens") or 0)
@@ -299,8 +358,10 @@ def usage_cost_usd(u, model, cfg):
     lc = r.get("long_context")
     if lc and inp + w5m + w1h + read > int(lc.get("threshold") or 0):
         r = {**r, **{k: float(v) for k, v in lc.items() if k != "threshold"}}
-    return (inp * r["input"] + int(u.get("output_tokens") or 0) * r["output"]
-            + w5m * r["cache_write_5m"] + w1h * r["cache_write_1h"] + read * r["cache_read"]) / 1e6
+    usd = (inp * r["input"] + int(u.get("output_tokens") or 0) * r["output"]
+           + w5m * r["cache_write_5m"] + w1h * r["cache_write_1h"] + read * r["cache_read"]) / 1e6
+    return usd * FAST_MULTIPLIER if u.get("speed") == "fast" else usd
+
 
 # ----------------------------------------------------------------------------- transcript
 
@@ -395,9 +456,10 @@ def scan_transcript(path, state, cfg):
                         elif int(cc.get("ephemeral_5m_input_tokens") or 0):
                             st["ttl_1h"] = False
             st["offset"] += end + 1
+    st["seen"] = time.time()
     cache[path] = st
-    if len(cache) > 20:                                   # keep the state file small
-        for k in sorted(cache, key=lambda k: cache[k].get("offset", 0))[:len(cache) - 20]:
+    if len(cache) > 20:                                   # keep the state file small: drop least recently used
+        for k in sorted(cache, key=lambda k: cache[k].get("seen", 0))[:len(cache) - 20]:
             cache.pop(k, None)
     return st
 
@@ -409,6 +471,10 @@ def gather(payload, cfg, state):
     """Collapse whatever the CLI told us (plus the transcript) into the numbers we display."""
     cw = payload.get("context_window") or {}
     model = payload.get("model") or {}
+    if isinstance(model, str):
+        model = {"id": model}
+    elif not isinstance(model, dict):
+        model = {}
     model_id = model.get("id") or ""
     name = model.get("display_name") or model_id or ""
     tpath = payload.get("transcript_path")
@@ -438,7 +504,7 @@ def gather(payload, cfg, state):
                 "total_input_tokens", "total_output_tokens",
                 "total_cache_read_tokens", "total_cache_write_tokens"))
 
-    # ---- cost in USD -> GBP
+    # ---- cost in USD -> display currency
     cost_usd = (payload.get("cost") or {}).get("total_cost_usd")
     estimated = False
     if cost_usd is None:
@@ -450,7 +516,8 @@ def gather(payload, cfg, state):
                  "cache_read_input_tokens": cw.get("total_cache_read_tokens"),
                  "cache_creation_input_tokens": cw.get("total_cache_write_tokens")}
             cost_usd = usage_cost_usd(u, model_id or name, cfg)
-    cost_gbp = float(cost_usd or 0) * float(cfg["usd_gbp"])
+    code, symbol, rate = currency(cfg)
+    cost = float(cost_usd or 0) * rate
 
     # ---- context percentage
     pct = cw.get("current_context_used_percentage")
@@ -479,7 +546,7 @@ def gather(payload, cfg, state):
         except OSError:
             last = None
     remaining = None if last is None else max(0.0, ttl - (time.time() - last))
-    return {"model": name, "total": total, "gbp": cost_gbp, "estimated": estimated,
+    return {"model": name, "total": total, "cost": cost, "symbol": symbol, "estimated": estimated,
             "pct": pct, "ttl": ttl, "remaining": remaining}
 
 
@@ -535,7 +602,7 @@ def render(info, style, cfg):
                  + style.paint(human(info["total"]), "text", bold=True))
 
     approx = "~" if info["estimated"] else ""
-    parts.append(style.paint(approx + money(info["gbp"]), "text", bold=True))
+    parts.append(style.paint(approx + money(info["cost"], info.get("symbol", "£")), "text", bold=True))
 
     rem, ttl = info["remaining"], info["ttl"]
     full, half, empty = timer_icons()
@@ -605,11 +672,12 @@ def demo(args):
     print(f"theme: {style.theme}\n")
     cases = [(8, 290, 12_300, 0.04), (52, 200, 480_000, 0.42), (76, 120, 2_100_000, 1.37),
              (84, 70, 5_400_000, 3.9), (92, 12, 8_500_000, 6.21), (97, 0, 12_800_000, 14.8)]
+    _, symbol, rate = currency(cfg)
     for pct, rem, total, usd in cases:
-        info = {"model": "Sonnet 5.5", "total": total, "gbp": usd * cfg["usd_gbp"], "estimated": False,
+        info = {"model": "Sonnet 5.5", "total": total, "cost": usd * rate, "symbol": symbol, "estimated": False,
                 "pct": pct, "ttl": 300, "remaining": rem}
         print(render(info, style, cfg))
-    print(render({"model": "gpt-5", "total": 0, "gbp": 0, "estimated": True, "pct": 0,
+    print(render({"model": "gpt-5", "total": 0, "cost": 0, "symbol": symbol, "estimated": True, "pct": 0,
                   "ttl": 300, "remaining": None}, style, cfg))
 
 
@@ -634,26 +702,47 @@ def watch(args):
         sys.stdout.write("\n")
 
 
-def update_rate():
-    import urllib.request
-    url = "https://api.frankfurter.dev/v1/latest?base=USD&symbols=GBP"
-    try:
-        with urllib.request.urlopen(url, timeout=8) as r:
-            rate = float(json.load(r)["rates"]["GBP"])
-    except Exception as e:
-        print(f"Could not fetch the rate ({e}). Set it by hand: TOKENOMICS_USD_GBP=0.76 or "
-              f'"usd_gbp" in {CFG_FILE}')
-        return 1
+def _save_cfg(**changes):
     cfg = {}
     try:
         cfg = json.loads(CFG_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         pass
-    cfg["usd_gbp"] = rate
+    cfg.update(changes)
     CFG_DIR.mkdir(parents=True, exist_ok=True)
     CFG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
-    print(f"USD->GBP = {rate} saved to {CFG_FILE}")
+
+
+def update_rate():
+    import urllib.request
+    url = "https://api.frankfurter.dev/v1/latest?base=USD&symbols=GBP,EUR"
+    try:
+        with urllib.request.urlopen(url, timeout=8) as r:
+            rates = json.load(r)["rates"]
+            usd_gbp, usd_eur = float(rates["GBP"]), float(rates["EUR"])
+    except Exception as e:
+        print(f"Could not fetch the rates ({e}). Set them by hand: TOKENOMICS_USD_GBP=0.76, "
+              f'TOKENOMICS_USD_EUR=0.86, or "usd_gbp" / "usd_eur" in {CFG_FILE}')
+        return 1
+    _save_cfg(usd_gbp=usd_gbp, usd_eur=usd_eur)
+    print(f"USD->GBP = {usd_gbp}, USD->EUR = {usd_eur} saved to {CFG_FILE}")
     return 0
+
+
+def set_currency(value):
+    code = currency_code(value)
+    if not code:
+        print(f"Unknown currency {value!r}: use one of {', '.join(CURRENCIES)}.")
+        return 1
+    _save_cfg(currency=code)
+    print(f"Costs will now show in {code} ({CURRENCIES[code][0]}). Saved to {CFG_FILE}")
+    return 0
+
+
+def _flag(args, name):
+    """Value after `name` in args, or None."""
+    i = args.index(name) if name in args else -1
+    return args[i + 1] if 0 <= i < len(args) - 1 else None
 
 
 def _read_json(path):
@@ -678,6 +767,10 @@ def install(target, remove=False):
     dest = CFG_DIR / "statusbar.py"
     if not remove:
         shutil.copy2(Path(__file__).resolve(), dest)      # stable path, survives plugin updates
+        for src in MODEL_PRICES_FILES[1:]:                # prices travel with it (refresh: copy again)
+            if src.is_file():
+                shutil.copy2(src, CFG_DIR / "model-prices.json")
+                break
     command = f'"{sys.executable}" "{dest}"'
     for t in targets:
         if t == "claude":
@@ -721,6 +814,10 @@ def main():
         return
     if "--update-rate" in args:
         sys.exit(update_rate())
+    if "--set-currency" in args:
+        sys.exit(set_currency(_flag(args, "--set-currency")))
+    if currency_code(_flag(args, "--currency")):          # this run only; beats env and config
+        os.environ["TOKENOMICS_CURRENCY"] = currency_code(_flag(args, "--currency"))
     if "--demo" in args:
         return demo(args)
     if "--watch" in args:

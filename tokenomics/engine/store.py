@@ -11,7 +11,7 @@ import sqlite3
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from ..util import now
+from ..util import now, today
 from .classifier import Classification
 from .evidence import TokenUsage
 
@@ -26,6 +26,9 @@ SESSION_COLUMNS = (
     ("billing_model", "TEXT"),        # anthropic_tokens | copilot_premium_requests | unknown
     ("usage_status", "TEXT"),         # reported | unavailable
     ("evidence", "TEXT"),             # transcript | hook-events
+    # added with budget / spend-report (v1.2)
+    ("cost_usd", "REAL"),             # NULL unless the platform bills tokens and reports usage
+    ("model", "TEXT"),                # last model seen
 )
 
 
@@ -45,6 +48,9 @@ def connect(db_path: str) -> sqlite3.Connection:
       id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, ts TEXT,
       tool TEXT, kind TEXT, skill TEXT, opex_score INTEGER, capex_score INTEGER);
     CREATE INDEX IF NOT EXISTS idx_te_session ON tool_events(session_id);
+    CREATE TABLE IF NOT EXISTS cost_events(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, ts TEXT, day TEXT, usd REAL);
+    CREATE INDEX IF NOT EXISTS idx_ce_day ON cost_events(day);
     """)
     have = {r[1] for r in db.execute("PRAGMA table_info(sessions)")}
     for col, typ in SESSION_COLUMNS:
@@ -114,6 +120,29 @@ def write_details(db, sid: str, cls: Classification, usage: Optional[TokenUsage]
                   skill_detail=?, billing_model=?, usage_status=?, evidence=? WHERE session_id=?""",
                (*tok, json.dumps(cls.skills), cls.skill_opex, cls.skill_capex,
                 json.dumps(cls.skill_detail), billing_model, status, evidence, sid))
+
+
+def set_cost(db, sid: str, usd: Optional[float], model: Optional[str]) -> None:
+    """Store the session's cost so far and log the increase since the last call as a dated
+    cost event, so spend can be summed per day even for sessions that span several days."""
+    if usd is None:
+        return
+    row = db.execute("SELECT cost_usd FROM sessions WHERE session_id=?", (sid,)).fetchone()
+    delta = usd - ((row[0] or 0.0) if row else 0.0)
+    if delta > 1e-9:
+        db.execute("INSERT INTO cost_events(session_id,ts,day,usd) VALUES(?,?,?,?)",
+                   (sid, now(), today(), delta))
+    db.execute("UPDATE sessions SET cost_usd=?, model=COALESCE(?, model) WHERE session_id=?", (usd, model, sid))
+
+
+def day_cost_usd(db, day: Optional[str] = None) -> float:
+    r = db.execute("SELECT COALESCE(SUM(usd),0) FROM cost_events WHERE day=?", (day or today(),)).fetchone()
+    return float(r[0])
+
+
+def session_cost(db, sid: str) -> Optional[float]:
+    r = db.execute("SELECT cost_usd FROM sessions WHERE session_id=?", (sid,)).fetchone()
+    return None if not r or r[0] is None else float(r[0])
 
 
 def set_billing(db, sid: str, billing_model: str) -> None:

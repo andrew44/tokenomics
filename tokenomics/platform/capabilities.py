@@ -9,6 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from ..engine.evidence import (BILLING_ANTHROPIC_TOKENS, BILLING_COPILOT_PREMIUM_REQUESTS,  # noqa: F401
+                               BILLING_UNKNOWN)
+
 
 class Capability(str, Enum):
     AVAILABLE_MODELS = "available_models"          # can list the models on offer
@@ -45,9 +48,3 @@ class Support:
 NATIVE = Level.NATIVE
 PARTIAL = Level.PARTIAL
 NONE = Level.NONE
-
-# Billing models. Kept distinct on purpose: Anthropic bills tokens, Copilot bills premium
-# requests. The engine never converts one into the other or invents a money value.
-BILLING_ANTHROPIC_TOKENS = "anthropic_tokens"
-BILLING_COPILOT_PREMIUM_REQUESTS = "copilot_premium_requests"
-BILLING_UNKNOWN = "unknown"

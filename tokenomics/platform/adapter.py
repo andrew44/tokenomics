@@ -63,6 +63,19 @@ class PlatformAdapter:
     def skill_description(self, name: str, cwd: Optional[str]) -> Optional[str]:
         return None
 
+    # ---- hook output (each platform has its own JSON shape; None = cannot express it) -----
+    def deny_tool(self, reason: str) -> Optional[dict]:
+        """Pre-tool hook output that refuses the call and tells the model why."""
+        return None
+
+    def block_prompt(self, reason: str) -> Optional[dict]:
+        """Prompt hook output that stops the prompt and shows the user why."""
+        return None
+
+    def notify(self, message: str) -> Optional[dict]:
+        """Hook output that shows the user a notice without blocking anything."""
+        return None
+
     def skill_roots(self, cwd: Optional[str]) -> List:
         return []
 

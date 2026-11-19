@@ -5,6 +5,9 @@
       { "type": "command", "bash": "python3 scripts/spendlens.py prompt copilot", "powershell": "python scripts\\spendlens.py prompt copilot", "timeoutSec": 10 },
       { "type": "command", "bash": "python3 scripts/handoff.py arm copilot", "powershell": "python scripts\\handoff.py arm copilot", "timeoutSec": 10 }
     ],
+    "preToolUse": [
+      { "type": "command", "bash": "python3 scripts/diet.py copilot", "powershell": "python scripts\\diet.py copilot", "timeoutSec": 10 }
+    ],
     "postToolUse": [
       { "type": "command", "bash": "python3 scripts/spendlens.py tool copilot", "powershell": "python scripts\\spendlens.py tool copilot", "timeoutSec": 10 }
     ],

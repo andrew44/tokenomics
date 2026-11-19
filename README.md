@@ -20,15 +20,18 @@ When you use an AI coding assistant, every message you send and every reply you 
 
 > New to tokens? [How tokens work](docs/how-tokens-work.md) explains input, output, the prompt cache and tokenisers, first in plain English and then in technical depth. [Saving tokens](docs/saving-tokens.md) has practical tips for spending less.
 
-**tokenomics** gives you four helpers:
+**tokenomics** gives you these helpers:
 
 | Helper | What it does | Think of it as... |
 |--------|--------------|-------------------|
 | **critical-friend** | Reads your conversation and tells you where tokens were wasted, with simple fixes. | A coach who reviews your prompts. |
 | **spendlens** | Quietly labels each conversation as **OPEX** (running things) or **CAPEX** (building things) and saves it to a small file on your computer. | A timesheet that fills itself in. |
 | **pennywise** | Checks each prompt before it runs. If a cheaper model would do the job (say, a hello-world app on the priciest model), it pauses the prompt and suggests the cheaper one. | A friend who stops you buying the premium option you don't need. |
-| **statusbar** | Shows a live line at the bottom of your assistant: how full the conversation is, tokens used, what it has cost in pounds, and a countdown to when the AI's short-term memory (the "prompt cache") expires. | A fuel gauge and a meter for your session. |
+| **statusbar** | Shows a live line at the bottom of your assistant: how full the conversation is, tokens used, what it has cost (in pounds, dollars or euros), and a countdown to when the AI's short-term memory (the "prompt cache") expires. | A fuel gauge and a meter for your session. |
 | **handoff** | Just before the AI's short-term memory (the prompt cache) runs out, writes a short "where we got to" note. You can pick the work up in a new session for a fraction of the cost of reloading the old one. | Leaving a note on the desk before you step away. |
+| **diet** | Stops the AI from pulling huge, low-value text into the conversation (a whole lockfile, every log line ever, the entire git history) and tells it to ask for just the part it needs. | A friend who stops you printing the whole manual to read one page. |
+| **budget** | Lets you set a daily or per-session spending limit in your currency. Warns you at 80% and pauses at 100%, with a one-step way to carry on. | A spending limit on a bank card. |
+| **spend-report** | Say "spend report" and get a short summary of the week: money spent, OPEX vs CAPEX, the costliest projects and sessions, what the other helpers saved, and three ways to spend less. | A monthly statement with advice. |
 
 ```mermaid
 flowchart LR
@@ -344,7 +347,7 @@ A live line that sits at the bottom of Claude Code or GitHub Copilot CLI:
 |------|-------------------|
 | `ctx ████▒▒ 76%` | How full the conversation is. The bar goes **green**, turns **yellow at 75%** and **red at 90%**. A `▲` appears from 90%. When it is nearly full, start a fresh conversation. |
 | `Σ 8.5M` | Total tokens used so far, in short form (`950`, `12.3K`, `8.5M`). |
-| `£1.37` | What the session has cost, in pounds. A `~` in front (`~£1.37`) means it is an estimate. |
+| `£1.37` | What the session has cost, in your currency (pounds unless you choose dollars or euros). A `~` in front (`~£1.37`) means it is an estimate. |
 | `⧗ 04:12` | A countdown to when the prompt cache expires. While it runs, repeated context is cheap. The egg timer starts **full (green)**, is **half-empty (amber)** at about half time and **empty (red)** when it is running out. `00:00` means the cache has gone cold, and `--:--` means nothing has been cached yet. |
 
 **To install it** (needs Python 3.8 or newer, nothing else). From the repo folder:
@@ -357,9 +360,16 @@ This adds the status line to your Claude Code and/or Copilot settings (a backup 
 
 **Light or dark.** It follows your computer's setting by default. To force one, put `{"theme": "dark"}` (or `"light"`) in `~/.tokenomics/statusbar.json`. To preview all the states, run `python3 scripts/statusbar.py --demo --theme light`. For very plain terminals use `--ascii` or set `NO_COLOR=1`.
 
-**Pounds.** Claude Code reports the cost in dollars and the bar converts it at 0.76 pounds per dollar. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rate, or set `"usd_gbp"` in the same file.
+**Currency.** Costs show in pounds (£) by default. To use US dollars ($) or euros (€) instead, run one of:
 
-**Prices.** When a cost has to be estimated, the bar uses the per-model prices in `data/model-prices.json` (input, output, cache writes and cache reads, for every Claude model from Haiku 3.5 to Fable 5.2). A scheduled GitHub Action (`.github/workflows/update-prices.yml`) refreshes that file from Claude's pricing page every Monday and commits any change; run `python3 scripts/update_prices.py` to refresh it yourself. Retired models that drop off the page keep their last known price.
+```
+python3 scripts/statusbar.py --set-currency USD     # or EUR, or GBP
+export TOKENOMICS_CURRENCY=EUR                      # or set it per shell / in Claude Code's "env"
+```
+
+The choice is saved as `"currency"` in `~/.tokenomics/statusbar.json`, and the status bar, budget, spend report and handoff notes all use it (`$`, `€` and `£` work too, e.g. `--set-currency €`). `TOKENOMICS_CURRENCY` wins over the saved choice, and `--currency USD` on a single status bar or report run wins over both. Prices are in dollars, so dollars need no conversion; pounds and euros are converted at 0.76 and 0.86 per dollar unless you set the rate. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rates, or set `"usd_gbp"` / `"usd_eur"` in the same file (or `TOKENOMICS_USD_GBP` / `TOKENOMICS_USD_EUR`).
+
+**Prices.** When the assistant doesn't report a cost itself (Copilot, older Claude Code), and always for budget and the spend report, tokenomics prices each request from `data/model-prices.json`: input, output, cache-write and cache-read prices for **every Claude model version**, from Haiku 3.5 to Fable 5.2 (for example Fable 5.2 is $8/$40 per million input/output tokens, Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50, or $0.50/$2.50 for prompts over 100K tokens). Each model's own cache rates are used (e.g. cache reads cost $0.20 on Fable 5.2 and $0.10 on Sonnet 5.5), fast mode counts double, and a model switch mid-session is priced message by message. A scheduled GitHub Action (`.github/workflows/update-prices.yml`) refreshes that file from Claude's pricing page every Monday and commits any change; run `python3 scripts/update_prices.py` to refresh it yourself, and `--install` copies the current file next to the installed status bar. Retired models that drop off the page keep their last known price. To override a price, add it to `~/.tokenomics/statusbar.json` by model version: `{"prices": {"opus-5-5": [4, 20], "sonnet-5-5": [2, 10, 0.1]}}` (input, output and optionally cache read, dollars per million tokens; the most specific key wins).
 
 <details>
 <summary><b>Good to know about the countdown</b></summary>
@@ -392,6 +402,51 @@ To resume cheaply, start a new session in the same folder and say `Continue from
 
 ---
 
+## Using diet (the context filter)
+
+Every token pulled into the conversation is paid for again on every later turn. **diet** (`scripts/diet.py`) is a pre-tool hook (`PreToolUse` on `Read|Bash` in Claude Code, `preToolUse` in Copilot CLI) that refuses a small set of calls known to flood the context, and tells the AI how to ask for less. The AI then retries with a narrower call by itself:
+
+| Stopped | Suggested instead |
+|---------|-------------------|
+| Reading a generated file whole: lockfiles, `*.min.js`, source maps, snapshots (over 64 KB) | `grep` for what you need, or read a range |
+| `kubectl logs`, `docker logs`, `journalctl` with no limit | `--tail=200`, `--since=15m` |
+| `git log` with no limit | `-n 20 --oneline` |
+| `find /` or `find ~` with no `-maxdepth`; `ls -R`; `tree` with no `-L` | start from the project, `git ls-files`, `-L 2` |
+| `cat` of a file over 64 KB | `grep -n`, `head`, `sed -n 'A,Bp'` |
+
+A command that already pipes (`| grep`, `| head`), redirects to a file, or limits itself is never touched, and a file that can't be found is never blocked. To let one command through, append `# diet-ok`. Each block is logged to `diet_events` with an estimate of the tokens kept out, which shows up in the spend report. Rules live in `tokenomics/engine/diet.py`, shared by both assistants.
+
+---
+
+## Using budget (the spending limit)
+
+Set a limit and **budget** (`scripts/budget.py`, a `UserPromptSubmit` hook) keeps an eye on it. Limits are in your chosen currency (see "Currency" above; pounds by default), so `20` means £20, $20 or €20:
+
+```
+export TOKENOMICS_BUDGET_DAILY=20      # per day, all sessions together
+export TOKENOMICS_BUDGET_SESSION=5     # per session
+```
+
+At 80% of a limit you get one notice. Once a limit is reached, your next prompt is paused with what you've spent and some cheaper ways on (`/compact`, a smaller model, a fresh session). To carry on anyway, send the same prompt again or start it with `over-budget:`; you won't be paused again for that limit that day. `TOKENOMICS_BUDGET_MODE=warn` only ever shows notices. Check where you are with `python3 scripts/budget.py status`.
+
+Spend is worked out from the token counts spendlens records at the end of each turn, priced per model like the status bar (so it is at most one turn behind, and an estimate, not your invoice). Each increase is stored with its date, so a session that runs past midnight counts towards the right day. Copilot bills premium requests, which hooks can't see, so Copilot sessions never count towards a budget. Copilot also ignores prompt-hook output, so budget is Claude Code only.
+
+---
+
+## Getting a spend report
+
+Say **"spend report"** (or "where did my tokens go this week?") and the **spend-report** skill runs `scripts/report.py` and summarises it: money spent (in your currency) and the OPEX/CAPEX split of that spend, top projects and models, the costliest sessions, what pennywise, handoff, diet and budget did, and three suggestions tied to your own numbers. Ask for any period ("this month", "today", "all time").
+
+You can also run it yourself:
+
+```
+python3 scripts/report.py               # last 7 days, as Markdown
+python3 scripts/report.py --days 30 --json
+python3 scripts/report.py --currency EUR        # GBP, USD or EUR for this run
+```
+
+---
+
 ## Settings (optional)
 
 Most people never need these. They are "environment variables", set in your shell profile or in Claude Code's `settings.json` under `"env"`.
@@ -399,6 +454,12 @@ Most people never need these. They are "environment variables", set in your shel
 | Setting | Default | What it does |
 |---------|---------|--------------|
 | `TOKENOMICS_PENNYWISE` | `block` | `block`, `warn` (notice only) or `off` for pennywise. |
+| `TOKENOMICS_DIET` | `block` | `block`, `warn` (notice only, never stops a call) or `off` for diet. |
+| `TOKENOMICS_DIET_MAX_KB` | `64` | diet never blocks a file smaller than this. |
+| `TOKENOMICS_BUDGET_DAILY` | none | Daily spending limit in your currency, e.g. `20`. No limit = budget does nothing. |
+| `TOKENOMICS_BUDGET_SESSION` | none | Per-session spending limit in your currency. |
+| `TOKENOMICS_BUDGET_WARN` | `80` | Percent of a limit at which budget shows a notice. |
+| `TOKENOMICS_BUDGET_MODE` | `block` | `block`, `warn` (notices only) or `off`. |
 | `TOKENOMICS_HANDOFF` | `on` | `off` stops handoff from writing or watching. |
 | `TOKENOMICS_HANDOFF_LEAD` | `60` | Seconds before the cache expires to write the handoff. |
 | `TOKENOMICS_HANDOFF_DIR` | `~/.tokenomics/handoffs` | Where handoff files go. The newest 30 are kept (`TOKENOMICS_HANDOFF_KEEP`). |
@@ -412,7 +473,9 @@ Most people never need these. They are "environment variables", set in your shel
 | `TOKENOMICS_LLM_MODEL` | `gpt-4o-mini` | Which model to ask. |
 | `TOKENOMICS_LLM_TIMEOUT` | `12` | Seconds to wait before falling back to keywords (capped at 15 to fit the 20-second hook limit). |
 | `TOKENOMICS_THEME` | `system` | Status bar colours: `light`, `dark` or `system`. |
-| `TOKENOMICS_USD_GBP` | `0.76` | Pounds per dollar, used for the status bar's cost. |
+| `TOKENOMICS_CURRENCY` | `GBP` | Currency for every cost shown: `GBP` (£), `USD` ($) or `EUR` (€). Also saved by `statusbar.py --set-currency`. |
+| `TOKENOMICS_USD_EUR` | `0.86` | Euros per dollar, when the currency is EUR. |
+| `TOKENOMICS_USD_GBP` | `0.76` | Pounds per dollar, when the currency is GBP. Prices per model version can be overridden with `"prices"` in `~/.tokenomics/statusbar.json` (see "Using the status bar"). |
 | `TOKENOMICS_CACHE_TTL` | auto | Cache lifetime in seconds for the status bar's countdown. |
 
 ---
@@ -449,7 +512,7 @@ Tokens used by each label:
 sqlite3 ~/.tokenomics/spendlens.db "select label, count(*) sessions, sum(input_tokens+output_tokens) tokens from sessions group by label;"
 ```
 
-The database has two tables: `sessions` (one row per session) and `prompt_events` (one row per prompt, with its scores).
+Main tables: `sessions` (one row per session, including `cost_usd` and `model` for Claude Code), `prompt_events` (one row per prompt, with its scores), `tool_events` (Copilot tool calls) and `cost_events` (dated spend increases). The helpers log to `pennywise_events`, `handoff_events`, `diet_events` and `budget_events`.
 
 ---
 
@@ -481,11 +544,12 @@ flowchart LR
 - **Shared engine** (`tokenomics/engine/`): the scoring rules, the optional AI-model check, and the database. Both assistants go through exactly the same code.
 - **Adapters** (`tokenomics/adapters/`): translation only, no scoring. Each one lists its capabilities (transcript, token counts, tool events, billing and so on) as `native`, `partial` or `none`.
 - **If something is missing**, the engine copes: no transcript means it uses the prompt and tool events it stored; an unknown assistant, or an adapter that fails to load, still gets its prompts logged by session id, and the other assistant is unaffected.
-- **Billing stays separate**: Claude Code tokens and Copilot premium requests are never converted into each other or into money.
+- **Billing stays separate**: Claude Code tokens are priced (`engine/pricing.py`); Copilot premium requests are never turned into tokens or money.
+- **Guards share the engine too**: diet's rules (`engine/diet.py`) and budget's limits (`engine/budget.py`) are written once; each adapter says how to deny a tool call, block a prompt or show a notice on its platform (or that it can't).
 - See what each assistant supports: `python3 scripts/spendlens.py capabilities`
 - Run the tests (no installs needed): `cd tests && python3 -m unittest`
 
-The other tools (status bar, pennywise, handoff, critical-friend) are still standalone scripts and will move onto the engine next.
+The older tools (status bar, pennywise, handoff, critical-friend) are still standalone scripts; the status bar must stay a single file because `--install` copies it.
 
 ### What's in the repo
 
@@ -495,7 +559,7 @@ flowchart TD
     R --> H["hooks/hooks.json<br/>Claude Code hooks"]
     R --> PJ["plugin.json<br/>Copilot CLI manifest"]
     R --> CH["copilot-hooks.json<br/>Copilot CLI hooks"]
-    R --> SK["skills/critical-friend/SKILL.md<br/>the coach"]
+    R --> SK["skills/<br/>critical-friend, spend-report"]
     R --> EN["tokenomics/<br/>shared engine + adapters"]
     R --> TS["tests/<br/>automated tests"]
     R --> SC["scripts/"]
@@ -505,6 +569,9 @@ flowchart TD
     SC --> S4["pennywise.py<br/>cheaper-model suggester"]
     SC --> S5["dashboard.py<br/>local usage dashboard"]
     SC --> S6["handoff.py<br/>cache-expiry handoff writer"]
+    SC --> S7["diet.py<br/>context filter"]
+    SC --> S8["budget.py<br/>spending limits"]
+    SC --> S9["report.py<br/>spend report"]
     R --> D["dashboard/index.html<br/>dashboard page"]
 ```
 
@@ -517,8 +584,10 @@ tokenomics/
 ├── plugin.json             Copilot CLI manifest
 ├── copilot-hooks.json      Copilot CLI hooks
 ├── skills/critical-friend/SKILL.md   prompt and cache review skill
+├── skills/spend-report/SKILL.md     weekly spend report skill
 ├── tokenomics/
-│   ├── engine/             shared logic: classifier.py, llm.py, store.py, session.py, evidence.py
+│   ├── engine/             shared logic: classifier.py, llm.py, store.py, session.py, evidence.py,
+│   │                       pricing.py, currency.py, diet.py, budget.py, events.py
 │   ├── platform/           common adapter interface + capability registry
 │   ├── adapters/           claude_code.py, copilot.py (translation only)
 │   ├── config.py           shared settings
@@ -527,6 +596,9 @@ tokenomics/
 ├── scripts/spendlens.py       the opex/capex hook runner (calls the engine)
 ├── scripts/pennywise.py       cheaper-model suggester (blocks over-spec'd prompts)
 ├── scripts/handoff.py         writes a resume note before the cache expires
+├── scripts/diet.py            stops tool calls that would flood the context
+├── scripts/budget.py          daily / per-session spending limits
+├── scripts/report.py          spend report (used by the spend-report skill)
 ├── scripts/critical_friend.py transcript analyser used by the skill
 ├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
 ├── scripts/update_prices.py   refreshes data/model-prices.json from Claude's pricing page
