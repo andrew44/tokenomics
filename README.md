@@ -33,6 +33,8 @@ How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press
 | **spendlens** | hooks | Tags each session **OPEX** (run: insights, logs, metrics, Grafana, incidents) or **CAPEX** (build: code generation), or `mixed` / `unknown`, and logs it with the session id to SQLite. |
 | **critical-friend** | skill | Reviews your prompts and prompt-cache usage for the current session and suggests improvements (cache hit ratio, cache rebuilds, vague or correction-heavy prompts, oversized context, repeated file reads, mixed topics). Ask: "critical friend", "review my prompts", "why was that session expensive?". |
 
+| **statusbar** | status line | A live bar for Claude Code and Copilot CLI: model, **context gauge** (green, yellow at 75%, red at 90%), **total tokens** (e.g. `8.5M`), **session cost in GBP** (e.g. `£1.37`) and a **prompt-cache countdown** (`MM:ss`) with an egg timer that empties as the cache goes cold. Light, dark or system theme. See [Status bar](#status-bar). |
+
 More hooks, tools and skills will be added here.
 
 ## Want the automatic tracking too? Install the plugin
@@ -149,6 +151,36 @@ Notes:
 
 Invoke it in Claude Code with `/tokenomics:critical-friend` or just ask "critical friend, review this session". It runs `scripts/critical_friend.py` (read-only) on the newest transcript for the current directory, then gives a verdict, the top three costs with fixes, a rewrite of your weakest prompt, and what is working. Run the script directly for the raw numbers: `python3 scripts/critical_friend.py [--session ID] [--json]`. It needs a Claude Code transcript, so Copilot sessions are not analysed.
 
+## Status bar
+
+```
+◆ Sonnet 5.5 │ ctx █████████▏▒▒ 76% │ Σ 8.5M │ £1.37 │ ⏳︎ 02:29
+```
+
+| Part | Meaning |
+|------|---------|
+| `ctx ████▒▒ 76%` | Context window used. The gauge blends **green → yellow at 75% → red at 90%**, and the percentage takes the colour of the level you are at. A `▲` appears from 90%. |
+| `Σ 8.5M` | Total tokens the session has processed (input, output and cache reads/writes), shown compactly: `950`, `12.3K`, `8.5M`. |
+| `£1.37` | Session cost in pounds. Claude Code reports the dollar cost itself; it is converted at the configured rate. `~£` means estimated from token counts (Copilot, or older Claude Code). |
+| `⧗ 04:12` | Time until the prompt cache expires, counting down as `MM:ss`. The egg timer is **full** (green) while fresh, **half-empty** (amber) at about half expired and **empty** (red) when it is running out. `⧖ 00:00` means the cache has gone cold; `--:--` means no cache activity yet. |
+
+**Install** (needs Python 3.8+, nothing else). From the repo folder:
+
+```
+python3 scripts/statusbar.py --install claude     # or: copilot, both
+```
+
+This copies the script to `~/.tokenomics/statusbar.py` and adds a `statusLine` entry to `~/.claude/settings.json` and/or `~/.copilot/settings.json` (a `.tokenomics.bak` backup is made first; Copilot's experimental `STATUS_LINE` flag is switched on too). Restart the CLI. Remove it again with `--uninstall`.
+
+**Themes.** `"theme": "system"` (default), `"light"` or `"dark"` in `~/.tokenomics/statusbar.json`, or `TOKENOMICS_THEME`. System mode reads the terminal's `COLORFGBG` hint, then the OS setting (macOS, Windows, GNOME). Preview everything with `python3 scripts/statusbar.py --demo --theme light`. Use `--ascii` or `NO_COLOR=1` for plain terminals.
+
+**GBP rate.** The default is 0.76 pounds per dollar. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rate, or set `"usd_gbp"` / `TOKENOMICS_USD_GBP`.
+
+**Cache timer notes**
+- The countdown runs from the last request that read or wrote the prompt cache. The TTL is 5 minutes, or 1 hour when the session uses the 1-hour cache; override with `"cache_ttl"` (seconds).
+- Claude Code redraws the line every second via `refreshInterval` (a recent version is needed; on older ones it updates after each message). Copilot CLI does not document a refresh interval, so its timer may only move when Copilot redraws. For a ticking timer in any CLI, run `python3 scripts/statusbar.py --watch` in a spare terminal pane.
+- Copilot does not expose its cache expiry; the timer there is based on the session's last activity and is approximate.
+
 ## Configuration (environment variables)
 
 | Variable | Default | Purpose |
@@ -228,5 +260,6 @@ tokenomics/
 ├── skills/critical-friend/SKILL.md   prompt and cache review skill
 ├── scripts/spendlens.py       the opex/capex classifier
 ├── scripts/critical_friend.py transcript analyser used by the skill
+├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
 └── README.md
 ```
