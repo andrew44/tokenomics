@@ -1,0 +1,45 @@
+name: Update model prices
+
+# Refreshes data/model-prices.json from Claude's official pricing page
+# (https://platform.claude.com/docs/en/about-claude/pricing) and commits it when prices change.
+on:
+  schedule:
+    - cron: "17 6 * * 1"  # every Monday, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-prices
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch latest prices
+        run: python3 scripts/update_prices.py
+
+      - name: Run tests
+        working-directory: tests
+        run: python3 -m unittest
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/model-prices.json; then
+            echo "No price changes."
+            exit 0
+          fi
+          git diff --stat -- data/model-prices.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/model-prices.json
+          git commit -m "Update Claude model prices"
+          git push

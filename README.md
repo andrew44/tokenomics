@@ -10,11 +10,15 @@ Works with **Claude Code** and **GitHub Copilot CLI**.
   </a>
 </p>
 
+> **Disclaimer: the prices, token counts and costs shown by tokenomics are a rough indication of what your current session has cost, not a bill. They may be inaccurate, incomplete or out of date. The authors and contributors accept no liability for any loss or cost arising from prices or costs that turn out to be wrong, or from decisions made using them. You are responsible for checking your actual usage and charges in the Claude app (or your provider's billing page) and should not rely solely on this tool. tokenomics is provided "as is", without warranty of any kind; see sections 7 (Disclaimer of Warranty) and 8 (Limitation of Liability) of the [Apache License 2.0](LICENSE).**
+
 ---
 
 ## What is this, in plain English?
 
 When you use an AI coding assistant, every message you send and every reply you get uses up *tokens*. Tokens are the "units" you are charged for, a bit like minutes on a phone plan. Some conversations use a lot more than they need to.
+
+> New to tokens? [How tokens work](docs/how-tokens-work.md) explains input, output, the prompt cache and tokenisers, first in plain English and then in technical depth. [Saving tokens](docs/saving-tokens.md) has practical tips for spending less.
 
 **tokenomics** gives you four helpers:
 
@@ -355,6 +359,8 @@ This adds the status line to your Claude Code and/or Copilot settings (a backup 
 
 **Pounds.** Claude Code reports the cost in dollars and the bar converts it at 0.76 pounds per dollar. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rate, or set `"usd_gbp"` in the same file.
 
+**Prices.** When a cost has to be estimated, the bar uses the per-model prices in `data/model-prices.json` (input, output, cache writes and cache reads, for every Claude model from Haiku 3.5 to Fable 5.2). A scheduled GitHub Action (`.github/workflows/update-prices.yml`) refreshes that file from Claude's pricing page every Monday and commits any change; run `python3 scripts/update_prices.py` to refresh it yourself. Retired models that drop off the page keep their last known price.
+
 <details>
 <summary><b>Good to know about the countdown</b></summary>
 
@@ -523,6 +529,9 @@ tokenomics/
 ├── scripts/handoff.py         writes a resume note before the cache expires
 ├── scripts/critical_friend.py transcript analyser used by the skill
 ├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
+├── scripts/update_prices.py   refreshes data/model-prices.json from Claude's pricing page
+├── data/model-prices.json     Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly
+├── .github/workflows/update-prices.yml   scheduled job that runs update_prices.py and commits changes
 ├── scripts/dashboard.py       local web server over the spendlens database
 ├── dashboard/index.html       the dashboard page
 └── README.md
