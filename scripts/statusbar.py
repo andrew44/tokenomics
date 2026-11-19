@@ -44,12 +44,20 @@ STATE_FILE = CFG_DIR / "statusbar-state.json"
 DEFAULT_CFG = {"theme": "system", "usd_gbp": 0.76, "cache_ttl": None,
                "width": 12, "warn": 75, "crit": 90}
 
-# Fallback price table (USD per million tokens: input, output). Only used when the CLI does not
-# report a cost itself (Copilot, or older Claude Code). Marked with "~" on screen. Override with
-# {"prices": {"opus": [5, 25], "sonnet": [3, 15]}} in statusbar.json.
+# Price tables (USD per million tokens). Only used when the CLI does not report a cost itself
+# (Copilot, or older Claude Code). Marked with "~" on screen.
+#  1. {"prices": {"opus": [5, 25], "sonnet": [3, 15]}} in statusbar.json wins (substring match);
+#  2. then data/model-prices.json, per Claude model id, kept current by
+#     .github/workflows/update-prices.yml from Claude's pricing page;
+#  3. then this per-family fallback.
 PRICES = {"opus": (5.0, 25.0), "sonnet": (3.0, 15.0), "haiku": (1.0, 5.0),
           "gpt": (2.5, 10.0), "gemini": (1.25, 10.0)}
 DEFAULT_PRICE = (3.0, 15.0)
+MODEL_PRICES_FILE = Path(__file__).resolve().parent.parent / "data" / "model-prices.json"
+_CLAUDE_FAMILIES = "fable|mythos|opus|sonnet|haiku"
+_FAMILY_FIRST = re.compile(rf"({_CLAUDE_FAMILIES})[\s_-]*(\d+)(?:[.-](\d)(?!\d))?")
+_VERSION_FIRST = re.compile(rf"(\d+)[.-](\d)(?!\d)[\s_-]*({_CLAUDE_FAMILIES})")
+_model_prices_cache = None
 
 # ----------------------------------------------------------------------------- config ---
 
@@ -212,32 +220,87 @@ def mmss(seconds):
     return f"{seconds // 60:02d}:{seconds % 60:02d}"
 
 
-def price_for(model, cfg):
-    table = dict(PRICES)
+def load_model_prices():
+    """{model_id: entry} from data/model-prices.json ({} if missing or unreadable)."""
+    global _model_prices_cache
+    if _model_prices_cache is None:
+        try:
+            _model_prices_cache = json.loads(MODEL_PRICES_FILE.read_text(encoding="utf-8")).get("models") or {}
+        except (OSError, ValueError, AttributeError):
+            _model_prices_cache = {}
+    return _model_prices_cache
+
+
+def claude_model_id(model):
+    """Canonical id for a Claude model name or id, e.g. 'Opus 5.5' or 'claude-opus-5-5[1m]' ->
+    'claude-opus-5-5'; 'claude-3-5-haiku-20241022' -> 'claude-3-5-haiku'. None if not Claude."""
+    m = (model or "").lower()
+    hit = _VERSION_FIRST.search(m)
+    if hit:
+        return f"claude-{hit.group(1)}-{hit.group(2)}-{hit.group(3)}"
+    hit = _FAMILY_FIRST.search(m)
+    if not hit:
+        return None
+    family, major, minor = hit.group(1), int(hit.group(2)), hit.group(3)
+    ver = f"{major}-{minor}" if minor and minor != "0" else f"{major}"
+    return f"claude-{ver}-{family}" if major < 4 else f"claude-{family}-{ver}"
+
+
+def rates_for(model, cfg):
+    """Per-million-token USD rates: input, output, cache_write_5m, cache_write_1h, cache_read
+    (plus long_context when the model has a long-prompt tier)."""
+    m = (model or "").lower()
     for k, v in (cfg.get("prices") or {}).items():
         try:
-            table[k.lower()] = (float(v[0]), float(v[1]))
+            if k.lower() in m:
+                pin, pout = float(v[0]), float(v[1])
+                return {"input": pin, "output": pout, "cache_write_5m": pin * 1.25,
+                        "cache_write_1h": pin * 2.0, "cache_read": pin * 0.1}
         except (TypeError, ValueError, IndexError):
             pass
-    m = (model or "").lower()
-    for key, val in table.items():
+    entry = load_model_prices().get(claude_model_id(m) or "")
+    if entry:
+        try:
+            pin = float(entry["input"])
+            rates = {"input": pin, "output": float(entry["output"]),
+                     "cache_write_5m": float(entry.get("cache_write_5m", pin * 1.25)),
+                     "cache_write_1h": float(entry.get("cache_write_1h", pin * 2.0)),
+                     "cache_read": float(entry.get("cache_read", pin * 0.1))}
+            if isinstance(entry.get("long_context"), dict):
+                rates["long_context"] = entry["long_context"]
+            return rates
+        except (KeyError, TypeError, ValueError):
+            pass
+    pin, pout = DEFAULT_PRICE
+    for key, val in PRICES.items():
         if key in m:
-            return val
-    return DEFAULT_PRICE
+            pin, pout = val
+            break
+    return {"input": pin, "output": pout, "cache_write_5m": pin * 1.25,
+            "cache_write_1h": pin * 2.0, "cache_read": pin * 0.1}
+
+
+def price_for(model, cfg):
+    """(input, output) USD per million tokens."""
+    r = rates_for(model, cfg)
+    return r["input"], r["output"]
 
 
 def usage_cost_usd(u, model, cfg):
-    """Cost of one usage dict in USD (cache writes 1.25x/2x input, reads 0.1x input)."""
-    pin, pout = price_for(model, cfg)
+    """Cost of one usage dict in USD, at the model's input/output/cache-write/cache-read rates."""
+    r = rates_for(model, cfg)
     cc = u.get("cache_creation") or {}
     w1h = int(cc.get("ephemeral_1h_input_tokens") or 0)
     w5m = int(cc.get("ephemeral_5m_input_tokens") or 0)
     if not (w1h or w5m):
         w5m = int(u.get("cache_creation_input_tokens") or 0)
-    return (int(u.get("input_tokens") or 0) * pin + int(u.get("output_tokens") or 0) * pout
-            + w5m * pin * 1.25 + w1h * pin * 2.0
-            + int(u.get("cache_read_input_tokens") or 0) * pin * 0.1) / 1e6
-
+    inp = int(u.get("input_tokens") or 0)
+    read = int(u.get("cache_read_input_tokens") or 0)
+    lc = r.get("long_context")
+    if lc and inp + w5m + w1h + read > int(lc.get("threshold") or 0):
+        r = {**r, **{k: float(v) for k, v in lc.items() if k != "threshold"}}
+    return (inp * r["input"] + int(u.get("output_tokens") or 0) * r["output"]
+            + w5m * r["cache_write_5m"] + w1h * r["cache_write_1h"] + read * r["cache_read"]) / 1e6
 
 # ----------------------------------------------------------------------------- transcript
 
