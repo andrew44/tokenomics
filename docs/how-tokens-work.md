@@ -1,3 +1,5 @@
+<p align="right"><a href="../README.md">← Back to README</a> · <a href="README.md">All docs</a></p>
+
 # How tokens work
 
 Every number tokenomics shows you (tokens used, cache countdown, cost in pounds) comes back to one idea: **tokens**. This guide explains them in two parts:
@@ -217,7 +219,7 @@ The expensive moment is when a large conversation's cache **expires**. The next 
 
 #### Reading the usage fields
 
-Each Claude API response reports four token counts. tokenomics stores them as the columns described in the main README:
+Each Claude API response reports four token counts. tokenomics stores them as the columns described in the [helper reference](reference.md#token-columns):
 
 | API field | tokenomics column | Meaning |
 |-----------|-------------------|---------|
@@ -273,3 +275,7 @@ The same "short reply" costs roughly ten times more after the cache has gone col
 - Anthropic: [Token counting](https://platform.claude.com/docs/en/build-with-claude/token-counting)
 - Anthropic: [Pricing](https://platform.claude.com/docs/en/about-claude/pricing)
 - Sennrich, Haddow and Birch (2016), *Neural Machine Translation of Rare Words with Subword Units*: the paper that introduced BPE to NLP.
+
+---
+
+<p align="center"><a href="README.md">All docs</a> · <a href="saving-tokens.md">Saving tokens →</a></p>

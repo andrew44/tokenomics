@@ -1,3 +1,5 @@
+<p align="right"><a href="../README.md">← Back to README</a> · <a href="README.md">All docs</a></p>
+
 # Skills, tools and hooks: what each one does and when to reach for it
 
 tokenomics is made of three kinds of helper. This page lists every one, says what it does, and, most usefully, **when to reach for it**.
@@ -27,7 +29,7 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 | Stop the AI pulling huge files or logs into the conversation | [diet](#diet) | Hook |
 | Pick up tomorrow where I left off, cheaply | [handoff](#handoff) | Hook (plus `handoff.py write`) |
 | Know how much AI time went on building vs running things | [spendlens](#spendlens) + [dashboard](#dashboard) / [spend-report](#spend-report) | Hook + Tool / Skill |
-| Get raw numbers for a script or spreadsheet | [coach.py --json](#coachpy), [report.py --json](#reportpy), or [sqlite3](../README.md#looking-at-your-data) | Tool |
+| Get raw numbers for a script or spreadsheet | [coach.py --json](#coachpy), [report.py --json](#reportpy), or [sqlite3](reference.md#looking-at-your-data) | Tool |
 | Refresh model prices | [update_prices.py](#update_pricespy) | Tool |
 
 ```mermaid
@@ -80,7 +82,7 @@ Skills are instructions the assistant follows when you ask. They only run when y
 
 ## Hooks
 
-Hooks run automatically once the plugin is installed. You don't call them; you decide whether to keep them on and how strict they are. Each guard-rail hook has a `block` / `warn` / `off` setting (see [Settings](../README.md#settings-optional)).
+Hooks run automatically once the plugin is installed. You don't call them; you decide whether to keep them on and how strict they are. Each guard-rail hook has a `block` / `warn` / `off` setting (see [Configuration](configuration.md)).
 
 Where each hook fires:
 
@@ -120,7 +122,7 @@ sequenceDiagram
 - Keywords keep missing: set `TOKENOMICS_LLM=1` to let a model decide once per session (prompts leave your machine, redacted; point it at a local model if sensitive).
 - A team wants one shared view: point `TOKENOMICS_DB` at a shared location.
 
-**Script:** `scripts/spendlens.py` (`prompt`, `tool`, `finalize`, and `capabilities` to see what each assistant supports). Details: [What spendlens saves](../README.md#what-spendlens-saves).
+**Script:** `scripts/spendlens.py` (`prompt`, `tool`, `finalize`, and `capabilities` to see what each assistant supports). Details: [What spendlens saves](reference.md#spendlens).
 
 ### pennywise
 
@@ -128,7 +130,7 @@ sequenceDiagram
 
 **Reach for it (keep it on) when:** you tend to leave a top-tier model selected all day, or a team is new to choosing models. Turn it to `warn` if pauses annoy you but you still want the nudge, or `off` if you always pick models deliberately.
 
-**When it pauses you:** send the same prompt again, or start it with `keep-model:`, to run it anyway. Claude Code only. Details: [Using pennywise](../README.md#using-pennywise-the-money-saver).
+**When it pauses you:** send the same prompt again, or start it with `keep-model:`, to run it anyway. Claude Code only. Details: [Using pennywise](reference.md#pennywise).
 
 ### diet
 
@@ -136,7 +138,7 @@ sequenceDiagram
 
 **Reach for it (keep it on) when:** you do a lot of ops or debugging work (logs, big repos), since one unbounded log dump is paid for again on every later turn. Raise `TOKENOMICS_DIET_MAX_KB` if it blocks files you genuinely need whole.
 
-**When you need the whole thing:** append `# diet-ok` to the command. Works in Claude Code and Copilot CLI. Details: [Using diet](../README.md#using-diet-the-context-filter).
+**When you need the whole thing:** append `# diet-ok` to the command. Works in Claude Code and Copilot CLI. Details: [Using diet](reference.md#diet).
 
 ### budget
 
@@ -144,7 +146,7 @@ sequenceDiagram
 
 **Reach for it when:** you're paying out of your own pocket, you have a monthly allowance to stretch, or you're trialling a new, pricier model. It does nothing until you set `TOKENOMICS_BUDGET_DAILY` and/or `TOKENOMICS_BUDGET_SESSION`.
 
-**When it pauses you:** send the same prompt again, or start it with `over-budget:`; you won't be paused again for that limit that day. Use `TOKENOMICS_BUDGET_MODE=warn` for notices only. Claude Code only (Copilot bills premium requests, which hooks can't see). Details: [Using budget](../README.md#using-budget-the-spending-limit).
+**When it pauses you:** send the same prompt again, or start it with `over-budget:`; you won't be paused again for that limit that day. Use `TOKENOMICS_BUDGET_MODE=warn` for notices only. Claude Code only (Copilot bills premium requests, which hooks can't see). Details: [Using budget](reference.md#budget).
 
 ### handoff
 
@@ -152,7 +154,7 @@ sequenceDiagram
 
 **Reach for it when:** you step away from a session for more than a few minutes and plan to come back. Instead of resuming the old session (which re-writes the whole conversation into the cache), start fresh and say `Continue from @<that file>`. Set `TOKENOMICS_HANDOFF_INJECT=1` to have it loaded automatically. Need one now? `python3 scripts/handoff.py write`.
 
-**Turn it off** (`TOKENOMICS_HANDOFF=off`) if you never resume work across breaks. Copilot support is best effort. Details: [Using handoff](../README.md#using-handoff-the-bookmark).
+**Turn it off** (`TOKENOMICS_HANDOFF=off`) if you never resume work across breaks. Copilot support is best effort. Details: [Using handoff](reference.md#handoff).
 
 ---
 
@@ -174,7 +176,7 @@ Scripts you run yourself. All need only Python 3.8+ and live in `scripts/`. Run 
 | `python3 scripts/statusbar.py --watch` | A smoothly ticking countdown in a spare terminal pane. |
 | `python3 scripts/statusbar.py --demo --theme light` | Preview every state and colour. |
 
-Details: [Using the status bar](../README.md#using-the-status-bar).
+Details: [statusbar reference](reference.md#statusbar).
 
 ### dashboard
 
@@ -187,7 +189,7 @@ python3 scripts/dashboard.py              # http://127.0.0.1:8765
 python3 scripts/dashboard.py --demo
 ```
 
-Read-only, local only. Details: [Dashboard](../README.md#dashboard).
+Read-only, local only. Details: [dashboard reference](reference.md#dashboard).
 
 ### report.py
 
@@ -229,7 +231,7 @@ python3 scripts/coach.py --transcript path/to/file.jsonl
 
 `scripts/update_prices.py`: refreshes `data/model-prices.json` from Claude's pricing page. A GitHub Action already runs it every Monday.
 
-**Reach for it when:** a new model has launched or prices changed and you don't want to wait for Monday, or (`--check`) to confirm the file is current. To override a single price instead, use `"prices"` in `~/.tokenomics/statusbar.json` (see [Prices](../README.md#using-the-status-bar)).
+**Reach for it when:** a new model has launched or prices changed and you don't want to wait for Monday, or (`--check`) to confirm the file is current. To override a single price instead, use `"prices"` in `~/.tokenomics/statusbar.json` (see [Prices](configuration.md#prices)).
 
 ```
 python3 scripts/update_prices.py            # fetch and update
@@ -246,4 +248,8 @@ python3 scripts/update_prices.py --check    # exit 1 if out of date
 - **After any session that surprised you:** ask the [coach](#coach).
 - **Teams:** share a database with `TOKENOMICS_DB` and look at the [dashboard](#dashboard) together.
 
-See the [README](../README.md) for installation, every setting and troubleshooting.
+See [Installation](installation.md) to get set up, [Configuration](configuration.md) for every setting, and [Installation → Troubleshooting](installation.md#troubleshooting) if something looks wrong.
+
+---
+
+<p align="center"><a href="saving-tokens.md">← Saving tokens</a> · <a href="README.md">All docs</a> · <a href="reference.md">Helper reference →</a></p>
