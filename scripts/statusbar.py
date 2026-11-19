@@ -220,10 +220,8 @@ def price_for(model, cfg):
         except (TypeError, ValueError, IndexError):
             pass
     m = (model or "").lower()
-    for key, val in table.items():
-        if key in m:
-            return val
-    return DEFAULT_PRICE
+    hits = [k for k in table if k and k in m]
+    return table[max(hits, key=len)] if hits else DEFAULT_PRICE
 
 
 def usage_cost_usd(u, model, cfg):
@@ -332,9 +330,10 @@ def scan_transcript(path, state, cfg):
                         elif int(cc.get("ephemeral_5m_input_tokens") or 0):
                             st["ttl_1h"] = False
             st["offset"] += end + 1
+    st["seen"] = time.time()
     cache[path] = st
-    if len(cache) > 20:                                   # keep the state file small
-        for k in sorted(cache, key=lambda k: cache[k].get("offset", 0))[:len(cache) - 20]:
+    if len(cache) > 20:                                   # keep the state file small: drop least recently used
+        for k in sorted(cache, key=lambda k: cache[k].get("seen", 0))[:len(cache) - 20]:
             cache.pop(k, None)
     return st
 
@@ -346,6 +345,10 @@ def gather(payload, cfg, state):
     """Collapse whatever the CLI told us (plus the transcript) into the numbers we display."""
     cw = payload.get("context_window") or {}
     model = payload.get("model") or {}
+    if isinstance(model, str):
+        model = {"id": model}
+    elif not isinstance(model, dict):
+        model = {}
     model_id = model.get("id") or ""
     name = model.get("display_name") or model_id or ""
     tpath = payload.get("transcript_path")

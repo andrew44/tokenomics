@@ -13,11 +13,11 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 try:
-    import spendlens  # reuse the opex/capex scorer
-except Exception:
-    spendlens = None
+    from tokenomics.engine.classifier import score as opex_capex_score  # the shared opex/capex scorer
+except Exception:                      # skill installed without the package: skip the topic check
+    opex_capex_score = None
 
 CACHE_TTL_S = 300          # default 5-minute prompt-cache TTL
 BIG_CTX = 100_000          # tokens: context size worth a /compact or /clear
@@ -120,9 +120,9 @@ def analyse(path):
     long_ = [(len(p) // 4, p[:60]) for p in prompts if len(p) > 4000]
     dup = [p[:60] for p, n in Counter(re.sub(r"\s+", " ", p.lower()) for p in prompts).items() if n > 1]
     side = Counter()
-    if spendlens:
+    if opex_capex_score:
         for p in prompts:
-            o, c = spendlens.score(p)
+            o, c = opex_capex_score(p)
             if o > c:
                 side["opex"] += 1
             elif c > o:

@@ -47,15 +47,18 @@ def build(db_path, days):
     if not Path(db_path).is_file():
         return {"empty": True, "db_path": str(db_path), "reason": "no-database"}
     db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=5)
-    db.row_factory = sqlite3.Row
-    cols = {r[1] for r in db.execute("PRAGMA table_info(sessions)")}
-    if not cols:
-        return {"empty": True, "db_path": str(db_path), "reason": "no-table"}
-    want = ["session_id", "source", "cwd", "label", "prompt_count", "first_seen", "updated_at",
-            "input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens",
-            "skills", "skill_detail"]
-    sel = ", ".join(c if c in cols else f"NULL AS {c}" for c in want)
-    rows = db.execute(f"SELECT {sel} FROM sessions ORDER BY first_seen").fetchall()
+    try:
+        db.row_factory = sqlite3.Row
+        cols = {r[1] for r in db.execute("PRAGMA table_info(sessions)")}
+        if not cols:
+            return {"empty": True, "db_path": str(db_path), "reason": "no-table"}
+        want = ["session_id", "source", "cwd", "label", "prompt_count", "first_seen", "updated_at",
+                "input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens",
+                "skills", "skill_detail"]
+        sel = ", ".join(c if c in cols else f"NULL AS {c}" for c in want)
+        rows = db.execute(f"SELECT {sel} FROM sessions ORDER BY first_seen").fetchall()
+    finally:
+        db.close()                                   # the server is long-running: never leak handles
 
     cutoff = None
     if days:
@@ -84,8 +87,9 @@ def build(db_path, days):
 
     # dense daily series so quiet days show as gaps, not as missing bars
     series = []
-    if rows:
-        start = datetime.strptime(cutoff or min(d for d in daily if d != "unknown"), "%Y-%m-%d")
+    dated = [d for d in daily if d != "unknown"]
+    if cutoff or dated:
+        start = datetime.strptime(cutoff or min(dated), "%Y-%m-%d")
         end = datetime.now()
         d = start
         while d.date() <= end.date():
@@ -112,10 +116,9 @@ def build(db_path, days):
 
 
 def seed_demo(path):
-    sys.path.insert(0, str(HERE))
-    import spendlens
-    spendlens.DB_PATH = path
-    db = spendlens.connect()
+    sys.path.insert(0, str(HERE.parent))
+    from tokenomics.engine import store
+    db = store.connect(path)
     rnd = random.Random(7)
     projects = ["/work/payments-api", "/work/platform-infra", "/work/web-app",
                 "/work/observability", "/work/data-pipeline"]

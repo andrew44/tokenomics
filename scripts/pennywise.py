@@ -176,7 +176,8 @@ def handle(d):
     if MODE == "warn":
         log(sid, model, cheaper, reason, "warned")
         return {"systemMessage": msg}
-    state[sid] = digest
+    state.pop(sid, None)
+    state[sid] = digest                       # re-insert so the newest entry survives the trim
     try:
         STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
         STATE_PATH.write_text(json.dumps(dict(list(state.items())[-200:])))

@@ -8,7 +8,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from ..platform.capabilities import BILLING_UNKNOWN
+# Billing models. Kept distinct on purpose: Anthropic bills tokens, Copilot bills premium
+# requests. The engine never converts one into the other or invents a money value.
+# Defined here (not in tokenomics.platform) so the engine imports without the platform layer;
+# tokenomics.platform.capabilities re-exports them.
+BILLING_ANTHROPIC_TOKENS = "anthropic_tokens"
+BILLING_COPILOT_PREMIUM_REQUESTS = "copilot_premium_requests"
+BILLING_UNKNOWN = "unknown"
 
 # Normalised tool kinds. Adapters map their platform's tool names onto these.
 TOOL_CODE_EDIT = "code_edit"      # writes or edits files

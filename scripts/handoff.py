@@ -96,10 +96,30 @@ def safe(sid):
 
 # ------------------------------------------------------------------ transcript location ----
 
-def newest_jsonl(directory):
+def newest_jsonl(directory, sid=None):
+    """Newest *.jsonl under `directory`; if `sid` is given, only files whose path names it count
+    (falling back to any file when none does)."""
+    if sid:
+        own = newest_jsonl_matching(directory, sid)
+        if own:
+            return own
     best, best_m = None, 0
     try:
         for p in Path(directory).rglob("*.jsonl"):
+            m = p.stat().st_mtime
+            if m > best_m:
+                best, best_m = p, m
+    except OSError:
+        pass
+    return best
+
+
+def newest_jsonl_matching(directory, sid):
+    best, best_m = None, 0
+    try:
+        for p in Path(directory).rglob("*.jsonl"):
+            if sid not in p.parts and p.stem != sid:
+                continue
             m = p.stat().st_mtime
             if m > best_m:
                 best, best_m = p, m
@@ -116,7 +136,8 @@ def resolve_transcript(d, source):
         return None
     p = Path(t)
     if p.is_dir():
-        p = newest_jsonl(p)
+        sid = d.get("session_id") or d.get("sessionId")
+        p = newest_jsonl(p, str(sid) if sid else None)
     return p if p and p.is_file() else None
 
 
@@ -430,12 +451,14 @@ def start(d):
             continue
         if time.time() - m.get("written", 0) > MAX_AGE_H * 3600:
             continue
-        if not best or m["written"] > best["written"]:
+        if not best or m.get("written", 0) > best.get("written", 0):
             best = m
-    if not best or not Path(best["path"]).is_file():
+    if not best or not Path(best.get("path") or "").is_file():
         return None
+    def n(v):
+        return f"{v:,}" if isinstance(v, (int, float)) else "?"
     note = (f"tokenomics handoff: a recent session in this folder left a handoff "
-            f"(about {best.get('handoff_tokens', '?')} tokens vs {best.get('ctx_tokens', '?'):,} to resume it in full). "
+            f"(about {n(best.get('handoff_tokens'))} tokens vs {n(best.get('ctx_tokens'))} to resume it in full). "
             f"Say 'Continue from @{best['path']}' to pick it up cheaply.")
     out = {"systemMessage": note}
     if INJECT:
