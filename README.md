@@ -226,6 +226,27 @@ If tokenomics saves you more than the price of a coffee, consider buying me one:
 
 **The prices, token counts and costs shown by tokenomics are a rough indication of what your current session has cost, not a bill. They may be inaccurate, incomplete or out of date. The authors and contributors accept no liability for any loss or cost arising from prices or costs that turn out to be wrong, or from decisions made using them. You are responsible for checking your actual usage and charges in the Claude app (or your provider's billing page) and should not rely solely on this tool. tokenomics is provided "as is", without warranty of any kind; see sections 7 (Disclaimer of Warranty) and 8 (Limitation of Liability) of the [Apache License 2.0](LICENSE).**
 
+## 🏁 Quick start
+
+Convinced? Here's the whole thing in three steps:
+
+```text
+# 1. In Claude Code: add the plugin (skills + hooks)
+/plugin marketplace add andrew44/tokenomics
+/plugin install tokenomics@tokenomics
+```
+
+```bash
+# 2. In a terminal: add the status bar
+git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install claude
+```
+
+**3.** Restart Claude Code and say *"coach, review my prompts"*.
+
+Want only some of it? See [pick and choose](#-or-pick-and-choose). Anything else: [Installation guide](docs/installation.md).
+
+---
+
 ## Licence
 
 [Apache License 2.0](LICENSE)
