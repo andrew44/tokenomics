@@ -51,13 +51,15 @@ Every message you send re-sends the **whole conversation**. Long chats, pasted l
 /plugin install tokenomics@tokenomics
 ```
 
-Choose **Install for you (user scope)** when asked. You now have both skills and all five hooks.
+Choose **Install for you (user scope)** when asked. You now have the skills and all five hooks.
 
-**2. Add the status bar.** In a normal terminal:
+**2. Add the status bar.** Still in Claude Code:
 
-```bash
-git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install claude
+```text
+/tokenomics:statusbar
 ```
+
+It asks before replacing a status line you already have, and keeps itself up to date whenever the plugin updates.
 
 **3. Restart Claude Code.** That's it. 🎉 Now try:
 
@@ -76,9 +78,9 @@ claude plugin marketplace add andrew44/tokenomics && claude plugin install token
 
 | Where you work | What to do |
 |---|---|
-| **Claude desktop app** | Do the steps above once in a terminal; the desktop app shares the same settings. Toggle it under **+** → **Plugins**. |
+| **Claude desktop app** | Do the steps above once in a terminal; the desktop app shares the same settings. Toggle it under **+** → **Plugins**. The status bar is terminal-only. |
 | **claude.ai/code (web)** | Plugins can't be installed on the web. Commit the coach to your repo instead: `npx skills@latest add andrew44/tokenomics --skill coach --copy` |
-| **GitHub Copilot CLI** | `copilot plugin install andrew44/tokenomics`, then `python3 tokenomics/scripts/statusbar.py --install copilot` |
+| **GitHub Copilot CLI** | `copilot plugin install andrew44/tokenomics`, then `git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install copilot` |
 
 Full details, team installs, updating and removing: **[Installation guide](docs/installation.md)**.
 </details>
@@ -93,7 +95,7 @@ Every piece works on its own. Grab just what you want:
 |---|---|
 | 🧑‍🏫 **coach** skill | `npx skills@latest add andrew44/tokenomics --skill coach` |
 | 📊 **spend-report** skill | `npx skills@latest add andrew44/tokenomics --skill spend-report` *(reads spendlens data, so pair it with the plugin)* |
-| 📟 **statusbar** | `git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install claude` |
+| 📟 **statusbar** | `/tokenomics:statusbar` with the plugin, or without it: `git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install claude` |
 | 📈 **dashboard** | `python3 tokenomics/scripts/dashboard.py` *(from a clone)* |
 | 🛡️ **Some of the hooks** | Install the plugin, then switch off the ones you don't want, e.g. `TOKENOMICS_DIET=off` or `TOKENOMICS_PENNYWISE=warn` |
 
@@ -112,7 +114,7 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 | 🥗 | **[diet](docs/reference.md#diet)** | Stops tool calls that would flood the context (whole lockfiles, unbounded logs) and tells the AI to ask for less. | hook | ✅ | ✅ |
 | 💳 | **[budget](docs/reference.md#budget)** | Daily and per-session limits in your currency. Warns at 80%, pauses at 100%. | hook | ✅ | — |
 | 🔖 | **[handoff](docs/reference.md#handoff)** | Writes a free "where we got to" note just before the cache expires, so you can resume cheaply. | hook | ✅ | ✅ |
-| 📟 | **[statusbar](docs/reference.md#statusbar)** | Context fill, tokens, cost and a cache countdown, live at the bottom of your assistant. | tool | ✅ | ✅ |
+| 📟 | **[statusbar](docs/reference.md#statusbar)** | Context fill, tokens, cost and a cache countdown, live at the bottom of your assistant. Switch it on with `/tokenomics:statusbar`. | tool | ✅ | ✅ |
 | 📈 | **[dashboard](docs/reference.md#dashboard)** | A local web view of where your tokens went, split by OPEX/CAPEX, project and day. | tool | ✅ | ✅ |
 
 > **Skills** run when you ask. **Hooks** run automatically. **Tools** you run yourself. Not sure which you need? → [Skills, tools and hooks](docs/skills-tools-and-hooks.md)
@@ -231,14 +233,12 @@ If tokenomics saves you more than the price of a coffee, consider buying me one:
 Convinced? Here's the whole thing in three steps:
 
 ```text
-# 1. In Claude Code: add the plugin (skills + hooks)
+# 1. Add the plugin (skills + hooks)
 /plugin marketplace add andrew44/tokenomics
 /plugin install tokenomics@tokenomics
-```
 
-```bash
-# 2. In a terminal: add the status bar
-git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install claude
+# 2. Add the status bar
+/tokenomics:statusbar
 ```
 
 **3.** Restart Claude Code and say *"coach, review my prompts"*.

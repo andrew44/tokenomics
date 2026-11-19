@@ -15,6 +15,10 @@ Usage
   statusbar.py                      render once from the stdin JSON (what the CLIs do)
   statusbar.py --install [claude|copilot|both]   wire it into the CLI settings (backs them up)
   statusbar.py --uninstall [claude|copilot|both]
+  statusbar.py --status             say where the status bar is installed
+  statusbar.py --sync               SessionStart hook (plugin): refresh the installed copy after a
+                                    plugin update; offer it once if no status line is set
+                                    (TOKENOMICS_STATUSBAR=auto installs it, =off stays quiet)
   statusbar.py --watch [--path FILE]  live-refresh every second (for terminals/CLIs that only
                                     redraw on activity, so the timer keeps ticking)
   statusbar.py --demo               preview every state (use with --theme light|dark)
@@ -761,30 +765,62 @@ def _write_json(path, data):
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+def _settings_path(target):
+    if target == "claude":
+        return Path(os.environ.get("CLAUDE_CONFIG_DIR", HOME / ".claude")) / "settings.json"
+    if target == "copilot":
+        return Path(os.environ.get("COPILOT_HOME", HOME / ".copilot")) / "settings.json"
+    raise SystemExit("target must be claude, copilot or both")
+
+
+def _installed_copy():
+    return CFG_DIR / "statusbar.py"
+
+
+def _copy_files():
+    """Copy this script and the price list to a stable path that survives plugin updates."""
+    CFG_DIR.mkdir(parents=True, exist_ok=True)
+    dest = _installed_copy()
+    src = Path(__file__).resolve()
+    if src != dest.resolve():
+        shutil.copy2(src, dest)
+    for prices in MODEL_PRICES_FILES[1:]:                 # prices travel with it
+        if prices.is_file():
+            shutil.copy2(prices, CFG_DIR / "model-prices.json")
+            break
+    return dest
+
+
+def _status_line(target):
+    """The statusLine command in a CLI's settings, or None. Never raises."""
+    try:
+        line = json.loads(_settings_path(target).read_text(encoding="utf-8")).get("statusLine")
+        return (line or {}).get("command") if isinstance(line, dict) else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def _is_ours(command):
+    return bool(command) and "statusbar.py" in command and str(CFG_DIR) in command
+
+
 def install(target, remove=False):
     targets = ("claude", "copilot") if target == "both" else (target,)
-    CFG_DIR.mkdir(parents=True, exist_ok=True)
-    dest = CFG_DIR / "statusbar.py"
-    if not remove:
-        shutil.copy2(Path(__file__).resolve(), dest)      # stable path, survives plugin updates
-        for src in MODEL_PRICES_FILES[1:]:                # prices travel with it (refresh: copy again)
-            if src.is_file():
-                shutil.copy2(src, CFG_DIR / "model-prices.json")
-                break
-    command = f'"{sys.executable}" "{dest}"'
     for t in targets:
+        _settings_path(t)                                 # validate before touching anything
+    if not remove:
+        dest = _copy_files()
+    command = f'"{sys.executable}" "{_installed_copy()}"'
+    for t in targets:
+        path = _settings_path(t)
+        data = _read_json(path)
         if t == "claude":
-            path = Path(os.environ.get("CLAUDE_CONFIG_DIR", HOME / ".claude")) / "settings.json"
-            data = _read_json(path)
             if remove:
                 data.pop("statusLine", None)
             else:
                 data["statusLine"] = {"type": "command", "command": command, "padding": 0,
                                       "refreshInterval": 1}
-            _write_json(path, data)
-        elif t == "copilot":
-            path = Path(os.environ.get("COPILOT_HOME", HOME / ".copilot")) / "settings.json"
-            data = _read_json(path)
+        else:
             flags = data.setdefault("feature_flags", {}).setdefault("enabled", [])
             if remove:
                 data.pop("statusLine", None)
@@ -792,12 +828,82 @@ def install(target, remove=False):
                 data["statusLine"] = {"type": "command", "command": command, "padding": 1}
                 if "STATUS_LINE" not in flags:
                     flags.append("STATUS_LINE")
-            _write_json(path, data)
-        else:
-            raise SystemExit("target must be claude, copilot or both")
+        _write_json(path, data)
         print(f"{'Removed from' if remove else 'Installed in'} {path} (backup: settings.json.tokenomics.bak)")
     if not remove:
-        print("Restart the CLI to pick it up. Try `statusbar.py --demo --theme light` to preview.")
+        print(f"Restart the CLI to pick it up. Preview: python3 \"{dest}\" --demo --theme light")
+
+
+def status():
+    for t in ("claude", "copilot"):
+        cmd = _status_line(t)
+        where = _settings_path(t)
+        if _is_ours(cmd):
+            print(f"{t}: installed ({where})")
+        elif cmd:
+            print(f"{t}: another status line is set in {where}: {cmd}")
+        else:
+            print(f"{t}: not installed")
+    return 0
+
+
+HINT_FILE = CFG_DIR / "statusbar-offered"
+
+
+def _same(a, b):
+    try:
+        return a.read_bytes() == b.read_bytes()
+    except OSError:
+        return False
+
+
+def _out_of_date():
+    """True when the installed copy or its price list differs from the one beside this script."""
+    if not _same(_installed_copy(), Path(__file__).resolve()):
+        return True
+    prices = next((p for p in MODEL_PRICES_FILES[1:] if p.is_file()), None)
+    return bool(prices) and not _same(CFG_DIR / "model-prices.json", prices)
+
+
+def sync():
+    """SessionStart hook. Quiet and fast; never fails the session.
+
+    * Installed already: refresh ~/.tokenomics/statusbar.py and the price list from the plugin, so
+      the bar updates whenever the plugin does.
+    * No status line at all: with TOKENOMICS_STATUSBAR=auto, install it; otherwise say once how to.
+    * Someone else's status line: leave it alone.
+    """
+    try:
+        if not sys.stdin.isatty():
+            sys.stdin.read()                              # the hook payload; not needed
+    except (OSError, ValueError):
+        pass
+    try:
+        mode = os.environ.get("TOKENOMICS_STATUSBAR", "").strip().lower()
+        cmd = _status_line("claude")
+        if _is_ours(cmd) or _is_ours(_status_line("copilot")):
+            if _out_of_date():
+                _copy_files()
+            return 0
+        if cmd or mode == "off":
+            return 0
+        if mode == "auto":
+            import contextlib
+            import io
+            with contextlib.redirect_stdout(io.StringIO()):
+                install("claude")
+            msg = "tokenomics: status bar installed. Restart Claude Code to see it."
+        else:
+            if HINT_FILE.exists():
+                return 0
+            CFG_DIR.mkdir(parents=True, exist_ok=True)
+            HINT_FILE.write_text(datetime.now(timezone.utc).isoformat(), encoding="utf-8")
+            msg = ("tokenomics: want the live cost and cache status bar? Run /tokenomics:statusbar "
+                   "(or set TOKENOMICS_STATUSBAR=auto). This tip shows once.")
+        sys.stdout.write(json.dumps({"systemMessage": msg}))
+    except Exception:
+        pass
+    return 0
 
 
 def main():
@@ -812,6 +918,10 @@ def main():
         target = args[i + 1] if i + 1 < len(args) and not args[i + 1].startswith("-") else "claude"
         install(target, remove=(flag == "--uninstall"))
         return
+    if "--sync" in args:
+        sys.exit(sync())
+    if "--status" in args:
+        sys.exit(status())
     if "--update-rate" in args:
         sys.exit(update_rate())
     if "--set-currency" in args:

@@ -170,7 +170,7 @@ Scripts you run yourself. All need only Python 3.8+ and live in `scripts/`. Run 
 
 | Command | Use it to |
 |---------|-----------|
-| `python3 scripts/statusbar.py --install claude` (or `copilot`, `both`) | Install it (backs up your settings first). `--uninstall` removes it. |
+| `/tokenomics:statusbar` (plugin) or `python3 scripts/statusbar.py --install claude` (or `copilot`, `both`) | Install it (backs up your settings first). `--uninstall` removes it, `--status` says where it is. |
 | `python3 scripts/statusbar.py --set-currency USD` | Choose £, $ or € for every cost tokenomics shows. |
 | `python3 scripts/statusbar.py --update-rate` | Fetch today's exchange rates. |
 | `python3 scripts/statusbar.py --watch` | A smoothly ticking countdown in a spare terminal pane. |
