@@ -145,9 +145,10 @@ Then start `copilot`, check that `/plugin list` shows `tokenomics`, and send a p
 <details>
 <summary><b>Copilot notes and known limits</b></summary>
 
-- Copilot reads `plugin.json` and `copilot-hooks.json` at the plugin root (`userPromptSubmitted` and `sessionEnd` hooks).
-- Copilot may not provide a session id. If it doesn't, spendlens builds one from the working directory and date.
-- Copilot sessions are labelled from the words in each prompt only. There is no full conversation file to read, so token counts and the critical-friend coach don't work for Copilot.
+- Copilot reads `plugin.json` and `copilot-hooks.json` at the plugin root (`userPromptSubmitted`, `postToolUse` and `sessionEnd` hooks).
+- Copilot sends a session id with every hook, and spendlens logs each session under it. If one is ever missing, spendlens builds one from the working directory and date.
+- Copilot sessions are labelled from the words in each prompt **and** the tools Copilot used (file edits lean CAPEX, observability tools and commands like `kubectl logs` lean OPEX). Same scoring as Claude Code.
+- Copilot doesn't tell hooks how many tokens or premium requests a session used, so those columns stay empty (`usage_status = unavailable`). spendlens never guesses a number for them. The critical-friend coach doesn't work for Copilot either, because there's no conversation file to read.
 - The hook commands use the relative path `scripts/spendlens.py`. If Copilot runs them from a different folder and you see "file not found" in `<db>.err`, change the path in `copilot-hooks.json` to an absolute one.
 - Copilot's plugin format is still changing; check the current Copilot docs if the install fails.
 </details>
@@ -278,8 +279,8 @@ flowchart LR
 - At session end, the whole transcript is re-scored and tool calls are counted.
 - Each distinct skill that lands clearly on one side adds weight 6 to it, so one skill outweighs a few keyword hits. An ambiguous skill adds nothing.
 - Example: "Analyses App Insights" → OPEX; "Create Unit Tests using NUnit" → CAPEX.
-- A skill's description is read from its `SKILL.md` / command file on disk (project `.claude/` or `.github/`, user `~/.claude/`, installed plugins), or otherwise from a skill listing found in the transcript.
-- To adjust the scoring, edit `OPEX_PATTERNS` / `CAPEX_PATTERNS` in `scripts/spendlens.py`, or use `TOKENOMICS_SKILL_MAP` (below).
+- A skill's description is read from its `SKILL.md` / command file on disk. Claude Code looks in the project's `.claude/`, `~/.claude/` and installed plugins, or otherwise in a skill listing found in the transcript. Copilot looks in the project's `.github/` and `.claude/` and in `~/.copilot/`.
+- To adjust the scoring, edit `OPEX_PATTERNS` / `CAPEX_PATTERNS` in `tokenomics/engine/classifier.py`, or use `TOKENOMICS_SKILL_MAP` (below). One change applies to Claude Code and Copilot alike.
 </details>
 
 <details>
@@ -312,8 +313,11 @@ The keyword scores are always stored too, so you can compare the two. Failures a
 | `input_tokens`, `output_tokens` | Fresh input and generated tokens |
 | `cache_creation_tokens`, `cache_read_tokens` | Prompt-cache writes and reads |
 | `total_tokens` | Sum of the four above. Cache reads usually dominate, so use `input_tokens + output_tokens` for a leaner figure. |
+| `billing_model` | What the assistant charges for: `anthropic_tokens` (Claude Code) or `copilot_premium_requests` (Copilot). Don't add the two together. |
+| `usage_status` | `reported` when the assistant gave token counts, `unavailable` when it didn't (always the case for Copilot). Empty token columns mean "not known", not zero. |
+| `evidence` | What the label is based on: `transcript` (the whole conversation) or `hook-events` (prompts and tool calls seen one at a time) |
 
-Tokens are counted once per message. Work done by sub-agents in separate transcript files is not included. Copilot sessions have no transcript, so skills and tokens stay empty there.
+Tokens are counted once per message. Work done by sub-agents in separate transcript files is not included. For Copilot, tool calls are also kept one row each in the `tool_events` table (tool name and kind only, never arguments).
 </details>
 
 ---
@@ -444,11 +448,34 @@ The database has two tables: `sessions` (one row per session) and `prompt_events
 | No database file appears | Check Python is installed: run `python3 --version`. On Windows, change the hook to use `python`. |
 | Hooks don't seem to run (Claude Code) | Restart Claude Code, then run `/hooks`. Make sure the plugin is switched on in `/plugin`. |
 | Sessions are missing, or labelled `unknown` | Look for a file called `spendlens.db.err` next to the database. Errors go there, never on screen. |
-| *Everything* is labelled `unknown` | Your prompts didn't match any keywords. Add terms to the pattern lists in `scripts/spendlens.py`. |
+| *Everything* is labelled `unknown` | Your prompts didn't match any keywords. Add terms to the pattern lists in `tokenomics/engine/classifier.py`. |
 
 ---
 
-## For contributors: what's in the repo
+## For contributors: how it's built
+
+The OPEX/CAPEX logic is written **once**, in a shared engine. Claude Code and Copilot each have a small **adapter** that turns that assistant's hook messages into a common format and says what the assistant can and can't report. The engine never assumes a feature exists: it asks the adapter first, then does the best it can with what's there.
+
+```mermaid
+flowchart LR
+    CC["Claude Code hooks<br/>+ transcript"] --> A1["Claude Code adapter"]
+    GH["Copilot hooks<br/>(prompts, tool calls)"] --> A2["Copilot adapter"]
+    A1 --> CAP{"Capability<br/>registry"}
+    A2 --> CAP
+    CAP --> E["Shared engine<br/>classifier + LLM step"]
+    E --> DB[("spendlens.db<br/>one row per session id")]
+```
+
+- **Shared engine** (`tokenomics/engine/`): the scoring rules, the optional AI-model check, and the database. Both assistants go through exactly the same code.
+- **Adapters** (`tokenomics/adapters/`): translation only, no scoring. Each one lists its capabilities (transcript, token counts, tool events, billing and so on) as `native`, `partial` or `none`.
+- **If something is missing**, the engine copes: no transcript means it uses the prompt and tool events it stored; an unknown assistant, or an adapter that fails to load, still gets its prompts logged by session id, and the other assistant is unaffected.
+- **Billing stays separate**: Claude Code tokens and Copilot premium requests are never converted into each other or into money.
+- See what each assistant supports: `python3 scripts/spendlens.py capabilities`
+- Run the tests (no installs needed): `cd tests && python3 -m unittest`
+
+The other tools (status bar, pennywise, handoff, critical-friend) are still standalone scripts and will move onto the engine next.
+
+### What's in the repo
 
 ```mermaid
 flowchart TD
@@ -457,8 +484,10 @@ flowchart TD
     R --> PJ["plugin.json<br/>Copilot CLI manifest"]
     R --> CH["copilot-hooks.json<br/>Copilot CLI hooks"]
     R --> SK["skills/critical-friend/SKILL.md<br/>the coach"]
+    R --> EN["tokenomics/<br/>shared engine + adapters"]
+    R --> TS["tests/<br/>automated tests"]
     R --> SC["scripts/"]
-    SC --> S1["spendlens.py<br/>OPEX/CAPEX classifier"]
+    SC --> S1["spendlens.py<br/>OPEX/CAPEX hook runner"]
     SC --> S2["critical_friend.py<br/>conversation analyser"]
     SC --> S3["statusbar.py<br/>live status line"]
     SC --> S4["pennywise.py<br/>cheaper-model suggester"]
@@ -476,7 +505,14 @@ tokenomics/
 ├── plugin.json             Copilot CLI manifest
 ├── copilot-hooks.json      Copilot CLI hooks
 ├── skills/critical-friend/SKILL.md   prompt and cache review skill
-├── scripts/spendlens.py       the opex/capex classifier
+├── tokenomics/
+│   ├── engine/             shared logic: classifier.py, llm.py, store.py, session.py, evidence.py
+│   ├── platform/           common adapter interface + capability registry
+│   ├── adapters/           claude_code.py, copilot.py (translation only)
+│   ├── config.py           shared settings
+│   └── util.py             shared helpers
+├── tests/                  unittest suite (python3 -m unittest, from tests/)
+├── scripts/spendlens.py       the opex/capex hook runner (calls the engine)
 ├── scripts/pennywise.py       cheaper-model suggester (blocks over-spec'd prompts)
 ├── scripts/handoff.py         writes a resume note before the cache expires
 ├── scripts/critical_friend.py transcript analyser used by the skill

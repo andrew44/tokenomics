@@ -1,0 +1,53 @@
+"""Capabilities a platform adapter can expose to the shared engine.
+
+The engine never assumes a feature exists: it asks the adapter (`adapter.supports(...)`).
+Each adapter declares a level for every capability, so an unsupported feature is a known,
+reportable gap rather than a crash.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+
+
+class Capability(str, Enum):
+    AVAILABLE_MODELS = "available_models"          # can list the models on offer
+    MODEL_SELECTION = "model_selection"            # can tell / change which model is used
+    CONTEXT_INFO = "context_info"                  # context window size and fill
+    TOKEN_USAGE = "token_usage"                    # per-session input/output token counts
+    CACHE_INFO = "cache_info"                      # prompt-cache read/creation tokens
+    TOOL_OUTPUT_INTERCEPTION = "tool_output_interception"
+    HOOKS = "hooks"                                # lifecycle hooks exist at all
+    BILLING_INFO = "billing_info"                  # money / premium-request consumption
+    SESSION_INFO = "session_info"                  # a real session id in hook payloads
+    TRANSCRIPT = "transcript"                      # a readable, documented session transcript
+    TOOL_EVENTS = "tool_events"                    # per-tool-call hook events
+    SKILL_TRACKING = "skill_tracking"              # can see which skills were used
+    CONTEXT_INJECTION = "context_injection"        # hook output reaches the model
+
+
+class Level(str, Enum):
+    NATIVE = "native"        # provided by the platform, reliable
+    PARTIAL = "partial"      # available but incomplete, best effort or undocumented
+    NONE = "none"            # not available: the engine must degrade gracefully
+
+
+@dataclass(frozen=True)
+class Support:
+    level: Level
+    note: str = ""
+
+    @property
+    def available(self) -> bool:
+        return self.level is not Level.NONE
+
+
+NATIVE = Level.NATIVE
+PARTIAL = Level.PARTIAL
+NONE = Level.NONE
+
+# Billing models. Kept distinct on purpose: Anthropic bills tokens, Copilot bills premium
+# requests. The engine never converts one into the other or invents a money value.
+BILLING_ANTHROPIC_TOKENS = "anthropic_tokens"
+BILLING_COPILOT_PREMIUM_REQUESTS = "copilot_premium_requests"
+BILLING_UNKNOWN = "unknown"
