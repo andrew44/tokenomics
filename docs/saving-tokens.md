@@ -1,3 +1,5 @@
+<p align="right"><a href="../README.md">← Back to README</a> · <a href="README.md">All docs</a></p>
+
 # Saving tokens (and money)
 
 Practical tips for spending fewer tokens with an AI coding assistant, without getting worse results.
@@ -204,3 +206,7 @@ Habits are easier to change when you can see the effect.
 | Retrying a cheap model for the fourth time | A fresh session on a stronger model with a short summary |
 | "Fix the bug" | The exact error, the command, and what "done" looks like |
 | Premium model for renaming variables | Small model for simple, checkable jobs |
+
+---
+
+<p align="center"><a href="how-tokens-work.md">← How tokens work</a> · <a href="README.md">All docs</a> · <a href="skills-tools-and-hooks.md">Skills, tools and hooks →</a></p>
