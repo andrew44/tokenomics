@@ -360,6 +360,18 @@ Most people never need these. They are "environment variables", set in your shel
 
 ---
 
+## Dashboard
+
+A local web UI over the spendlens database: a headline **% OPEX vs % CAPEX** split bar, daily usage trend, per-project split, skills used and recent sessions. Switch the measure between tokens, sessions and prompts, and the range between 7d, 30d, 90d and all time. Light and dark mode follow your system.
+
+```
+python3 scripts/dashboard.py              # opens http://127.0.0.1:8765
+python3 scripts/dashboard.py --demo       # preview with seeded fake data
+python3 scripts/dashboard.py --db /path/to/spendlens.db --port 9000
+```
+
+It reads the database read-only, listens on 127.0.0.1 only, and needs nothing beyond Python 3.8+. It uses `TOKENOMICS_DB` if set.
+
 ## Looking at your data
 
 You can open the database with any SQLite tool. These examples use the `sqlite3` command.
@@ -409,6 +421,8 @@ flowchart TD
     SC --> S2["critical_friend.py<br/>conversation analyser"]
     SC --> S3["statusbar.py<br/>live status line"]
     SC --> S4["pennywise.py<br/>cheaper-model suggester"]
+    SC --> S5["dashboard.py<br/>local usage dashboard"]
+    R --> D["dashboard/index.html<br/>dashboard page"]
 ```
 
 ```
@@ -424,6 +438,8 @@ tokenomics/
 ├── scripts/pennywise.py       cheaper-model suggester (blocks over-spec'd prompts)
 ├── scripts/critical_friend.py transcript analyser used by the skill
 ├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
+├── scripts/dashboard.py       local web server over the spendlens database
+├── dashboard/index.html       the dashboard page
 └── README.md
 ```
 
