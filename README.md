@@ -18,7 +18,7 @@ Works with **Claude Code** and **GitHub Copilot CLI**.
 
 When you use an AI coding assistant, every message you send and every reply you get uses up *tokens*. Tokens are the "units" you are charged for, a bit like minutes on a phone plan. Some conversations use a lot more than they need to.
 
-> New to tokens? [How tokens work](docs/how-tokens-work.md) explains input, output, the prompt cache and tokenisers, first in plain English and then in technical depth. [Saving tokens](docs/saving-tokens.md) has practical tips for spending less.
+> New to tokens? [How tokens work](docs/how-tokens-work.md) explains input, output, the prompt cache and tokenisers, first in plain English and then in technical depth. [Saving tokens](docs/saving-tokens.md) has practical tips for spending less. Not sure which helper to use? [Skills, tools and hooks](docs/skills-tools-and-hooks.md) explains each one and when to reach for it.
 
 **tokenomics** gives you these helpers:
 
@@ -56,6 +56,14 @@ flowchart TD
 ```
 
 This lets a team answer questions like *"How much of our AI spend goes on building, and how much on keeping things running?"*
+
+## Docs
+
+| Guide | Read it to... |
+|-------|---------------|
+| [How tokens work](docs/how-tokens-work.md) | Understand input, output, the prompt cache and tokenisers, in plain English then in depth. |
+| [Saving tokens](docs/saving-tokens.md) | Pick up practical habits for spending fewer tokens. |
+| [Skills, tools and hooks](docs/skills-tools-and-hooks.md) | Find out what each tokenomics helper does and when to reach for it. |
 
 ---
 
@@ -573,6 +581,7 @@ flowchart TD
     SC --> S8["budget.py<br/>spending limits"]
     SC --> S9["report.py<br/>spend report"]
     R --> D["dashboard/index.html<br/>dashboard page"]
+    R --> DO["docs/<br/>guides"]
 ```
 
 ```
@@ -606,6 +615,7 @@ tokenomics/
 ├── .github/workflows/update-prices.yml   scheduled job that runs update_prices.py and commits changes
 ├── scripts/dashboard.py       local web server over the spendlens database
 ├── dashboard/index.html       the dashboard page
+├── docs/                      guides: how tokens work, saving tokens, skills/tools/hooks
 └── README.md
 ```
 

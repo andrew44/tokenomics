@@ -149,7 +149,7 @@ def merge(current, fresh):
         merged[mid] = {**entry, "listed": True}
     ordered = dict(sorted(merged.items(), key=lambda kv: version_key(kv[1]), reverse=True))
     return {
-        "source": PRICING_URL.removesuffix(".md"),
+        "source": PRICING_URL[:-len(".md")] if PRICING_URL.endswith(".md") else PRICING_URL,
         "currency": "USD",
         "unit": "per million tokens",
         "updated": (current or {}).get("updated"),
