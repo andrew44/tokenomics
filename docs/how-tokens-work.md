@@ -77,6 +77,8 @@ The **tokeniser** is the tool that does the chopping. Different AI models use di
 4. **Keep working while the cache is warm**, or let **handoff** write a note and start fresh later.
 5. **Use a smaller model for simple jobs.** That's what **pennywise** nudges you about.
 
+For more on each of these, with worked examples, see [Saving tokens](saving-tokens.md).
+
 That's all you need to know to use tokenomics well. If you want to see the machinery, read on.
 
 ---
