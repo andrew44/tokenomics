@@ -10,12 +10,13 @@ Works with **Claude Code** and **GitHub Copilot CLI**.
 
 When you use an AI coding assistant, every message you send and every reply you get uses up *tokens*. Tokens are the "units" you are charged for, a bit like minutes on a phone plan. Some conversations use a lot more than they need to.
 
-**tokenomics** gives you three helpers:
+**tokenomics** gives you four helpers:
 
 | Helper | What it does | Think of it as... |
 |--------|--------------|-------------------|
 | **critical-friend** | Reads your conversation and tells you where tokens were wasted, with simple fixes. | A coach who reviews your prompts. |
 | **spendlens** | Quietly labels each conversation as **OPEX** (running things) or **CAPEX** (building things) and saves it to a small file on your computer. | A timesheet that fills itself in. |
+| **pennywise** | Checks each prompt before it runs. If a cheaper model would do the job (say, a hello-world app on the priciest model), it pauses the prompt and suggests the cheaper one. | A friend who stops you buying the premium option you don't need. |
 | **statusbar** | Shows a live line at the bottom of your assistant: how full the conversation is, tokens used, what it has cost in pounds, and a countdown to when the AI's short-term memory (the "prompt cache") expires. | A fuel gauge and a meter for your session. |
 
 ```mermaid
@@ -335,12 +336,21 @@ This adds the status line to your Claude Code and/or Copilot settings (a backup 
 
 ---
 
+## Using pennywise (the money-saver)
+
+*Penny wise, pound foolish.* pennywise is a `UserPromptSubmit` hook (`scripts/pennywise.py`). It rates the prompt (small and self-contained, short and routine, or complex/unclear), finds the session's model (hook payload, then transcript, `ANTHROPIC_MODEL`, `settings.json`), and if a cheaper tier would cope it blocks with a suggestion such as `/model haiku`. Complex or ambiguous prompts are never blocked.
+
+To run the prompt anyway, send the same prompt again or start it with `keep-model:`. Each decision (`blocked`, `warned`, `overridden`) is logged to the `pennywise_events` table in the spendlens database. The checks are keyword-based; tune `SIMPLE` / `HARD` in the script. Copilot CLI ignores hook output on prompt submit, so pennywise is Claude Code only.
+
+---
+
 ## Settings (optional)
 
 Most people never need these. They are "environment variables", set in your shell profile or in Claude Code's `settings.json` under `"env"`.
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
+| `TOKENOMICS_PENNYWISE` | `block` | `block`, `warn` (notice only) or `off` for pennywise. |
 | `TOKENOMICS_DB` | `~/.tokenomics/spendlens.db` | Where the database file lives. Point it at a shared location to collect several machines' data. |
 | `TOKENOMICS_STORE_PROMPT` | off | Set to `1` to keep a 200-character excerpt of each prompt. Off by default for privacy. |
 | `TOKENOMICS_SKILL_MAP` | none | Path to a JSON file that tells spendlens which side a skill belongs to, e.g. `{"our-grafana-skill": "opex", "pdf": "capex"}`. This always wins over the built-in guessing. |
@@ -398,6 +408,7 @@ flowchart TD
     SC --> S1["spendlens.py<br/>OPEX/CAPEX classifier"]
     SC --> S2["critical_friend.py<br/>conversation analyser"]
     SC --> S3["statusbar.py<br/>live status line"]
+    SC --> S4["pennywise.py<br/>cheaper-model suggester"]
 ```
 
 ```
@@ -410,6 +421,7 @@ tokenomics/
 ├── copilot-hooks.json      Copilot CLI hooks
 ├── skills/critical-friend/SKILL.md   prompt and cache review skill
 ├── scripts/spendlens.py       the opex/capex classifier
+├── scripts/pennywise.py       cheaper-model suggester (blocks over-spec'd prompts)
 ├── scripts/critical_friend.py transcript analyser used by the skill
 ├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
 └── README.md
