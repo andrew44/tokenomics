@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """tokenomics / pennywise: "penny wise, pound foolish" - stop paying premium-model prices for trivial prompts.
 
-UserPromptSubmit hook. Reads the prompt, rates how hard it looks, compares that with the model
-the session is using, and if a cheaper tier would do the job it BLOCKS the prompt once and
-suggests the cheaper model (e.g. "create a hello-world console app" on Fable -> use Haiku).
+UserPromptSubmit hook and model router. Reads the prompt, rates how hard it looks, compares that
+with the model the session is using, and if a cheaper tier would do the job it routes the prompt
+to that tier automatically (e.g. "create a hello-world console app" on Fable -> runs on Haiku).
 
-Bypass: send the identical prompt again, prefix it with "keep-model:", or set TOKENOMICS_PENNYWISE=off.
+Claude Code gives hooks no way to switch the session's own model (only /model can), so routing
+works through the Agent tool's `model` parameter: the hook tells the session model to hand the
+prompt, untouched, to a subagent on the cheaper tier and relay the answer. The tool calls, file
+reads and output, which are most of a task's tokens, are then billed at the cheaper tier.
+
+Bypass: prefix the prompt with "keep-model:", or set TOKENOMICS_PENNYWISE=off.
 
 Env:
-  TOKENOMICS_PENNYWISE   block (default) | warn (never blocks, shows a notice) | off
+  TOKENOMICS_PENNYWISE   route (default: hand the prompt to a cheaper-model subagent)
+                         | block (pause once and suggest /model; resend to run anyway)
+                         | warn (notice only) | off
   TOKENOMICS_DB          SQLite path shared with spendlens (default ~/.tokenomics/spendlens.db)
 
 Stdlib only. Always exits 0; a crash never blocks a prompt (errors go to <db>.err).
@@ -23,11 +30,12 @@ import traceback
 from pathlib import Path
 
 DB_PATH = os.environ.get("TOKENOMICS_DB", str(Path.home() / ".tokenomics" / "spendlens.db"))
-MODE = os.environ.get("TOKENOMICS_PENNYWISE", "block").strip().lower()
+MODE = os.environ.get("TOKENOMICS_PENNYWISE", "route").strip().lower()
 STATE_PATH = Path(DB_PATH).with_name("pennywise_state.json")
 
 TIERS = {"haiku": 1, "sonnet": 2, "opus": 3, "fable": 4, "mythos": 4}
 NAMES = {1: "Haiku", 2: "Sonnet", 3: "Opus", 4: "Fable"}
+ALIASES = {1: "haiku", 2: "sonnet", 3: "opus"}     # values the Agent tool's `model` parameter takes
 BYPASS_RE = re.compile(r"^\s*keep-model:\s*", re.I)
 
 # Signals that a prompt is easy (cheap model is fine) ...
@@ -146,6 +154,28 @@ def log(sid, model, suggested, reason, action):
         pass
 
 
+def route_instruction(tier, reason):
+    alias = ALIASES[tier]
+    return (f"[tokenomics pennywise model router] This prompt was rated a {reason}, so it is routed to "
+            f"{NAMES[tier]} to save cost. Do not do the task yourself. Make one call to the Agent tool "
+            f"(the subagent tool) with model: \"{alias}\", passing the user's request word for word as its "
+            f"prompt, plus only the facts from this conversation it needs (file paths, names, earlier "
+            f"decisions), since the subagent cannot see this conversation. Then give the user its result "
+            f"briefly, without redoing or re-checking its work. If you have no Agent tool, or the request "
+            f"clearly depends on this conversation in a way you cannot hand over in a few lines, do it "
+            f"yourself as usual.")
+
+
+def route(sid, model, cur, tier, reason):
+    log(sid, model, NAMES[tier], reason, "routed")
+    return {
+        "systemMessage": (f"pennywise: routing this {reason} to {NAMES[tier]} instead of {NAMES[cur]}. "
+                          f"Prefix a prompt with 'keep-model:' to keep it on {NAMES[cur]}."),
+        "hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
+                               "additionalContext": route_instruction(tier, reason)},
+    }
+
+
 def handle(d):
     if MODE == "off":
         return None
@@ -163,6 +193,8 @@ def handle(d):
         return None
 
     sid = str(d.get("session_id") or d.get("sessionId") or "unknown")
+    if MODE not in ("block", "warn"):            # "route", and any unknown value
+        return route(sid, model, cur, tier, reason)
     digest = hashlib.sha1(prompt.encode()).hexdigest()
     state = _state()
     if state.get(sid) == digest:  # same prompt sent again = "I meant it"

@@ -9,7 +9,7 @@
 
 Covers: spend in your currency (GBP, USD or EUR; token-billed platforms only) and how it splits OPEX / CAPEX, by
 project and by model; cache efficiency; the costliest sessions; and what the other helpers
-did: pennywise suggestions, handoffs written, diet blocks, budget pauses.
+did: pennywise routing and suggestions, handoffs written, diet blocks, budget pauses.
 Read-only (the database is opened with mode=ro). Stdlib only, Python 3.8+.
 """
 import argparse
@@ -183,7 +183,8 @@ def markdown(r):
     h = r["helpers"]
     L += ["## What the helpers did", ""]
     pw = h["pennywise"]
-    L.append(f"- pennywise: {pw.get('blocked', 0) + pw.get('warned', 0)} cheaper-model suggestions, "
+    L.append(f"- pennywise: {pw.get('routed', 0)} prompts routed to a cheaper model, "
+             f"{pw.get('blocked', 0) + pw.get('warned', 0)} cheaper-model suggestions, "
              f"{pw.get('overridden', 0)} overridden.")
     ho = h["handoff"]
     L.append(f"- handoff: {ho['written']} handoffs written; resuming from them instead of the full context "

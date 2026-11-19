@@ -77,7 +77,7 @@ The **tokeniser** is the tool that does the chopping. Different AI models use di
 2. **Don't paste huge files "just in case".** Point the AI at the part that matters.
 3. **Ask for short answers when short will do.** Output is the expensive kind.
 4. **Keep working while the cache is warm**, or let **handoff** write a note and start fresh later.
-5. **Use a smaller model for simple jobs.** That's what **pennywise** nudges you about.
+5. **Use a smaller model for simple jobs.** That's what **pennywise** does for you, routing simple prompts to a cheaper model.
 
 For more on each of these, with worked examples, see [Saving tokens](saving-tokens.md).
 

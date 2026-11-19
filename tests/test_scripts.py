@@ -2,8 +2,10 @@
 import json
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from helpers import ROOT, TempEnv, assistant, user, write_transcript
@@ -221,6 +223,33 @@ class PennywiseTests(unittest.TestCase):
     def test_tier_of(self):
         self.assertEqual([pennywise.tier_of(m) for m in ("claude-haiku-x", "Sonnet", "opus", "gpt-5")],
                          [1, 2, 3, None])
+
+    def _handle(self, prompt, model="claude-opus-5-5", mode="route"):
+        old = pennywise.MODE
+        pennywise.MODE = mode
+        try:
+            with tempfile.TemporaryDirectory() as d, \
+                    mock.patch.object(pennywise, "DB_PATH", str(Path(d) / "db.sqlite")), \
+                    mock.patch.object(pennywise, "STATE_PATH", Path(d) / "state.json"):
+                return pennywise.handle({"session_id": "s", "model": model, "prompt": prompt})
+        finally:
+            pennywise.MODE = old
+
+    def test_routes_simple_prompt_to_cheaper_subagent(self):
+        out = self._handle("create a hello world console app")
+        self.assertNotIn("decision", out)
+        ctx = out["hookSpecificOutput"]
+        self.assertEqual(ctx["hookEventName"], "UserPromptSubmit")
+        self.assertIn('model: "haiku"', ctx["additionalContext"])
+        self.assertIn("Haiku", out["systemMessage"])
+
+    def test_route_leaves_hard_cheap_and_bypassed_prompts_alone(self):
+        self.assertIsNone(self._handle("design the architecture for a distributed queue"))
+        self.assertIsNone(self._handle("create a hello world console app", model="claude-haiku-5-5"))
+        self.assertIsNone(self._handle("keep-model: create a hello world console app"))
+
+    def test_block_mode_still_pauses(self):
+        self.assertEqual(self._handle("create a hello world console app", mode="block")["decision"], "block")
 
 
 if __name__ == "__main__":

@@ -97,7 +97,7 @@ Every piece works on its own. Grab just what you want:
 | 📊 **spend-report** skill | `npx skills@latest add andrew44/tokenomics --skill spend-report` *(reads spendlens data, so pair it with the plugin)* |
 | 📟 **statusbar** | `/tokenomics:statusbar` with the plugin, or without it: `git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install claude` |
 | 📈 **dashboard** | `python3 tokenomics/scripts/dashboard.py` *(from a clone)* |
-| 🛡️ **Some of the hooks** | Install the plugin, then switch off the ones you don't want, e.g. `TOKENOMICS_DIET=off` or `TOKENOMICS_PENNYWISE=warn` |
+| 🛡️ **Some of the hooks** | Install the plugin, then switch off the ones you don't want, e.g. `TOKENOMICS_DIET=off` or `TOKENOMICS_PENNYWISE=block` |
 
 The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation → pick and choose](docs/installation.md#install-pieces-individually) for every option.
 
@@ -110,7 +110,7 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 | 🧑‍🏫 | **[coach](docs/reference.md#coach)** | Reads your conversation and tells you where tokens were wasted, with the fixes and a rewrite of your weakest prompt. | skill | ✅ | — |
 | 📊 | **[spend-report](docs/reference.md#spend-report)** | "Spend report" gets you the week's spend, OPEX vs CAPEX, costliest sessions, and three ways to spend less. | skill | ✅ | — |
 | 🔍 | **[spendlens](docs/reference.md#spendlens)** | Silently labels each session **OPEX** (running things) or **CAPEX** (building things) and logs tokens and cost. | hook | ✅ | ✅ |
-| 🪙 | **[pennywise](docs/reference.md#pennywise)** | Pauses a simple prompt on a pricey model and suggests a cheaper one. Send it again to carry on. | hook | ✅ | — |
+| 🪙 | **[pennywise](docs/reference.md#pennywise)** | Model router: hands simple prompts to a cheaper model (e.g. Haiku) automatically, keeps hard ones on yours. | hook | ✅ | — |
 | 🥗 | **[diet](docs/reference.md#diet)** | Stops tool calls that would flood the context (whole lockfiles, unbounded logs) and tells the AI to ask for less. | hook | ✅ | ✅ |
 | 💳 | **[budget](docs/reference.md#budget)** | Daily and per-session limits in your currency. Warns at 80%, pauses at 100%. | hook | ✅ | — |
 | 🔖 | **[handoff](docs/reference.md#handoff)** | Writes a free "where we got to" note just before the cache expires, so you can resume cheaply. | hook | ✅ | ✅ |
@@ -123,14 +123,13 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 
 ## 👀 See it in action
 
-### pennywise catches the over-specced model
+### pennywise routes the over-specced prompt
 
-You ask for a hello-world on the priciest model. Before a single token is spent:
+You ask for a hello-world on the priciest model. pennywise routes it to Haiku without you lifting a finger:
 
 ```text
-pennywise: this looks like a small, self-contained task that Haiku can handle, but this session
-is on claude-opus-5-5 (Opus), a pricier tier. Switch with /model haiku and resend, or send the
-same prompt again (or prefix it with 'keep-model:') to run it on Opus anyway.
+pennywise: routing this small, self-contained task to Haiku instead of Opus.
+Prefix a prompt with 'keep-model:' to keep it on Opus.
 ```
 
 ### diet stops the context flood

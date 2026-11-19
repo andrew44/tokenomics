@@ -172,20 +172,23 @@ Tokens are counted once per message. Work done by sub-agents in separate transcr
 
 ## pennywise
 
-*Penny wise, pound foolish.* A `UserPromptSubmit` hook (`scripts/pennywise.py`) that stops you running a hello-world on the priciest model.
+*Penny wise, pound foolish.* A `UserPromptSubmit` hook (`scripts/pennywise.py`) that routes each prompt to the cheapest model that can handle it, so a hello-world never runs on the priciest model.
 
-It rates the prompt (small and self-contained, short and routine, or complex/unclear), finds the session's model (hook payload, then transcript, `ANTHROPIC_MODEL`, `settings.json`), and if a cheaper tier would cope it pauses with a suggestion:
+It rates the prompt (small and self-contained, short and routine, or complex/unclear) and finds the session's model (hook payload, then transcript, `ANTHROPIC_MODEL`, `settings.json`). If a cheaper tier would cope, it routes the prompt there automatically:
 
 ```text
-pennywise: this looks like a <small, self-contained task> that Haiku can handle, but this session
-is on <model> (Opus), a pricier tier. Switch with /model haiku and resend, or send the same prompt
-again (or prefix it with 'keep-model:') to run it on Opus anyway.
+pennywise: routing this small, self-contained task to Haiku instead of Opus.
+Prefix a prompt with 'keep-model:' to keep it on Opus.
 ```
 
-- Complex or ambiguous prompts are **never** blocked.
-- To run the prompt anyway, send the same prompt again or start it with `keep-model:`.
-- `TOKENOMICS_PENNYWISE=warn` shows the notice without pausing.
-- Each decision (`blocked`, `warned`, `overridden`) is logged to the `pennywise_events` table.
+**How the routing works.** Claude Code doesn't let a hook switch the session's model; only `/model` can. So pennywise routes through the Agent tool's `model` parameter instead: it tells your session model to hand the prompt, word for word, to a subagent on the cheaper tier (`haiku` or `sonnet`) and relay the answer. The tool calls, file reads and output, which are most of a task's tokens, are billed at the cheaper tier. Your session model still reads the prompt and writes a short reply, so the saving is large on real tasks and small on one-line questions.
+
+- Complex or ambiguous prompts are **never** routed: they stay on your model.
+- Prompts already on the cheapest suitable tier, and slash commands, are left alone.
+- To keep one prompt on your model, start it with `keep-model:`.
+- If the request depends on the conversation in a way that can't be handed over in a few lines, the session model does it itself.
+- `TOKENOMICS_PENNYWISE=block` pauses instead of routing and suggests `/model haiku` (send the same prompt again to run it anyway). `warn` shows that suggestion without pausing. `off` disables pennywise.
+- Each decision (`routed`, `blocked`, `warned`, `overridden`) is logged to the `pennywise_events` table.
 - The checks are keyword-based; tune `SIMPLE` / `HARD` in the script.
 - Claude Code only: Copilot CLI ignores hook output on prompt submit.
 

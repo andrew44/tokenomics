@@ -24,7 +24,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/report.py" --json --days 7
 1. **Headline**: total `spend` for the period in the report's currency (show amounts with its `symbol`, e.g. £, $ or €), and the OPEX vs CAPEX share of it (from `by_label`).
 2. **Where it went**: a small table of the top projects (`by_project`) and one line on models (`by_model`).
 3. **Costliest sessions**: the top 3 from `top_sessions` with project, work type and spend.
-4. **What the helpers did** (`helpers`): pennywise suggestions and overrides, handoffs written and tokens they can avoid, diet blocks, budget pauses. Leave out any helper with nothing to report.
+4. **What the helpers did** (`helpers`): pennywise routing, suggestions and overrides, handoffs written and tokens they can avoid, diet blocks, budget pauses. Leave out any helper with nothing to report.
 5. **Three ways to spend less**, each tied to a number above. Pick from:
    - Spend concentrated on the most expensive model with many short sessions: use a cheaper model for routine work (pennywise does this per prompt).
    - `cache_hit_ratio` under 0.6: keep sessions on one task, avoid idle gaps over 5 minutes, don't switch models mid-session.
