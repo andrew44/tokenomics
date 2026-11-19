@@ -2,7 +2,11 @@
   "hooks": {
     "UserPromptSubmit": [
       { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/spendlens.py\" prompt claude-code", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/pennywise.py\"", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/pennywise.py\"", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/budget.py\" claude-code", "timeout": 10 } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Read|Bash", "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/diet.py\" claude-code", "timeout": 10 } ] }
     ],
     "Stop": [
       { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/spendlens.py\" finalize claude-code", "timeout": 20 } ] },

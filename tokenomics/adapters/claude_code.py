@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from ..engine.evidence import (TOOL_CODE_EDIT, TOOL_OTHER, TOOL_SHELL, TOOL_SKILL, Prompt,
+from ..engine.evidence import (TOOL_CODE_EDIT, TOOL_OTHER, TOOL_READ, TOOL_SHELL, TOOL_SKILL, Prompt,
                                SessionEvidence, SkillUse, TokenUsage, ToolCall)
 from ..platform.adapter import PlatformAdapter
 from ..platform.capabilities import (BILLING_ANTHROPIC_TOKENS, NATIVE, NONE, PARTIAL, Capability,
@@ -28,6 +28,17 @@ def _user_text(msg: dict) -> str:
     if isinstance(content, list):
         return " ".join(p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text")
     return ""
+
+
+def _token_usage(u: dict) -> TokenUsage:
+    cc = u.get("cache_creation") if isinstance(u.get("cache_creation"), dict) else {}
+    return TokenUsage(
+        input_tokens=int(u.get("input_tokens") or 0),
+        output_tokens=int(u.get("output_tokens") or 0),
+        cache_creation_tokens=int(u.get("cache_creation_input_tokens") or 0),
+        cache_read_tokens=int(u.get("cache_read_input_tokens") or 0),
+        cache_creation_1h_tokens=int(cc.get("ephemeral_1h_input_tokens") or 0),
+    )
 
 
 class ClaudeCodeAdapter(PlatformAdapter):
@@ -64,7 +75,7 @@ class ClaudeCodeAdapter(PlatformAdapter):
         ev.complete = True
         listed: Dict[str, str] = {}
         skill_names: List[str] = []
-        usage: Dict[object, dict] = {}            # message id -> last usage (streamed entries repeat ids)
+        usage: Dict[object, tuple] = {}           # message id -> (model, last usage); streamed entries repeat ids
         parsed = False
         llm_count = 0
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -97,8 +108,12 @@ class ClaudeCodeAdapter(PlatformAdapter):
                         ev.prompts.append(Prompt(txt, llm_text, bool(m)))
                 elif kind == "assistant":
                     u = msg.get("usage")
+                    model = msg.get("model")
+                    if model and not str(model).startswith("<"):
+                        ev.model = str(model)
                     if isinstance(u, dict):
-                        usage[msg.get("id") or rec.get("uuid") or len(usage)] = u
+                        key = msg.get("id") or rec.get("uuid") or len(usage)
+                        usage[key] = (str(model or ev.model or ""), u)
                 if kind == "assistant" and isinstance(msg.get("content"), list):
                     for part in msg["content"]:
                         if isinstance(part, dict) and part.get("type") == "tool_use":
@@ -113,12 +128,11 @@ class ClaudeCodeAdapter(PlatformAdapter):
             desc = (self.skill_description(sk, ev.cwd)
                     or listed.get(sk.lstrip("/").lower()) or listed.get(leaf))
             ev.skills.append(SkillUse(sk, desc))
-        ev.usage = TokenUsage(
-            input_tokens=sum(int(u.get("input_tokens") or 0) for u in usage.values()),
-            output_tokens=sum(int(u.get("output_tokens") or 0) for u in usage.values()),
-            cache_creation_tokens=sum(int(u.get("cache_creation_input_tokens") or 0) for u in usage.values()),
-            cache_read_tokens=sum(int(u.get("cache_read_input_tokens") or 0) for u in usage.values()),
-        )
+        ev.usage = TokenUsage()
+        for model, u in usage.values():
+            tu = _token_usage(u)
+            ev.usage.add(tu)
+            ev.usage_by_model.setdefault(model, TokenUsage()).add(tu)
         return ev
 
     def _tool(self, name: str, inp: dict) -> ToolCall:
@@ -128,11 +142,25 @@ class ClaudeCodeAdapter(PlatformAdapter):
             return ToolCall(name, TOOL_CODE_EDIT)
         if name == "Bash":
             return ToolCall(name, TOOL_SHELL, command=str(inp.get("command", "")))
+        if name == "Read":
+            return ToolCall(name, TOOL_READ, path=str(inp.get("file_path") or ""),
+                            ranged=inp.get("offset") is not None or inp.get("limit") is not None)
         return ToolCall(name, TOOL_OTHER)
 
     def tool_call(self, payload: dict) -> Optional[ToolCall]:
         name = first(payload, "tool_name", default="")
         return self._tool(name, payload.get("tool_input") or {}) if name else None
+
+    # ---- hook output ---------------------------------------------------------------------
+    def deny_tool(self, reason: str) -> Optional[dict]:
+        return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                       "permissionDecisionReason": reason}}
+
+    def block_prompt(self, reason: str) -> Optional[dict]:
+        return {"decision": "block", "reason": reason}
+
+    def notify(self, message: str) -> Optional[dict]:
+        return {"systemMessage": message}
 
     # ---- skills on disk ----------------------------------------------------------------
     def skill_roots(self, cwd: Optional[str]) -> List[Path]:

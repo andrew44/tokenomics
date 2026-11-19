@@ -6,7 +6,7 @@ platform payloads. Usage is None when the platform does not report it (never zer
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 # Billing models. Kept distinct on purpose: Anthropic bills tokens, Copilot bills premium
 # requests. The engine never converts one into the other or invents a money value.
@@ -20,6 +20,7 @@ BILLING_UNKNOWN = "unknown"
 TOOL_CODE_EDIT = "code_edit"      # writes or edits files
 TOOL_SHELL = "shell"              # runs a command (command text is scored, never stored)
 TOOL_SKILL = "skill"              # invokes a skill
+TOOL_READ = "read"                # reads a file (path is checked by the context diet, never stored)
 TOOL_OTHER = "other"              # anything else (MCP tools etc.; the name is still checked)
 
 
@@ -29,6 +30,8 @@ class ToolCall:
     kind: str = TOOL_OTHER
     command: str = ""             # shell only
     skill: str = ""               # skill only
+    path: str = ""                # read only
+    ranged: bool = False          # read only: an offset/limit (part of the file) was asked for
 
 
 @dataclass
@@ -54,6 +57,14 @@ class TokenUsage:
     output_tokens: int = 0
     cache_creation_tokens: int = 0
     cache_read_tokens: int = 0
+    cache_creation_1h_tokens: int = 0     # the part of cache_creation_tokens written with the 1-hour TTL
+
+    def add(self, other: "TokenUsage") -> None:
+        self.input_tokens += other.input_tokens
+        self.output_tokens += other.output_tokens
+        self.cache_creation_tokens += other.cache_creation_tokens
+        self.cache_read_tokens += other.cache_read_tokens
+        self.cache_creation_1h_tokens += other.cache_creation_1h_tokens
 
     @property
     def total(self) -> int:
@@ -71,4 +82,6 @@ class SessionEvidence:
     tool_calls: List[ToolCall] = field(default_factory=list)
     skills: List[SkillUse] = field(default_factory=list)
     usage: Optional[TokenUsage] = None
+    usage_by_model: Dict[str, TokenUsage] = field(default_factory=dict)   # for pricing; {} = unknown
+    model: Optional[str] = None   # last model used
     billing_model: str = BILLING_UNKNOWN

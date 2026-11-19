@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-from ..engine.evidence import TOOL_CODE_EDIT, TOOL_OTHER, TOOL_SHELL, TOOL_SKILL, ToolCall
+from ..engine.evidence import TOOL_CODE_EDIT, TOOL_OTHER, TOOL_READ, TOOL_SHELL, TOOL_SKILL, ToolCall
 from ..platform.adapter import PlatformAdapter
 from ..platform.capabilities import (BILLING_COPILOT_PREMIUM_REQUESTS, NATIVE, NONE, PARTIAL,
                                      Capability, Support)
@@ -28,6 +28,7 @@ EDIT_TOOLS = {"edit", "create", "write", "str_replace", "apply_patch", "multi_ed
               "multi_replace_string_in_file", "editfiles", "createfile"}
 SHELL_TOOLS = {"bash", "shell", "powershell", "run_in_terminal", "runinterminal", "terminal"}
 SKILL_TOOLS = {"skill", "use_skill"}
+READ_TOOLS = {"view", "read", "read_file", "readfile"}
 
 
 class CopilotAdapter(PlatformAdapter):
@@ -45,7 +46,8 @@ class CopilotAdapter(PlatformAdapter):
         Capability.MODEL_SELECTION: Support(NONE, "no model field in hook payloads"),
         Capability.CONTEXT_INFO: Support(NONE, ""),
         Capability.CONTEXT_INJECTION: Support(NONE, "userPromptSubmitted output is ignored"),
-        Capability.TOOL_OUTPUT_INTERCEPTION: Support(PARTIAL, "postToolUse sees results, cannot rewrite them"),
+        Capability.TOOL_OUTPUT_INTERCEPTION: Support(PARTIAL, "postToolUse sees results, cannot rewrite them; "
+                                                              "preToolUse can deny a call"),
         Capability.AVAILABLE_MODELS: Support(NONE, ""),
     }
 
@@ -59,12 +61,24 @@ class CopilotAdapter(PlatformAdapter):
             return ToolCall(name, TOOL_SKILL, skill=str(args.get("skill") or args.get("name") or ""))
         if key == "str_replace_editor":
             sub = str(args.get("command") or "").lower()
-            return ToolCall(name, TOOL_OTHER if sub == "view" else TOOL_CODE_EDIT)
+            return self._read(name, args) if sub == "view" else ToolCall(name, TOOL_CODE_EDIT)
+        if key in READ_TOOLS:
+            return self._read(name, args)
         if key in EDIT_TOOLS:
             return ToolCall(name, TOOL_CODE_EDIT)
         if key in SHELL_TOOLS:
             return ToolCall(name, TOOL_SHELL, command=str(args.get("command") or args.get("cmd") or ""))
         return ToolCall(name, TOOL_OTHER)
+
+    @staticmethod
+    def _read(name: str, args: dict) -> ToolCall:
+        path = str(first(args, "path", "file_path", "filePath", default="") or "")
+        ranged = any(args.get(k) is not None for k in ("view_range", "startLine", "start_line", "offset",
+                                                         "limit", "endLine", "end_line"))
+        return ToolCall(name, TOOL_READ, path=path, ranged=ranged)
+
+    def deny_tool(self, reason: str) -> Optional[dict]:
+        return {"permissionDecision": "deny", "permissionDecisionReason": reason}   # preToolUse
 
     def skill_roots(self, cwd: Optional[str]) -> List[Path]:
         roots = [Path(cwd) / ".github", Path(cwd) / ".claude"] if cwd else []

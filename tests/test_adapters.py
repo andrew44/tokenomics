@@ -80,7 +80,7 @@ class SessionIdTests(unittest.TestCase):
         b = cp.tool_call({"tool_name": "bash", "tool_input": {"command": "kubectl logs x"}})
         self.assertEqual((a.kind, a.command), ("shell", "kubectl logs x"))
         self.assertEqual(a, b)
-        self.assertEqual(cp.tool_call({"toolName": "str_replace_editor", "toolArgs": {"command": "view"}}).kind, "other")
+        self.assertEqual(cp.tool_call({"toolName": "str_replace_editor", "toolArgs": {"command": "view"}}).kind, "read")
         self.assertIsNone(cp.tool_call({}))
 
 

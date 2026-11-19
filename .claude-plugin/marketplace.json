@@ -5,7 +5,7 @@
     {
       "name": "tokenomics",
       "source": "./",
-      "description": "Understand where your AI tokens go. Ships 'spendlens': tags sessions as OPEX or CAPEX."
+      "description": "Cut and understand AI coding spend: OPEX/CAPEX tagging, cheaper-model nudges, context diet, budgets, spend reports."
     }
   ]
 }

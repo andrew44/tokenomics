@@ -13,6 +13,11 @@ def now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S%z")
 
 
+def today() -> str:
+    """Local calendar day, YYYY-MM-DD (budgets reset at local midnight)."""
+    return time.strftime("%Y-%m-%d")
+
+
 def log_err(db_path: str, msg: str) -> None:
     """Errors go to <db>.err, never to the screen: hooks must stay silent."""
     try:
