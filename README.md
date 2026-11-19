@@ -349,6 +349,8 @@ This adds the status line to your Claude Code and/or Copilot settings (a backup 
 
 **Pounds.** Claude Code reports the cost in dollars and the bar converts it at 0.76 pounds per dollar. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rate, or set `"usd_gbp"` in the same file.
 
+**Prices.** When a cost has to be estimated, the bar uses the per-model prices in `data/model-prices.json` (input, output, cache writes and cache reads, for every Claude model from Haiku 3.5 to Fable 5.2). A scheduled GitHub Action (`.github/workflows/update-prices.yml`) refreshes that file from Claude's pricing page every Monday and commits any change; run `python3 scripts/update_prices.py` to refresh it yourself. Retired models that drop off the page keep their last known price.
+
 <details>
 <summary><b>Good to know about the countdown</b></summary>
 
@@ -517,6 +519,9 @@ tokenomics/
 ├── scripts/handoff.py         writes a resume note before the cache expires
 ├── scripts/critical_friend.py transcript analyser used by the skill
 ├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
+├── scripts/update_prices.py   refreshes data/model-prices.json from Claude's pricing page
+├── data/model-prices.json     Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly
+├── .github/workflows/update-prices.yml   scheduled job that runs update_prices.py and commits changes
 ├── scripts/dashboard.py       local web server over the spendlens database
 ├── dashboard/index.html       the dashboard page
 └── README.md
