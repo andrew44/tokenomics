@@ -10,6 +10,8 @@ Works with **Claude Code** and **GitHub Copilot CLI**.
 
 When you use an AI coding assistant, every message you send and every reply you get uses up *tokens*. Tokens are the "units" you are charged for, a bit like minutes on a phone plan. Some conversations use a lot more than they need to.
 
+> New to tokens? [How tokens work](docs/how-tokens-work.md) explains input, output, the prompt cache and tokenisers, first in plain English and then in technical depth.
+
 **tokenomics** gives you four helpers:
 
 | Helper | What it does | Think of it as... |
