@@ -4,11 +4,15 @@
 
 Works with **Claude Code** and **GitHub Copilot CLI**.
 
+> **Disclaimer: the prices, token counts and costs shown by tokenomics are a rough indication of what your current session has cost, not a bill. They may be inaccurate, incomplete or out of date. The authors and contributors accept no liability for any loss or cost arising from prices or costs that turn out to be wrong, or from decisions made using them. You are responsible for checking your actual usage and charges in the Claude app (or your provider's billing page) and should not rely solely on this tool. tokenomics is provided "as is", without warranty of any kind; see sections 7 (Disclaimer of Warranty) and 8 (Limitation of Liability) of the [Apache License 2.0](LICENSE).**
+
 ---
 
 ## What is this, in plain English?
 
 When you use an AI coding assistant, every message you send and every reply you get uses up *tokens*. Tokens are the "units" you are charged for, a bit like minutes on a phone plan. Some conversations use a lot more than they need to.
+
+> New to tokens? [How tokens work](docs/how-tokens-work.md) explains input, output, the prompt cache and tokenisers, first in plain English and then in technical depth. [Saving tokens](docs/saving-tokens.md) has practical tips for spending less.
 
 **tokenomics** gives you these helpers:
 
@@ -359,7 +363,7 @@ export TOKENOMICS_CURRENCY=EUR                      # or set it per shell / in C
 
 The choice is saved as `"currency"` in `~/.tokenomics/statusbar.json`, and the status bar, budget, spend report and handoff notes all use it (`$`, `€` and `£` work too, e.g. `--set-currency €`). `TOKENOMICS_CURRENCY` wins over the saved choice, and `--currency USD` on a single status bar or report run wins over both. Prices are in dollars, so dollars need no conversion; pounds and euros are converted at 0.76 and 0.86 per dollar unless you set the rate. Run `python3 scripts/statusbar.py --update-rate` to fetch today's rates, or set `"usd_gbp"` / `"usd_eur"` in the same file (or `TOKENOMICS_USD_GBP` / `TOKENOMICS_USD_EUR`).
 
-**Prices.** When the assistant doesn't report a cost itself (Copilot, older Claude Code), and always for budget and the spend report, tokenomics prices each request from a table of Anthropic list prices **per model version**: Fable 5.2 is $8/$40 per million input/output tokens, Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50 (and $0.50/$2.50 for prompts over 100K tokens), with older versions such as Opus 4.8 ($5/$25) or Opus 4.1 ($15/$75) at their own rates. Cache reads use each model's own rate (e.g. $0.20 on Fable 5.2, $0.10 on Sonnet 5.5), cache writes 1.25x input (5-minute) or 2x (1-hour), and fast mode 2x. A model switch mid-session is priced message by message. To change a price, add it to `~/.tokenomics/statusbar.json` by model version: `{"prices": {"opus-5-5": [4, 20], "sonnet-5-5": [2, 10, 0.1]}}` (input, output and optionally cache read, dollars per million tokens). Prices change; the table is in `scripts/statusbar.py` and `tokenomics/engine/pricing.py`.
+**Prices.** When the assistant doesn't report a cost itself (Copilot, older Claude Code), and always for budget and the spend report, tokenomics prices each request from `data/model-prices.json`: input, output, cache-write and cache-read prices for **every Claude model version**, from Haiku 3.5 to Fable 5.2 (for example Fable 5.2 is $8/$40 per million input/output tokens, Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50, or $0.50/$2.50 for prompts over 100K tokens). Each model's own cache rates are used (e.g. cache reads cost $0.20 on Fable 5.2 and $0.10 on Sonnet 5.5), fast mode counts double, and a model switch mid-session is priced message by message. A scheduled GitHub Action (`.github/workflows/update-prices.yml`) refreshes that file from Claude's pricing page every Monday and commits any change; run `python3 scripts/update_prices.py` to refresh it yourself, and `--install` copies the current file next to the installed status bar. Retired models that drop off the page keep their last known price. To override a price, add it to `~/.tokenomics/statusbar.json` by model version: `{"prices": {"opus-5-5": [4, 20], "sonnet-5-5": [2, 10, 0.1]}}` (input, output and optionally cache read, dollars per million tokens; the most specific key wins).
 
 <details>
 <summary><b>Good to know about the countdown</b></summary>
@@ -577,7 +581,7 @@ tokenomics/
 ├── skills/spend-report/SKILL.md     weekly spend report skill
 ├── tokenomics/
 │   ├── engine/             shared logic: classifier.py, llm.py, store.py, session.py, evidence.py,
-│   │                       pricing.py, diet.py, budget.py, events.py
+│   │                       pricing.py, currency.py, diet.py, budget.py, events.py
 │   ├── platform/           common adapter interface + capability registry
 │   ├── adapters/           claude_code.py, copilot.py (translation only)
 │   ├── config.py           shared settings
@@ -591,6 +595,9 @@ tokenomics/
 ├── scripts/report.py          spend report (used by the spend-report skill)
 ├── scripts/critical_friend.py transcript analyser used by the skill
 ├── scripts/statusbar.py       status line for Claude Code and Copilot CLI
+├── scripts/update_prices.py   refreshes data/model-prices.json from Claude's pricing page
+├── data/model-prices.json     Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly
+├── .github/workflows/update-prices.yml   scheduled job that runs update_prices.py and commits changes
 ├── scripts/dashboard.py       local web server over the spendlens database
 ├── dashboard/index.html       the dashboard page
 └── README.md

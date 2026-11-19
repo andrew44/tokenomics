@@ -136,10 +136,11 @@ class HandoffTests(unittest.TestCase):
 
 class StatusbarTests(unittest.TestCase):
     def test_most_specific_price_wins(self):
-        cfg = {"prices": {"claude-opus-4-6": [6, 30]}}
-        for got, want in zip(statusbar.price_for("claude-opus-4-6", cfg), (6.0, 30.0, 0.6)):
-            self.assertAlmostEqual(got, want)
-        self.assertEqual(statusbar.price_for("claude-opus-4-7", cfg), statusbar.PRICES["opus-4-7"])
+        cfg = {"prices": {"opus": [9, 90], "claude-opus-4-6": [6, 30]}}
+        r = statusbar.rates_for("claude-opus-4-6", cfg)
+        self.assertEqual((r["input"], r["output"]), (6.0, 30.0))
+        self.assertAlmostEqual(r["cache_read"], 0.6)
+        self.assertEqual(statusbar.rates_for("claude-opus-4-7", cfg)["input"], 9.0)   # only the family override matches
         self.assertEqual(statusbar.price_for("mystery", {}), statusbar.DEFAULT_PRICE)
 
     def test_gather_accepts_string_model(self):

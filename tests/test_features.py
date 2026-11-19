@@ -30,21 +30,24 @@ def sonnet_msg(mid, usage=SONNET):
 
 
 class PricingTests(unittest.TestCase):
-    def test_matches_statusbar(self):
-        """statusbar.py keeps its own copy of the table (it is installed as a single file)."""
-        def block(path):
-            text = path.read_text(encoding="utf-8")
-            start = text.index("\n", text.index("# BEGIN PRICE TABLE")) + 1
-            return text[start:text.index("# END PRICE TABLE")]
-        self.assertEqual(block(ROOT / "tokenomics" / "engine" / "pricing.py"), block(SCRIPTS / "statusbar.py"))
+    def test_engine_and_statusbar_agree_for_every_model(self):
+        """statusbar.py keeps its own copy of the lookup (it is installed as a single file)."""
+        models = list(json.loads((ROOT / "data" / "model-prices.json").read_text())["models"])
+        names = models + ["claude-opus-4-1-20250805", "Opus 5.5", "claude-opus-5-5[1m]", "gpt-5", "mystery",
+                          "us.anthropic.claude-sonnet-4-5-20250929-v1:0", "claude-haiku-5-5"]
+        cfgs = [{}, {"prices": {"claude-opus-5-5": [3, 15, 0.1], "haiku": [1, 2]}}]
         for fast in (False, True):
-            raw = {"input_tokens": 1000, "output_tokens": 500, "cache_creation_input_tokens": 3000,
-                   "cache_read_input_tokens": 9000, "cache_creation": {"ephemeral_1h_input_tokens": 1000,
-                                                                         "ephemeral_5m_input_tokens": 2000},
-                   "speed": "fast" if fast else "standard"}
-            tu = TokenUsage(1000, 500, 3000, 9000, cache_creation_1h_tokens=1000, fast=fast)
-            for model in ("claude-opus-4-6", "claude-fable-5-2", "claude-haiku-5-5", "mystery"):
-                self.assertAlmostEqual(pricing.usage_cost_usd(tu, model, {}), statusbar.usage_cost_usd(raw, model, {}))
+            for big in (False, True):
+                raw = {"input_tokens": 1000 + (200_000 if big else 0), "output_tokens": 500,
+                       "cache_creation_input_tokens": 3000, "cache_read_input_tokens": 9000,
+                       "cache_creation": {"ephemeral_1h_input_tokens": 1000, "ephemeral_5m_input_tokens": 2000},
+                       "speed": "fast" if fast else "standard"}
+                tu = TokenUsage(raw["input_tokens"], 500, 3000, 9000, cache_creation_1h_tokens=1000, fast=fast)
+                for model in names:
+                    for cfg in cfgs:
+                        with self.subTest(model=model, fast=fast, big=big, cfg=bool(cfg)):
+                            self.assertAlmostEqual(pricing.usage_cost_usd(tu, model, cfg),
+                                                   statusbar.usage_cost_usd(raw, model, cfg))
 
     def test_versions_priced_separately(self):
         cases = {
@@ -56,29 +59,34 @@ class PricingTests(unittest.TestCase):
             "claude-opus-4-5@20251101": (5, 25, 0.50), "claude-sonnet-5-5": (2, 10, 0.10),
             "claude-sonnet-5": (2, 10, 0.20), "us.anthropic.claude-sonnet-4-5-20250929-v1:0": (3, 15, 0.30),
             "claude-haiku-5-5": (0.10, 0.50, 0.01), "claude-haiku-4-5-20251001": (1, 5, 0.10),
-            "claude-3-5-haiku-20241022": (0.80, 4, 0.08), "claude-3-haiku-20240307": (0.25, 1.25, 0.03),
-            "Opus 4.8": (5, 25, 0.50), "Sonnet 5.5": (2, 10, 0.10), "claude-opus-5-5[1m]": (4, 20, 0.20),
-            "Fable": (8, 40, 0.20), "gpt-5": (2.5, 10, 0.25), "mystery": pricing.DEFAULT_PRICE,
+            "claude-3-5-haiku-20241022": (0.80, 4, 0.08), "Opus 4.8": (5, 25, 0.50),
+            "Sonnet 5.5": (2, 10, 0.10), "claude-opus-5-5[1m]": (4, 20, 0.20),
         }
-        for model, want in cases.items():
+        for model, (pin, pout, pread) in cases.items():
             with self.subTest(model=model):
-                self.assertEqual(pricing.price_for(model, {}), tuple(float(x) for x in want))
+                r = pricing.rates_for(model, {})
+                self.assertEqual((r["input"], r["output"]), (float(pin), float(pout)))
+                self.assertAlmostEqual(r["cache_read"], pread)
+
+    def test_fallbacks_for_unlisted_models(self):
+        self.assertEqual(pricing.rates_for("gpt-5", {})["input"], 2.5)
+        self.assertEqual(pricing.rates_for("claude-opus-9-9", {})["input"], 5.0)      # family fallback
+        r = pricing.rates_for("mystery", {})
+        self.assertEqual((r["input"], r["output"]), pricing.DEFAULT_PRICE)
 
     def test_long_prompt_tier_fast_mode_and_overrides(self):
-        small = TokenUsage(input_tokens=1_000_000)
-        self.assertAlmostEqual(pricing.usage_cost_usd(small, "claude-haiku-5-5", {}), 0.50)     # > 100K prompt
+        self.assertAlmostEqual(pricing.usage_cost_usd(TokenUsage(input_tokens=1_000_000), "claude-haiku-5-5", {}), 0.50)
         self.assertAlmostEqual(pricing.usage_cost_usd(TokenUsage(input_tokens=100_000), "claude-haiku-5-5", {}), 0.01)
         fast = TokenUsage(input_tokens=1_000_000, fast=True)
         self.assertAlmostEqual(pricing.usage_cost_usd(fast, "claude-opus-5-5", {}), 8.0)
-        cfg = {"prices": {"haiku-5-5": [0.2, 1.0], "claude-opus-5-5": [3, 15, 0.1]}}
-        for got, want in zip(pricing.price_for("claude-haiku-5-5", cfg, 500_000), (0.2, 1.0, 0.02)):
-            self.assertAlmostEqual(got, want)
-        self.assertEqual(pricing.price_for("claude-opus-5-5", cfg), (3.0, 15.0, 0.1))
+        r = pricing.rates_for("claude-opus-5-5", {"prices": {"opus-5-5": [3, 15, 0.1]}})
+        self.assertEqual((r["input"], r["output"], r["cache_read"]), (3.0, 15.0, 0.1))
+        r = pricing.rates_for("claude-opus-5-5", {"prices": {"opus": [1, 2], "opus-5-5": [3, 15]}})
+        self.assertEqual(r["input"], 3.0)                                 # most specific override wins
         cache = TokenUsage(cache_creation_tokens=1_000_000, cache_creation_1h_tokens=400_000,
                            cache_read_tokens=1_000_000)
         self.assertAlmostEqual(pricing.usage_cost_usd(cache, "claude-fable-5-2", {}),
-                               0.6 * 8 * 1.25 + 0.4 * 8 * 2 + 0.20)
-
+                               0.6 * 10 + 0.4 * 16 + 0.20)                # the file's own cache-write prices
 
 
 class CurrencyTests(unittest.TestCase):
