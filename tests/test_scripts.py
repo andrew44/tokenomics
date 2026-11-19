@@ -169,6 +169,51 @@ class StatusbarTests(unittest.TestCase):
         self.assertEqual(line, "* Sonnet | ctx ######------ 50% | tok 12.3K | ~£1.50 | [# ] 01:30")
 
 
+class StatusbarInstallTests(unittest.TestCase):
+    """--sync is the plugin's SessionStart hook: it offers, auto-installs and refreshes the bar."""
+
+    def setUp(self):
+        self.t = TempEnv()
+        h = self.t.home
+        self.env = self.t.env(TOKENOMICS_HOME=str(h / ".tokenomics"), CLAUDE_CONFIG_DIR=str(h / ".claude"),
+                              COPILOT_HOME=str(h / ".copilot"))
+        self.settings = h / ".claude" / "settings.json"
+        self.copy = h / ".tokenomics" / "statusbar.py"
+
+    def tearDown(self):
+        self.t.cleanup()
+
+    def run_bar(self, *args, **env):
+        p = subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), *args], input="{}",
+                           capture_output=True, text=True, env={**self.env, **env}, timeout=30)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        return p.stdout
+
+    def test_offers_once_then_stays_quiet(self):
+        self.assertIn("/tokenomics:statusbar", json.loads(self.run_bar("--sync"))["systemMessage"])
+        self.assertEqual(self.run_bar("--sync"), "")
+        self.assertFalse(self.settings.exists())
+
+    def test_off_never_offers(self):
+        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSBAR="off"), "")
+
+    def test_auto_installs_and_refreshes(self):
+        self.assertIn("installed", self.run_bar("--sync", TOKENOMICS_STATUSBAR="auto"))
+        self.assertIn(str(self.copy), json.loads(self.settings.read_text())["statusLine"]["command"])
+        self.copy.write_text("# stale\n")
+        self.assertEqual(self.run_bar("--sync"), "")
+        self.assertEqual(self.copy.read_bytes(), (SCRIPTS / "statusbar.py").read_bytes())
+        self.assertTrue((self.copy.parent / "model-prices.json").is_file())
+        self.assertIn("claude: installed", self.run_bar("--status"))
+
+    def test_leaves_another_status_line_alone(self):
+        self.settings.parent.mkdir(parents=True)
+        self.settings.write_text(json.dumps({"statusLine": {"type": "command", "command": "mine"}}))
+        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSBAR="auto"), "")
+        self.assertEqual(json.loads(self.settings.read_text())["statusLine"]["command"], "mine")
+        self.assertIn("another status line", self.run_bar("--status"))
+
+
 class PennywiseTests(unittest.TestCase):
     def test_rate(self):
         self.assertEqual(pennywise.rate("create a hello world console app")[0], 1)

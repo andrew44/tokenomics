@@ -20,7 +20,7 @@ flowchart LR
 - **Billing stays separate**: Claude Code tokens are priced (`engine/pricing.py`); Copilot premium requests are never turned into tokens or money.
 - **Guards share the engine too**: diet's rules (`engine/diet.py`) and budget's limits (`engine/budget.py`) are written once; each adapter says how to deny a tool call, block a prompt or show a notice on its platform (or that it can't).
 
-The older tools (status bar, pennywise, handoff, coach) are still standalone scripts; the status bar must stay a single file because `--install` copies it.
+The older tools (status bar, pennywise, handoff, coach) are still standalone scripts; the status bar must stay a single file because `--install` copies it to `~/.tokenomics/` (and the plugin's `statusbar.py --sync` SessionStart hook refreshes that copy after each plugin update).
 
 ## Handy commands
 
@@ -44,7 +44,8 @@ tokenomics/
 ├── copilot-hooks.json              Copilot CLI hooks
 ├── skills/
 │   ├── coach/SKILL.md              prompt and cache review skill
-│   └── spend-report/SKILL.md       weekly spend report skill
+│   ├── spend-report/SKILL.md       weekly spend report skill
+│   └── statusbar/SKILL.md          installs / removes the status bar (/tokenomics:statusbar)
 ├── tokenomics/
 │   ├── engine/                     shared logic: classifier.py, llm.py, store.py, session.py, evidence.py,
 │   │                               pricing.py, currency.py, diet.py, budget.py, events.py
