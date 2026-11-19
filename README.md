@@ -7,10 +7,59 @@ Understand where your AI tokens go. Works with **Claude Code** and **GitHub Copi
 | Component | Type  | What it does |
 |-----------|-------|--------------|
 | **spendlens** | hooks | Tags each session **OPEX** (run: insights, logs, metrics, Grafana, incidents) or **CAPEX** (build: code generation), or `mixed` / `unknown`, and logs it with the session id to SQLite. |
-
 | **critical-friend** | skill | Reviews your prompts and prompt-cache usage for the current session and suggests improvements (cache hit ratio, cache rebuilds, vague or correction-heavy prompts, oversized context, repeated file reads, mixed topics). Ask: "critical friend", "review my prompts", "why was that session expensive?". |
 
 More hooks, tools and skills will be added here.
+
+## Easiest install: `npx skills` (no technical knowledge needed)
+
+This adds the **critical-friend** skill to your AI assistant in about two minutes. You copy and paste one line; you don't need to write any code.
+
+### Before you start
+You need **Node.js** on your computer (it is a free, standard tool, and it is what provides the `npx` command).
+1. Go to [nodejs.org](https://nodejs.org) and download the version marked **LTS**.
+2. Open the downloaded file and click through the installer.
+
+Not sure if you already have it? Open the terminal (step 1 below) and type `node --version`. If it prints a number, you're ready.
+
+### Install
+1. **Open a terminal** (the window where you type commands).
+   - **Mac:** press `Cmd + Space`, type `Terminal`, press Enter.
+   - **Windows:** click Start, type `PowerShell`, press Enter.
+2. **Copy this line, paste it into the terminal, and press Enter:**
+   ```
+   npx skills add andrew44/tokenomics
+   ```
+   If it asks to install a package called `skills`, say yes. That is normal.
+3. **Answer the questions on screen.** Use the arrow keys to move, the space bar to tick an option, and Enter to confirm. Tick **critical-friend**, then tick the assistant(s) you use (for example Claude Code).
+4. **Restart your assistant** (close it and open it again).
+5. **Try it.** Type: `critical friend, review my prompts`.
+
+### Want it to work in every project?
+By default the skill is added to the folder you ran the command from. To add it for all your projects instead, put `-g` on the end:
+```
+npx skills add andrew44/tokenomics -g
+```
+
+### Later on
+| I want to... | Paste this |
+|--------------|-----------|
+| See what I've installed | `npx skills list` |
+| Get the newest version | `npx skills update` |
+| Remove it | `npx skills remove critical-friend` |
+| Look at what's inside before installing | `npx skills add andrew44/tokenomics --list` |
+
+### What this does and doesn't give you
+- **You get:** the `critical-friend` skill, which reviews how you write prompts and where your session is wasting tokens (and money), with suggestions to fix it.
+- **You don't get:** the automatic OPEX/CAPEX tracking (**spendlens**). That runs in the background as a "hook", and `npx skills` can't set up hooks. To get it, use the plugin install further down this page.
+- **Heads up:** the skill's number-crunching helper (`scripts/critical_friend.py`) is not part of the skill folder, so with `npx skills` alone `critical-friend` may only be able to review the prompts it can see in your current conversation. For the full version with the exact cache numbers, use the plugin install.
+
+### If something goes wrong
+| What you see | What to do |
+|--------------|-----------|
+| `npx: command not found` or `'npx' is not recognized` | Node.js isn't installed yet. Do "Before you start" above, then **close and reopen** the terminal. |
+| The skill doesn't seem to be there | Restart your assistant, then run `npx skills list` to confirm it installed. |
+| Still stuck | Open an issue on this repo and paste what the terminal printed. |
 
 ## Requirements
 
@@ -19,6 +68,8 @@ More hooks, tools and skills will be added here.
 - Somewhere to host the plugin: a Git repo (recommended) or a local folder.
 
 ## Install: Claude Code
+
+> Prefer the simple route? See [Easiest install](#easiest-install-npx-skills-no-technical-knowledge-needed) above. The plugin install below is the full version: it also turns on spendlens tracking.
 
 ### Option A: from a Git repo (recommended for teams)
 1. Push this folder to a Git repo, e.g. `your-org/tokenomics`.
