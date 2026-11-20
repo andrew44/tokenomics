@@ -65,7 +65,7 @@ flowchart LR
     C["You reply after<br/>a long break"] --> D["Cache has gone cold<br/>Old conversation is paid<br/>for again in full"]
 ```
 
-That is what the egg timer in the **statusbar** shows you, and why **doggybag** packs you a short note just before the cache runs out: starting fresh from a short note is cheaper than reloading a long, cold conversation.
+That is what the egg timer in the **statusline** shows you, and why **doggybag** packs you a short note just before the cache runs out: starting fresh from a short note is cheaper than reloading a long, cold conversation.
 
 ### What is a tokeniser?
 
@@ -144,7 +144,7 @@ Two separate limits apply:
 | **Context window** | Input tokens + output tokens must fit inside it. |
 | **Max output (`max_tokens`)** | A cap you set on how much the model may generate in one response. It is a ceiling, not a target. |
 
-When a conversation approaches the window, something has to give: older content is dropped, summarised (**compaction**) or cleared (**context editing**). The statusbar's "how full" indicator tracks this.
+When a conversation approaches the window, something has to give: older content is dropped, summarised (**compaction**) or cleared (**context editing**). The statusline's "how full" indicator tracks this.
 
 ### 2.3 Input tokens
 

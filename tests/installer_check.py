@@ -64,16 +64,16 @@ def main(args):
 
     settings = json.loads(CLAUDE_SETTINGS.read_text(encoding="utf-8"))
     cmd = (settings.get("statusLine") or {}).get("command", "")
-    ok("statusbar.py" in cmd, "status bar is set in Claude Code settings", json.dumps(settings))
+    ok("statusline.py" in cmd, "statusline is set in Claude Code settings", json.dumps(settings))
     if "--expect-plugin-log" in args:
         log = Path(args[args.index("--expect-plugin-log") + 1]).read_text(encoding="utf-8", errors="replace")
         ok("plugin install tokenomics@tokenomics" in log, "the installer added the Claude Code plugin", log)
 
-    # 2. The status bar renders through the exact command written to settings.json
+    # 2. The statusline renders through the exact command written to settings.json
     sb = subprocess.run(cmd, shell=True, input=json.dumps({"model": {"display_name": "Opus"},
                         "context_window": {"used_percentage": 40}}), capture_output=True, text=True,
                         encoding="utf-8", errors="replace", timeout=60)
-    ok(sb.returncode == 0 and "Opus" in sb.stdout, "status bar renders", sb.stdout + sb.stderr)
+    ok(sb.returncode == 0 and "Opus" in sb.stdout, "statusline renders", sb.stdout + sb.stderr)
 
     # 3. Every Claude Code hook, run as Claude Code runs it
     hooks = json.loads((APP / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
@@ -123,7 +123,7 @@ def main(args):
     r = tokenomics("uninstall")
     ok(r.returncode == 0, "`tokenomics uninstall`", r.stdout + r.stderr)
     settings = json.loads(CLAUDE_SETTINGS.read_text(encoding="utf-8"))
-    ok("statusLine" not in settings, "uninstall removed the status bar", json.dumps(settings))
+    ok("statusLine" not in settings, "uninstall removed the statusline", json.dumps(settings))
     ok(not (APP / "scripts").exists(), "uninstall removed the app")
     ok(db.is_file(), "uninstall kept the recorded data")
     print("\nAll installer checks passed.")

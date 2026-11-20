@@ -29,10 +29,10 @@ Every message you send re-sends the **whole conversation**. Long chats, pasted l
 **tokenomics makes it visible, and then does something about it.**
 
 <p align="center">
-  <img src="docs/assets/statusbar.svg" alt="The tokenomics status bar showing model, context fill, tokens, cost and a prompt-cache countdown" width="760">
+  <img src="docs/assets/statusline.svg" alt="The tokenomics statusline showing model, context fill, tokens, cost and a prompt-cache countdown" width="760">
 </p>
 
-- 📟 **See it live.** A status bar with context fill, tokens, cost in £/$/€ and a countdown to when the cache goes cold.
+- 📟 **See it live.** A statusline in the terminal (and the same line in the desktop app's band) with context fill, tokens, cost in £/$/€ and a countdown to when the cache goes cold.
 - 🛡️ **Stop waste automatically.** Guard-rails that catch context floods, over-specced models and runaway spend *before* they cost you.
 - 🧑‍🏫 **Get better at it.** A coach that reviews your prompts, and a weekly spend report with three fixes tied to your own numbers.
 - 🔒 **Stays on your machine.** One local SQLite file. No account, no telemetry, no packages to install.
@@ -53,7 +53,7 @@ tokenomics is a [Claude Code plugin](https://code.claude.com/docs/en/plugins). I
 
 <sub>On Claude Code older than v2.1.275, use two lines instead: <code>/plugin marketplace add andrew44/tokenomics</code> then <code>/plugin install tokenomics@tokenomics</code>.</sub>
 
-Choose **Install for you (user scope)** so it works in every project. That's it. 🎉 You get every skill, all five hooks and, from your next session, the live status bar. Now try:
+Choose **Install for you (user scope)** so it works in every project. That's it. 🎉 You get every skill, all five hooks and, from your next session, the live statusline (in the desktop app: the band). Now try:
 
 > 💬 *"coach, review my prompts"*  ·  💬 *"spend report"*  ·  💬 `/tokenomics:dashboard`
 
@@ -62,7 +62,7 @@ Choose **Install for you (user scope)** so it works in every project. That's it.
 <details>
 <summary><b>Using the Claude desktop app? No terminal needed</b></summary>
 
-In the **Code** tab (a local session), click **+** next to the prompt box → **Add plugins** → add the marketplace `andrew44/tokenomics` → install **tokenomics**. Desktop and terminal share the same settings, so it works in both. The status bar shows in the terminal only.
+In the **Code** tab (a local session), click **+** next to the prompt box → **Add plugins** → add the marketplace `andrew44/tokenomics` → install **tokenomics**. Desktop and terminal share the same settings, so it works in both. The desktop app has no statusline, so there the same line sits in the **band** above the prompt box.
 </details>
 
 <details>
@@ -123,7 +123,7 @@ Every piece works on its own. Grab just what you want:
 |---|---|
 | 🧑‍🏫 **coach** skill | `npx skills@latest add andrew44/tokenomics --skill coach` |
 | 📊 **spend-report** skill | `npx skills@latest add andrew44/tokenomics --skill spend-report` *(reads spendlens data, so pair it with the plugin)* |
-| 📟 **statusbar** only | Install the plugin and switch the hooks off (below), or without the plugin: `curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh \| sh -s -- --no-plugin` |
+| 📟 **statusline** only | Install the plugin and switch the hooks off (below), or without the plugin: `curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh \| sh -s -- --no-plugin` |
 | 📈 **dashboard** | `/tokenomics:dashboard` with the plugin, or `tokenomics dashboard` after the one-liner |
 | 🛡️ **Some of the hooks** | Install the plugin, then switch off the ones you don't want, e.g. `TOKENOMICS_DIET=off` or `TOKENOMICS_PENNYWISE=block` |
 
@@ -142,7 +142,7 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 | 🥗 | **[diet](docs/reference.md#diet)** | Stops tool calls that would flood the context (whole lockfiles, unbounded logs) and tells the AI to ask for less. | hook | ✅ | ✅ |
 | 💳 | **[budget](docs/reference.md#budget)** | Daily and per-session limits in your currency. Warns at 80%, pauses at 100%. | hook | ✅ | — |
 | 🥡 | **[doggybag](docs/reference.md#doggybag)** | Packs a free "where we got to" note into `.doggybag/` in your project just before the cache goes cold; `/clear` picks it straight back up. | hook | ✅ | ✅ |
-| 📟 | **[statusbar](docs/reference.md#statusbar)** | Context fill, tokens, cost and a cache countdown, live at the bottom of your assistant. On automatically; `/tokenomics:statusbar` to manage it. | tool | ✅ | ✅ |
+| 📟 | **[statusline](docs/reference.md#statusline)** and **[band](docs/reference.md#band)** | Context fill, tokens, cost and a cache countdown, live: the statusline at the bottom of your assistant in a terminal, the band above the prompt box in the desktop app. On automatically; `/tokenomics:statusline` to manage both. | tool | ✅ | ✅ |
 | 📈 | **[dashboard](docs/reference.md#dashboard)** | A local web view of where your tokens went, split by OPEX/CAPEX, project and day. | tool | ✅ | ✅ |
 
 > **Skills** run when you ask. **Hooks** run automatically. **Tools** you run yourself. Not sure which you need? → [Skills, tools and hooks](docs/skills-tools-and-hooks.md)
@@ -204,7 +204,7 @@ flowchart LR
     S --> DB[("~/.tokenomics/<br/>spendlens.db")]
     DB --> R["📊 spend-report"]
     DB --> W["📈 dashboard"]
-    You -.->|live| B["📟 statusbar"]
+    You -.->|live| B["📟 statusline / band"]
     You -.->|on request| C["🧑‍🏫 coach"]
 ```
 

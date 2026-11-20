@@ -3,7 +3,7 @@
 #   irm https://raw.githubusercontent.com/andrew44/tokenomics/main/install.ps1 | iex
 #
 # Downloads tokenomics to %USERPROFILE%\.tokenomics\app (no git needed), then sets up whichever
-# assistants it finds: the Claude Code / Copilot CLI plugin (skills + hooks), the status bar, and a
+# assistants it finds: the Claude Code / Copilot CLI plugin (skills + hooks), the statusline, and a
 # `tokenomics` command. It never replaces a status line you already have. Safe to run again.
 #
 # No Python? It downloads a private copy into %USERPROFILE%\.tokenomics\runtime (no admin rights,
@@ -12,7 +12,7 @@
 # Environment: TOKENOMICS_REPO (default andrew44/tokenomics), TOKENOMICS_REF (default main),
 #              TOKENOMICS_HOME (default %USERPROFILE%\.tokenomics),
 #              TOKENOMICS_PYTHON (a python.exe to use, or "standalone" to always use a private copy),
-#              TOKENOMICS_SETUP_ARGS (e.g. "--no-statusbar")
+#              TOKENOMICS_SETUP_ARGS (e.g. "--no-statusline")
 
 & { try {
     $ErrorActionPreference = 'Stop'
@@ -113,7 +113,7 @@
     }
     if (-not (($env:Path -split ';') -contains $bin)) { $env:Path = "$env:Path;$bin" }
 
-    # 4. Set everything up (plugin, status bar, `tokenomics` command)
+    # 4. Set everything up (plugin, statusline, `tokenomics` command)
     Write-Host ''
     $env:PYTHONIOENCODING = 'utf-8'
     $setupArgs = if ($env:TOKENOMICS_SETUP_ARGS) { $env:TOKENOMICS_SETUP_ARGS -split ' ' } else { @() }

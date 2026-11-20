@@ -3,7 +3,7 @@
 
 Prompt hook (Claude Code: UserPromptSubmit). Shows a notice at 80% of a limit and pauses the
 next prompt once a limit is reached; send the same prompt again (or start it with
-"over-budget:") to carry on. Spend is what spendlens recorded, priced like the status bar.
+"over-budget:") to carry on. Spend is what spendlens recorded, priced like the statusline.
 Limits are in the display currency: TOKENOMICS_CURRENCY = GBP (default) | USD | EUR.
 Copilot bills premium requests, not tokens, so it has no spend to budget against.
 

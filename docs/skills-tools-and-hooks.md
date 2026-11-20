@@ -20,8 +20,8 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 |--------------|-----------|------|
 | Know why a session was expensive, or get better at prompting | [coach](#coach) | Skill |
 | See what I spent this week / month, and where | [spend-report](#spend-report) | Skill |
-| Know how full the conversation is and what it has cost, right now | [statusbar](#statusbar) | Tool |
-| Know how long until the prompt cache goes cold | [statusbar](#statusbar) | Tool |
+| Know how full the conversation is and what it has cost, right now | [statusline](#statusline) | Tool |
+| Know how long until the prompt cache goes cold | [statusline](#statusline) | Tool |
 | See OPEX vs CAPEX and usage trends as charts | [dashboard](#dashboard) | Tool |
 | Check where I am against my spending limit | [budget status](#budget-1) | Tool |
 | Stop myself overspending | [budget](#budget) | Hook |
@@ -36,7 +36,7 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 flowchart TD
     Q{"What do you need?"} -->|"Advice on how I'm working"| CF["coach<br/>(skill)"]
     Q -->|"A summary of spend over time"| SR["spend-report<br/>(skill)"]
-    Q -->|"A live view while I work"| SB["statusbar<br/>(tool)"]
+    Q -->|"A live view while I work"| SB["statusline<br/>(tool)"]
     Q -->|"Charts"| DB["dashboard<br/>(tool)"]
     Q -->|"Guard rails that act on their own"| H["Hooks:<br/>pennywise, diet, budget, doggybag"]
     Q -->|"Data collected in the background"| SL["spendlens<br/>(hook)"]
@@ -55,7 +55,7 @@ Skills are instructions the assistant follows when you ask. They only run when y
 **Reach for it when:**
 
 - A session felt slow or expensive and you want to know why.
-- The status bar shows a big cost or a nearly full context and you're not sure what caused it.
+- The statusline shows a big cost or a nearly full context and you're not sure what caused it.
 - spend-report names one session as the costliest and you want the detail (give it the session id).
 - You want to improve your prompting habits generally. Running it at the end of a long session is a good routine.
 
@@ -162,21 +162,22 @@ sequenceDiagram
 
 Scripts you run yourself. All need only Python 3.8+ and live in `scripts/`. Run them from the repo (or plugin) folder.
 
-### statusbar
+### statusline
 
-`scripts/statusbar.py`: a live line at the bottom of Claude Code or Copilot CLI showing model, context fill, total tokens, cost and the cache countdown.
+`scripts/statusline.py`: a live line at the bottom of Claude Code or Copilot CLI in a terminal, showing model, context fill, total tokens, cost and the cache countdown. In the Claude desktop app the same line is the **band** above the prompt box (`hooks/band.tsx`).
 
 **Reach for it when:** you want to *see* cost as you go rather than find out afterwards. It's the best everyday early warning: start a fresh conversation when the context bar goes red, and finish your thought (or let doggybag pack a note) before the cache timer runs out.
 
 | Command | Use it to |
 |---------|-----------|
-| `/tokenomics:statusbar` (plugin) or `tokenomics statusbar --install claude` (or `copilot`, `both`) | Install it (backs up your settings first). `--uninstall` removes it, `--status` says where it is. |
-| `tokenomics statusbar --set-currency USD` | Choose £, $ or € for every cost tokenomics shows. |
-| `tokenomics statusbar --update-rate` | Fetch today's exchange rates. |
-| `tokenomics statusbar --watch` | A smoothly ticking countdown in a spare terminal pane. |
-| `tokenomics statusbar --demo --theme light` | Preview every state and colour. |
+| `/tokenomics:statusline` (plugin) or `tokenomics statusline --install claude` (or `copilot`, `both`) | Install it (backs up your settings first). `--uninstall` removes it, `--status` says where it is. |
+| `tokenomics statusline --band-off` (`--band-on`) | Hide (or show) the band in the desktop app. |
+| `tokenomics statusline --set-currency USD` | Choose £, $ or € for every cost tokenomics shows. |
+| `tokenomics statusline --update-rate` | Fetch today's exchange rates. |
+| `tokenomics statusline --watch` | A smoothly ticking countdown in a spare terminal pane. |
+| `tokenomics statusline --demo --theme light` | Preview every state and colour. |
 
-Details: [statusbar reference](reference.md#statusbar).
+Details: [statusline](reference.md#statusline) and [band](reference.md#band) reference.
 
 ### dashboard
 
@@ -235,7 +236,7 @@ python3 scripts/coach.py --transcript path/to/file.jsonl
 
 `scripts/update_prices.py`: refreshes `data/model-prices.json` from Claude's pricing page. A GitHub Action already runs it every Monday.
 
-**Reach for it when:** a new model has launched or prices changed and you don't want to wait for Monday, or (`--check`) to confirm the file is current. To override a single price instead, use `"prices"` in `~/.tokenomics/statusbar.json` (see [Prices](configuration.md#prices)).
+**Reach for it when:** a new model has launched or prices changed and you don't want to wait for Monday, or (`--check`) to confirm the file is current. To override a single price instead, use `"prices"` in `~/.tokenomics/statusline.json` (see [Prices](configuration.md#prices)).
 
 ```
 python3 scripts/update_prices.py            # fetch and update
@@ -246,7 +247,7 @@ python3 scripts/update_prices.py --check    # exit 1 if out of date
 
 ## A sensible setup
 
-- **Everyone:** install the plugin (spendlens, diet, doggybag and pennywise run by default) and the [statusbar](#statusbar).
+- **Everyone:** install the plugin (spendlens, diet, doggybag and pennywise run by default) and the [statusline](#statusline).
 - **Paying personally or on an allowance:** also set a [budget](#budget).
 - **Weekly:** ask for a [spend-report](#spend-report).
 - **After any session that surprised you:** ask the [coach](#coach).

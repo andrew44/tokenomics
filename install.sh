@@ -4,13 +4,13 @@
 #   curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh | sh
 #
 # Downloads tokenomics to ~/.tokenomics/app (no git needed), then sets up whichever assistants it
-# finds: the Claude Code / Copilot CLI plugin (skills + hooks), the status bar, and a `tokenomics`
+# finds: the Claude Code / Copilot CLI plugin (skills + hooks), the statusline, and a `tokenomics`
 # command. It never replaces a status line you already have. Safe to run again to repair.
 #
 # No Python? It downloads a private copy into ~/.tokenomics/runtime (no admin rights, no pop-ups,
 # nothing else on your system changes).
 #
-# Options (after `sh -s --`): --no-plugin  --no-statusbar
+# Options (after `sh -s --`): --no-plugin  --no-statusline
 # Environment: TOKENOMICS_REPO (default andrew44/tokenomics), TOKENOMICS_REF (default main),
 #              TOKENOMICS_HOME (default ~/.tokenomics),
 #              TOKENOMICS_PYTHON (a python to use, or "standalone" to always use a private copy)
@@ -118,7 +118,7 @@ main() {
     rm -rf "$app"
     mv "$app.new" "$app"
 
-    # 3. Set everything up (plugin, status bar, `tokenomics` command)
+    # 3. Set everything up (plugin, statusline, `tokenomics` command)
     say ""
     "$py" "$app/scripts/cli.py" setup "$@" </dev/null
 }

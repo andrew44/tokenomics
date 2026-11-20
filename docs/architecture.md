@@ -20,7 +20,7 @@ flowchart LR
 - **Billing stays separate**: Claude Code tokens are priced (`engine/pricing.py`); Copilot premium requests are never turned into tokens or money.
 - **Guards share the engine too**: diet's rules (`engine/diet.py`) and budget's limits (`engine/budget.py`) are written once; each adapter says how to deny a tool call, block a prompt or show a notice on its platform (or that it can't).
 
-The older tools (status bar, pennywise, doggybag, coach) are still standalone scripts; the status bar must stay a single file because `--install` copies it to `~/.tokenomics/` (and the plugin's `statusbar.py --sync` SessionStart hook refreshes that copy after each plugin update).
+The older tools (statusline, pennywise, doggybag, coach) are still standalone scripts; the statusline must stay a single file because `--install` copies it to `~/.tokenomics/` (and the plugin's `statusline.py --sync` SessionStart hook refreshes that copy after each plugin update). The band (`hooks/band.tsx`) is the one TypeScript part: a [mod](https://code.claude.com/docs/en/plugins/mods/interface) that draws the statusline's numbers (`statusline.py --json`) above the prompt box in the desktop app, where there is no statusline. Its tests run with `claude plugin test .`.
 
 ## Handy commands
 
@@ -39,14 +39,15 @@ tokenomics/
 ├── .claude-plugin/
 │   ├── plugin.json                 Claude Code manifest
 │   └── marketplace.json            lets the repo be added as a marketplace
-├── hooks/hooks.json                Claude Code hooks
+├── hooks/hooks.json                Claude Code hooks (and the band module)
+├── hooks/band.tsx                  the band: the statusline in the desktop app, above the prompt box (a mod)
 ├── plugin.json                     Copilot CLI manifest
 ├── copilot-hooks.json              Copilot CLI hooks
 ├── skills/
 │   ├── coach/SKILL.md              prompt and cache review skill
 │   ├── spend-report/SKILL.md       weekly spend report skill
 │   ├── dashboard/SKILL.md          opens the dashboard (/tokenomics:dashboard)
-│   └── statusbar/SKILL.md          installs / removes the status bar (/tokenomics:statusbar)
+│   └── statusline/SKILL.md         installs / removes the statusline, band on/off (/tokenomics:statusline)
 ├── tokenomics/
 │   ├── engine/                     shared logic: classifier.py, llm.py, store.py, session.py, evidence.py,
 │   │                               pricing.py, currency.py, diet.py, budget.py, events.py
@@ -65,7 +66,7 @@ tokenomics/
 │   ├── budget.py                   daily / per-session spending limits
 │   ├── report.py                   spend report (used by the spend-report skill)
 │   ├── coach.py                    transcript analyser used by the coach skill
-│   ├── statusbar.py                status line for Claude Code and Copilot CLI
+│   ├── statusline.py               the statusline for Claude Code and Copilot CLI (terminal); --json feeds the band
 │   ├── dashboard.py                local web server over the spendlens database (--background)
 │   └── update_prices.py            refreshes data/model-prices.json from Claude's pricing page
 ├── data/model-prices.json          Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly

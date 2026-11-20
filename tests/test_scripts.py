@@ -1,4 +1,4 @@
-"""The standalone scripts: coach, dashboard, doggybag, statusbar, pennywise."""
+"""The standalone scripts: coach, dashboard, doggybag, statusline, pennywise."""
 import json
 import os
 import shutil
@@ -19,7 +19,7 @@ if str(SCRIPTS) not in sys.path:
 import dashboard  # noqa: E402
 import doggybag  # noqa: E402
 import pennywise  # noqa: E402
-import statusbar  # noqa: E402
+import statusline  # noqa: E402
 
 
 class ImportTests(unittest.TestCase):
@@ -180,18 +180,18 @@ class DoggybagTests(unittest.TestCase):
         self.assertEqual((r["prompts"], r["files"], r["cmds"]), (["add a login page"], ["/w/login.py"], ["pytest -q"]))
 
 
-class StatusbarTests(unittest.TestCase):
+class StatuslineTests(unittest.TestCase):
     def test_most_specific_price_wins(self):
         cfg = {"prices": {"opus": [9, 90], "claude-opus-4-6": [6, 30]}}
-        r = statusbar.rates_for("claude-opus-4-6", cfg)
+        r = statusline.rates_for("claude-opus-4-6", cfg)
         self.assertEqual((r["input"], r["output"]), (6.0, 30.0))
         self.assertAlmostEqual(r["cache_read"], 0.6)
-        self.assertEqual(statusbar.rates_for("claude-opus-4-7", cfg)["input"], 9.0)   # only the family override matches
-        self.assertEqual(statusbar.price_for("mystery", {}), statusbar.DEFAULT_PRICE)
+        self.assertEqual(statusline.rates_for("claude-opus-4-7", cfg)["input"], 9.0)   # only the family override matches
+        self.assertEqual(statusline.price_for("mystery", {}), statusline.DEFAULT_PRICE)
 
     def test_gather_accepts_string_model(self):
-        info = statusbar.gather({"model": "gpt-5", "context_window": {"used_percentage": 40}},
-                                dict(statusbar.DEFAULT_CFG), {})
+        info = statusline.gather({"model": "gpt-5", "context_window": {"used_percentage": 40}},
+                                dict(statusline.DEFAULT_CFG), {})
         self.assertEqual((info["model"], info["pct"]), ("gpt-5", 40.0))
 
     def test_live_transcript_survives_cache_trim(self):
@@ -199,22 +199,23 @@ class StatusbarTests(unittest.TestCase):
         try:
             state = {"transcripts": {f"/old/{i}.jsonl": {"offset": 10 ** 9, "seen": i} for i in range(20)}}
             path = write_transcript(t.home, "live", [assistant("m1")])
-            statusbar.scan_transcript(path, state, dict(statusbar.DEFAULT_CFG))
+            statusline.scan_transcript(path, state, dict(statusline.DEFAULT_CFG))
             self.assertIn(path, state["transcripts"])
             self.assertEqual(len(state["transcripts"]), 20)
         finally:
             t.cleanup()
 
     def test_render_plain(self):
-        cfg = dict(statusbar.DEFAULT_CFG)
+        cfg = dict(statusline.DEFAULT_CFG)
         info = {"model": "Sonnet", "total": 12_300, "cost": 1.5, "symbol": "£", "estimated": True,
                 "pct": 50, "ttl": 300, "remaining": 90}
-        line = statusbar.render(info, statusbar.Style("dark", color=False, ascii_only=True), cfg)
+        line = statusline.render(info, statusline.Style("dark", color=False, ascii_only=True), cfg)
         self.assertEqual(line, "* Sonnet | ctx ######------ 50% | tok 12.3K | ~£1.50 | [# ] 01:30")
 
 
-class StatusbarInstallTests(unittest.TestCase):
-    """--sync is the plugin's SessionStart hook: it offers, auto-installs and refreshes the bar."""
+class StatuslineInstallTests(unittest.TestCase):
+    """--sync is the plugin's SessionStart hook: it offers, auto-installs and refreshes the CLI
+    statusline, and moves a pre-v1.4 "statusbar" install to the new names."""
 
     def setUp(self):
         self.t = TempEnv()
@@ -222,13 +223,13 @@ class StatusbarInstallTests(unittest.TestCase):
         self.env = self.t.env(TOKENOMICS_HOME=str(h / ".tokenomics"), CLAUDE_CONFIG_DIR=str(h / ".claude"),
                               COPILOT_HOME=str(h / ".copilot"))
         self.settings = h / ".claude" / "settings.json"
-        self.copy = h / ".tokenomics" / "statusbar.py"
+        self.copy = h / ".tokenomics" / "statusline.py"
 
     def tearDown(self):
         self.t.cleanup()
 
     def run_bar(self, *args, **env):
-        p = subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), *args], input="{}",
+        p = subprocess.run([sys.executable, str(SCRIPTS / "statusline.py"), *args], input="{}",
                            capture_output=True, text=True, env={**self.env, **env}, timeout=30)
         self.assertEqual(p.returncode, 0, p.stderr)
         return p.stdout
@@ -238,9 +239,9 @@ class StatusbarInstallTests(unittest.TestCase):
         self.assertIn(str(self.copy), json.loads(self.settings.read_text())["statusLine"]["command"])
 
     def test_ask_offers_once_then_stays_quiet(self):
-        msg = json.loads(self.run_bar("--sync", TOKENOMICS_STATUSBAR="ask"))["systemMessage"]
-        self.assertIn("/tokenomics:statusbar", msg)
-        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSBAR="ask"), "")
+        msg = json.loads(self.run_bar("--sync", TOKENOMICS_STATUSLINE="ask"))["systemMessage"]
+        self.assertIn("/tokenomics:statusline", msg)
+        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSLINE="ask"), "")
         self.assertFalse(self.settings.exists())
 
     def test_install_keep_existing_skips_another_status_line(self):
@@ -252,23 +253,60 @@ class StatusbarInstallTests(unittest.TestCase):
         self.assertIn(str(self.copy), json.loads(self.settings.read_text())["statusLine"]["command"])
 
     def test_off_never_offers(self):
-        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSBAR="off"), "")
+        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSLINE="off"), "")
+        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSBAR="off"), "")    # the old name still works
 
     def test_auto_installs_and_refreshes(self):
-        self.assertIn("installed", self.run_bar("--sync", TOKENOMICS_STATUSBAR="auto"))
+        self.assertIn("installed", self.run_bar("--sync", TOKENOMICS_STATUSLINE="auto"))
         self.assertIn(str(self.copy), json.loads(self.settings.read_text())["statusLine"]["command"])
         self.copy.write_text("# stale\n")
         self.assertEqual(self.run_bar("--sync"), "")
-        self.assertEqual(self.copy.read_bytes(), (SCRIPTS / "statusbar.py").read_bytes())
+        self.assertEqual(self.copy.read_bytes(), (SCRIPTS / "statusline.py").read_bytes())
         self.assertTrue((self.copy.parent / "model-prices.json").is_file())
-        self.assertIn("claude: installed", self.run_bar("--status"))
+        self.assertIn("claude statusline: installed", self.run_bar("--status"))
+        self.assertIn("claude band (desktop app): on", self.run_bar("--status"))
 
     def test_leaves_another_status_line_alone(self):
         self.settings.parent.mkdir(parents=True)
         self.settings.write_text(json.dumps({"statusLine": {"type": "command", "command": "mine"}}))
-        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSBAR="auto"), "")
+        self.assertEqual(self.run_bar("--sync", TOKENOMICS_STATUSLINE="auto"), "")
         self.assertEqual(json.loads(self.settings.read_text())["statusLine"]["command"], "mine")
         self.assertIn("another status line", self.run_bar("--status"))
+
+    def test_sync_message_names_the_band_in_the_desktop_app(self):
+        msg = json.loads(self.run_bar("--sync", CLAUDE_CODE_ENTRYPOINT="claude-desktop"))["systemMessage"]
+        self.assertIn("statusline installed", msg)
+        self.assertIn("in the band above the prompt box", msg)
+        self.assertIn("restart Claude Code", json.loads(self.run_bar("--uninstall", "claude") and
+                                                        self.run_bar("--sync"))["systemMessage"])
+
+    def test_migrates_a_statusbar_install(self):
+        """Before v1.4: ~/.tokenomics/statusbar.py in settings.json, config in statusbar.json."""
+        home = self.copy.parent
+        home.mkdir(parents=True)
+        old = home / "statusbar.py"
+        old.write_text("# the old copy\n")
+        (home / "statusbar.json").write_text(json.dumps({"currency": "EUR"}))
+        (home / "statusbar-offered").write_text("x")
+        (home / "statusbar-state.json").write_text("{}")
+        for path, flags in ((self.settings, {}), (self.t.home / ".copilot" / "settings.json",
+                                                  {"feature_flags": {"enabled": ["STATUS_LINE"]}})):
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({"statusLine": {"type": "command", "command": f'"python3" "{old}"'},
+                                        **flags}))
+        # still read as ours, and its config, before anything has moved
+        self.assertIn("claude statusline: installed", self.run_bar("--status"))
+        self.assertIn("€", self.run_bar("--no-color"))
+
+        self.assertEqual(self.run_bar("--sync"), "")
+        for path in (self.settings, self.t.home / ".copilot" / "settings.json"):
+            self.assertIn(str(self.copy), json.loads(path.read_text())["statusLine"]["command"], path)
+        self.assertEqual(json.loads((home / "statusline.json").read_text())["currency"], "EUR")
+        self.assertTrue((home / "statusline-offered").exists())
+        for gone in ("statusbar.py", "statusbar.json", "statusbar-offered", "statusbar-state.json"):
+            self.assertFalse((home / gone).exists(), gone)
+        self.assertTrue(self.copy.is_file())
+        self.assertIn("€", self.run_bar("--no-color"))
 
 
 class PennywiseTests(unittest.TestCase):
@@ -421,11 +459,11 @@ class CliTests(unittest.TestCase):
         return p.stdout
 
     @unittest.skipIf(sys.platform == "win32", "uses a shell-script stand-in for claude")
-    def test_setup_installs_plugin_statusbar_and_launcher(self):
+    def test_setup_installs_plugin_statusline_and_launcher(self):
         out = self.cli("setup")
         self.assertIn("plugin installed", out)
         self.assertIn("plugin install tokenomics@tokenomics", self.log.read_text())
-        self.assertIn("statusbar.py", json.loads(self.settings.read_text())["statusLine"]["command"])
+        self.assertIn("statusline.py", json.loads(self.settings.read_text())["statusLine"]["command"])
         launcher = self.t.home / ".local" / "bin" / "tokenomics"
         self.assertTrue(launcher.is_file())
         rc = self.t.home / (".bash_profile" if sys.platform == "darwin" else ".bashrc")   # what bash reads

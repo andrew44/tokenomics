@@ -13,7 +13,7 @@ The full detail on every tokenomics helper: what it does, how it decides, and wh
 | 🥗 | **diet** | hook | [diet](#diet) |
 | 💳 | **budget** | hook | [budget](#budget) |
 | 🥡 | **doggybag** | hook | [doggybag](#doggybag) |
-| 📟 | **statusbar** | tool | [statusbar](#statusbar) |
+| 📟 | **statusline** and **band** | tool | [statusline](#statusline) · [band](#band) |
 | 📈 | **dashboard** | tool | [dashboard](#dashboard) |
 | 🗄️ | **your data** | | [Looking at your data](#looking-at-your-data) |
 
@@ -263,7 +263,7 @@ export TOKENOMICS_BUDGET_SESSION=5     # per session
 - `TOKENOMICS_BUDGET_MODE=warn` only ever shows notices.
 - Check where you are with `python3 scripts/budget.py status`.
 
-Spend is worked out from the token counts spendlens records at the end of each turn, priced per model like the status bar (so it is at most one turn behind, and an estimate, not your invoice). Each increase is stored with its date, so a session that runs past midnight counts towards the right day. Copilot bills premium requests, which hooks can't see, so Copilot sessions never count towards a budget. Copilot also ignores prompt-hook output, so budget is Claude Code only.
+Spend is worked out from the token counts spendlens records at the end of each turn, priced per model like the statusline (so it is at most one turn behind, and an estimate, not your invoice). Each increase is stored with its date, so a session that runs past midnight counts towards the right day. Copilot bills premium requests, which hooks can't see, so Copilot sessions never count towards a budget. Copilot also ignores prompt-hook output, so budget is Claude Code only.
 
 ---
 
@@ -294,11 +294,18 @@ Type `/clear` (or start a new session in the folder) and the `SessionStart` hook
 
 ---
 
-## statusbar
+## statusline
 
-A live line at the bottom of Claude Code or GitHub Copilot CLI.
+One live line: model, how full the conversation is, tokens, cost and a countdown to when the prompt cache goes cold. It shows in two places:
 
-<p align="center"><img src="assets/statusbar.svg" alt="The tokenomics status bar at 8%, 76% and 92% context" width="720"></p>
+| | Where | What it is | Manage it |
+|---|---|---|---|
+| **statusline** | The bottom of Claude Code or GitHub Copilot CLI **in a terminal** | The CLI's own status line: a `statusLine` entry in its `settings.json` | `/tokenomics:statusline` installs or removes it, per CLI |
+| **[band](#band)** | The **Claude desktop app**, above the prompt box | A row the plugin draws in the app's band (the app doesn't draw a status line) | On with the plugin; `/tokenomics:statusline band off` hides it |
+
+Both show the same line, worked out by the same script (`scripts/statusline.py`).
+
+<p align="center"><img src="assets/statusline.svg" alt="The tokenomics statusline at 8%, 76% and 92% context" width="720"></p>
 
 | Part | What it tells you |
 |---|---|
@@ -307,33 +314,51 @@ A live line at the bottom of Claude Code or GitHub Copilot CLI.
 | `£1.37` | What the session has cost, in your currency. A `~` in front (`~£1.37`) means it is an estimate. |
 | `⧗ 04:12` | A countdown to when the prompt cache expires. While it runs, repeated context is cheap. The egg timer starts **full (green)**, is **half-empty (amber)** at about half time and **empty (red)** when it is running out. `00:00` means the cache has gone cold, and `--:--` means nothing has been cached yet. |
 
-**Install** (Python 3.8+, nothing else). With the plugin, in Claude Code:
+### Install the statusline
+
+Python 3.8+, nothing else. With the plugin, in Claude Code:
 
 ```text
-/tokenomics:statusbar                 # or: /tokenomics:statusbar both   (Claude Code + Copilot CLI)
-/tokenomics:statusbar uninstall       # to remove
+/tokenomics:statusline                 # or: /tokenomics:statusline both   (Claude Code + Copilot CLI)
+/tokenomics:statusline uninstall       # to remove
 ```
 
-The plugin switches it on for you at the start of your next session (so does the [one-line installer](installation.md#the-one-line-installer)), as long as no other status line is set (`TOKENOMICS_STATUSBAR=ask` makes it ask first, `off` leaves it off). The plugin keeps the installed copy up to date at each session start. From a terminal:
+The plugin switches it on for you at the start of your next session (so does the [one-line installer](installation.md#the-one-line-installer)), as long as no other status line is set (`TOKENOMICS_STATUSLINE=ask` makes it ask first, `off` leaves it off). The plugin keeps the installed copy up to date at each session start. From a terminal:
 
 ```bash
-tokenomics statusbar --install claude     # or: copilot, both
-tokenomics statusbar --uninstall claude   # to remove
-tokenomics statusbar --status             # where is it installed?
+tokenomics statusline --install claude     # or: copilot, both
+tokenomics statusline --uninstall claude   # to remove
+tokenomics statusline --status             # where is it installed, and is the band on?
 ```
 
-**Light or dark.** It follows your computer's setting by default. To force one, put `{"theme": "dark"}` (or `"light"`) in `~/.tokenomics/statusbar.json`. Preview every state with `tokenomics statusbar --demo --theme light`. For very plain terminals use `--ascii` or set `NO_COLOR=1`.
+**Light or dark.** The statusline follows your computer's setting by default. To force one, put `{"theme": "dark"}` (or `"light"`) in `~/.tokenomics/statusline.json`. Preview every state with `tokenomics statusline --demo --theme light`. For very plain terminals use `--ascii` or set `NO_COLOR=1`.
 
 **Currency and prices:** see [Configuration](configuration.md#currency).
 
 <details>
-<summary><b>Good to know about the countdown</b></summary>
+<summary><b>Good to know about the statusline's countdown</b></summary>
 
 - It counts from the last request that used the cache. The cache lasts 5 minutes, or 1 hour if your session uses the 1-hour cache. Override with `"cache_ttl"` (seconds).
-- Claude Code redraws the line every second (this needs a recent version; on older ones it updates after each message).
+- Claude Code redraws the statusline every second (this needs a recent version; on older ones it updates after each message).
 - Copilot CLI doesn't say how often it redraws or when its cache expires, so there the countdown is approximate and may only move when Copilot redraws.
-- For a smoothly ticking countdown in any assistant, run `python3 scripts/statusbar.py --watch` in a spare terminal pane.
+- For a smoothly ticking countdown in any assistant, run `python3 scripts/statusline.py --watch` in a spare terminal pane.
 </details>
+
+### band
+
+The same line in the **Claude desktop app** (and the mobile app), in the **band above the prompt box**, with the same colours. The app doesn't draw the CLI's status line, so the plugin draws this row itself (`hooks/band.tsx`, a [mod](https://code.claude.com/docs/en/plugins/mods/interface)).
+
+- **On with the plugin.** It doesn't depend on the statusline: the band shows even if your terminal has another status line, or none.
+- **Exact.** It uses the same figures Claude Code gives the terminal's status line, so the cost has no `~`. The countdown ticks every second, and the numbers update as replies and tool results land.
+- **VS Code** has no band, so the line shows there as the plugin's status line above the prompt box.
+- **Where mods can't run** (an older Claude Code, or mods turned off), the desktop app and VS Code get the line as a short message after each reply instead, e.g. `◆ claude-opus-5-5 │ ctx ███████▋▒▒▒▒ 64% │ Σ 1.7M │ ~£0.81 │ ⧗ 04:58 (cold at 12:37)`. It's a snapshot, so the countdown also tells you the clock time the cache goes cold.
+
+```text
+/tokenomics:statusline band off       # hide it (or: tokenomics statusline --band-off)
+/tokenomics:statusline band on        # show it again
+```
+
+`TOKENOMICS_BAND=off` (or `on`) overrides the saved choice. The band turns on or off at the next reply.
 
 ---
 
