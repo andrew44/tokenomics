@@ -79,19 +79,22 @@ test('nothing cached yet reads --:--', async ($, on) => {
 
 // The engine beneath the band's timer and refresh: a session on `surfaces`, statusline.ts
 // answering `stdout`. Records each run and each status line.
-function engine(on: On, surfaces: ('terminal' | 'desktop' | 'vscode' | 'mobile')[], stdout: string) {
-  const runs: { argv: readonly string[], stdin?: string }[] = []
+type Run = { argv: readonly string[], stdin?: string }
+function engine(on: On, surfaces: ('terminal' | 'desktop' | 'vscode' | 'mobile')[], stdout: string,
+  opts: { platform?: string, run?: (argv: readonly string[]) => void, state?: boolean } = {}) {
+  const runs: Run[] = []
   const status: (string | undefined)[] = []
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.surfaces', () => ({ value: surfaces }))
   on('session.id', () => ({ value: 's1' }))
-  on('session.info', () => ({ value: { transcriptPath: '/t/s1.jsonl' } }))
+  on('session.info', () => ({ value: { transcriptPath: '/t/s1.jsonl', platform: opts.platform } }))
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('session.usage', () => ({ value: { startedAt: 0, rateLimits: [],
     context: { tokens: 159_000, window: 200_000, percent: 79.5 }, cost: { usd: 1.92 } } }))
   on('process.hookEnv', () => ({ value: {} }))
   on('process.run', (_, e) => {
     runs.push({ argv: e.argv, stdin: e.init?.stdin })
+    opts.run?.(e.argv)                              // throws: the command couldn't start
     return { value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
   on('fs.stat', () => ({ value: { kind: 'file', size: 1, mtimeMs: 1, isLink: false } }))
@@ -122,4 +125,32 @@ test('in the terminal alone the timer does nothing: the CLI statusline has it', 
   expect(runs.length).toBe(1)                     // the session.start read, nothing per tick
   expect(runs[0]?.argv).not.toContain('--band')   // and the after-reply message isn't silenced
   expect(status).toEqual([])
+})
+
+test('on Windows, with no sh on the PATH, the band runs the script through Git Bash', async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000_000 * 1000 })
+  const { runs } = engine(on, ['desktop'], JSON.stringify(LINE), { platform: 'windows',
+    run: argv => { if (!argv[0]?.endsWith('bash.exe')) throw new Error(`spawn ${argv[0]} ENOENT`) } })
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await clock.advance(1000)
+
+  expect(runs.map(r => r.argv[0])).toEqual(['sh', 'bash', 'C:/Program Files/Git/bin/bash.exe'])
+})
+
+test('when statusline.ts gives nothing (no Node.js), the band draws the engine figures and says why', async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000_000 * 1000 })
+  engine(on, ['desktop'], '')
+  let stored: unknown
+  on('state.get', () => ({ value: { value: stored, version: 1 } }))
+  on('state.set', (_, e) => { stored = e.value; return { value: undefined } })
+  const logs: string[] = []
+  on('ui.log', (_, e) => { if (e.to !== 'debug') logs.push(e.text); return { value: undefined } })
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await clock.advance(1000)
+
+  expect(stored).toMatchObject({ show: true, model: 'claude-opus-5-5', pct: 79.5, tokens: '159.0k', cost: '~$1.92' })
+  expect(logs.length).toBe(1)
+  expect(logs[0]).toContain('statusline.ts gave no numbers')
 })
