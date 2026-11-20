@@ -14,7 +14,7 @@
 #              TOKENOMICS_PYTHON (a python.exe to use, or "standalone" to always use a private copy),
 #              TOKENOMICS_SETUP_ARGS (e.g. "--no-statusbar")
 
-& {
+& { try {
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue'           # Invoke-WebRequest is very slow without this
     try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
@@ -31,7 +31,8 @@
         # Returns the full path of a working Python 3.8+, or $null. The Microsoft Store "python"
         # placeholder exists on PATH but can't run code, so every candidate is actually run.
         if (-not (Get-Command $cmd[0] -ErrorAction SilentlyContinue)) { return $null }
-        $pyArgs = @($cmd | Select-Object -Skip 1) + @('-c', 'import sys; print(sys.executable if sys.version_info >= (3, 8) else "")')
+        # No quotes inside the Python code: Windows PowerShell 5.1 strips them from native arguments.
+        $pyArgs = @($cmd | Select-Object -Skip 1) + @('-c', 'import sys; print(sys.executable if sys.version_info >= (3, 8) else str())')
         try {
             $old = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
             $exe = & $cmd[0] @pyArgs 2>$null | Select-Object -Last 1
@@ -59,7 +60,7 @@
     function Stop-WithMessage([string]$msg) {
         Write-Host ''
         Write-Host "tokenomics: $msg" -ForegroundColor Red
-        throw 'tokenomics installation did not finish.'
+        throw 'tokenomics-stop'                          # caught below: no stack trace for users
     }
 
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ("tokenomics-" + [guid]::NewGuid())
@@ -114,4 +115,13 @@
     $setupArgs = if ($env:TOKENOMICS_SETUP_ARGS) { $env:TOKENOMICS_SETUP_ARGS -split ' ' } else { @() }
     & $py (Join-Path $app 'scripts\cli.py') setup @setupArgs
     if ($LASTEXITCODE -ne 0) { Stop-WithMessage 'setup did not finish; see the messages above.' }
-}
+} catch {
+    # Show a plain message, not a PowerShell stack trace, and leave the window open (iex runs in
+    # the user's own session, so `exit` would close their terminal).
+    if ("$_" -ne 'tokenomics-stop') {
+        Write-Host ''
+        Write-Host "tokenomics: something went wrong: $_" -ForegroundColor Red
+        Write-Host 'Please try again; if it keeps failing, open an issue at https://github.com/andrew44/tokenomics/issues' -ForegroundColor Red
+    }
+    $global:LASTEXITCODE = 1
+} }

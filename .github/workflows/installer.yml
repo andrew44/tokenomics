@@ -72,7 +72,9 @@ jobs:
           TOKENOMICS_REPO: ${{ github.repository }}
           TOKENOMICS_REF: ${{ github.sha }}
           TOKENOMICS_PYTHON: ${{ matrix.python == 'standalone' && 'standalone' || '' }}
-        run: irm "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.ps1" | iex
+        run: |
+          irm "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.ps1" | iex
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Check the install
         run: |
           $env:Path = [Environment]::GetEnvironmentVariable('Path', 'User') + ';' + $env:Path   # as a new terminal would
@@ -115,5 +117,6 @@ jobs:
           TOKENOMICS_REF: ${{ github.sha }}
         run: |
           irm "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.ps1" | iex
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           claude plugin list
           if (-not ((claude plugin list) -match 'tokenomics')) { exit 1 }

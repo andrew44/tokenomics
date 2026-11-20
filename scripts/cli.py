@@ -130,7 +130,9 @@ def install_launcher():
     cli = Path(__file__).resolve()
     if WINDOWS:
         path = d / "tokenomics.cmd"
-        path.write_text(f'@"{sys.executable}" "{cli}" %*\r\n', encoding="utf-8")
+        # One line ending in `exit /b`: cmd.exe never re-reads the file after Python returns, so
+        # `tokenomics uninstall` can delete it. (`exit /b` alone keeps Python's exit code.)
+        path.write_text(f'@"{sys.executable}" "{cli}" %* & exit /b\r\n', encoding="utf-8")
     else:
         path = d / "tokenomics"
         path.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{cli}" "$@"\n', encoding="utf-8")
