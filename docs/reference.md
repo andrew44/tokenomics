@@ -137,10 +137,14 @@ flowchart LR
 ```
 
 - At session end, the whole transcript is re-scored and tool calls are counted.
+- **Prompts** score on both sides: OPEX for observability tools, live environments (prod, pods, CPU, 5xx), run-book verbs (restart, scale, roll back) and questions about what happened or what the numbers are; CAPEX for change requests (add, fix, rename, refactor...), broken code (failing tests, type errors, crashes), code nouns, UI words, and code-shaped text such as file paths, `camelCase` identifiers, error names and stack frames.
+- Words that only look like OPEX are neutralised first: "log in", `console.log`, `git log`, "stack trace", "alert dialog", "dashboard page". Hook output, command output and system reminders inside a user turn are ignored.
+- **Shell commands** count by what they run, never by the words in them: `kubectl logs`, `journalctl`, `docker logs`, `helm rollback` lean OPEX; tests, linters, builds, installs, `git commit`/`diff`/`rebase` lean CAPEX; `git log`, `ls` or `grep "metrics"` count for neither.
+- **MCP tools** lean OPEX when their name points at observability or incidents (`datadog`, `pagerduty`, `search_logs`...), CAPEX for pull-request and commit tools.
 - Each distinct skill that lands clearly on one side adds weight 6 to it, so one skill outweighs a few keyword hits. An ambiguous skill adds nothing.
 - Example: "Analyses App Insights" → OPEX; "Create Unit Tests using NUnit" → CAPEX.
 - A skill's description is read from its `SKILL.md` / command file on disk. Claude Code looks in the project's `.claude/`, `~/.claude/` and installed plugins, or otherwise in a skill listing found in the transcript. Copilot looks in the project's `.github/` and `.claude/` and in `~/.copilot/`.
-- To adjust the scoring, edit `OPEX_PATTERNS` / `CAPEX_PATTERNS` in `tokenomics/engine/classifier.ts`, or use `TOKENOMICS_SKILL_MAP` (see [Configuration](configuration.md)). One change applies to Claude Code and Copilot alike.
+- To adjust the scoring, edit `OPEX_PATTERNS` / `CAPEX_PATTERNS` in `tokenomics/engine/classifier.ts` (and check the labelled prompts in `tests/fixtures_classifier.ts` still pass), or use `TOKENOMICS_SKILL_MAP` (see [Configuration](configuration.md)). One change applies to Claude Code and Copilot alike.
 
 ### Optional: let an AI model decide
 

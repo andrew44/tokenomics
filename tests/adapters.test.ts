@@ -126,7 +126,7 @@ describe('degradation', () => {
     session.recordPrompt(a, { session_id: 'm', prompt: 'write a function' }, s)
     await session.finalize(a, { session_id: 'm', transcript_path: '/does/not/exist' }, s)
     const r = t.session('m')!
-    assert.deepEqual([r.label, r.capex_score, r.prompt_count], ['capex', 4, 1])
+    assert.deepEqual([r.label, r.capex_score, r.prompt_count], ['capex', 9, 1])
   })
 })
 
