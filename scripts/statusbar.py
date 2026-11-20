@@ -20,6 +20,10 @@ Usage
   statusbar.py --sync               SessionStart hook (plugin): refresh the installed copy after a
                                     plugin update; install it if no status line is set
                                     (TOKENOMICS_STATUSBAR=ask only suggests it once, =off stays quiet)
+  statusbar.py --message            Stop hook (plugin): in apps that don't draw status lines
+                                    (Claude desktop app, VS Code, JetBrains) post the bar as a
+                                    message after each reply; silent in the terminal
+                                    (TOKENOMICS_STATUSBAR_MESSAGE=auto|on|off, default auto)
   statusbar.py --watch [--path FILE]  live-refresh every second (for terminals/CLIs that only
                                     redraw on activity, so the timer keeps ticking)
   statusbar.py --demo               preview every state (use with --theme light|dark)
@@ -31,7 +35,7 @@ Config: ~/.tokenomics/statusbar.json (or $TOKENOMICS_HOME/statusbar.json), all o
   {"theme": "system", "currency": "GBP", "usd_gbp": 0.76, "usd_eur": 0.86, "cache_ttl": null,
    "width": 12, "warn": 75, "crit": 90}
 Env overrides: TOKENOMICS_THEME, TOKENOMICS_CURRENCY, TOKENOMICS_USD_GBP, TOKENOMICS_USD_EUR,
-  TOKENOMICS_CACHE_TTL (seconds),
+  TOKENOMICS_CACHE_TTL (seconds), TOKENOMICS_STATUSBAR_MESSAGE (auto|on|off),
   TOKENOMICS_ASCII=1, TOKENOMICS_TIMER_ICONS="full,half,empty", NO_COLOR.
 """
 import json
@@ -588,7 +592,9 @@ def timer_icons():
     return ["⧗", "⏳︎", "⧖"]          # full, half (sand flowing), empty
 
 
-def render(info, style, cfg):
+def render(info, style, cfg, static=False):
+    """One status line. static=True is for a message that won't redraw: the countdown also says
+    when (local clock time) the cache goes cold."""
     warn, crit = cfg["warn"], cfg["crit"]
     sep = style.paint(" │ " if not style.ascii else " | ", "sep")
     parts = []
@@ -625,7 +631,10 @@ def render(info, style, cfg):
             icon, ckey = half, "yellow"
         else:
             icon, ckey = empty, "red"
-        parts.append(style.paint(f"{icon} {mmss(rem)}", ckey, bold=True))
+        when = ""
+        if static and rem > 0:
+            when = " (cold at " + datetime.fromtimestamp(time.time() + rem).strftime("%H:%M") + ")"
+        parts.append(style.paint(f"{icon} {mmss(rem)}{when}", ckey, bold=True))
     return sep.join(parts)
 
 
@@ -705,6 +714,50 @@ def watch(args):
             time.sleep(1)
     except KeyboardInterrupt:
         sys.stdout.write("\n")
+
+
+# ----------------------------------------------------------------------------- apps ------
+# Claude Code only draws `statusLine` in the terminal. The desktop app and the IDE extensions
+# ignore it, but they do show a hook's "systemMessage", so there the Stop hook posts the bar
+# once per reply instead. CLAUDE_CODE_ENTRYPOINT says where Claude Code is running.
+
+APP_ENTRYPOINTS = ("desktop", "vscode", "jetbrains", "ide")
+
+
+def in_app():
+    """True when Claude Code runs inside an app that doesn't draw status lines."""
+    entry = os.environ.get("CLAUDE_CODE_ENTRYPOINT", "").strip().lower()
+    return any(k in entry for k in APP_ENTRYPOINTS)
+
+
+def message_mode():
+    mode = os.environ.get("TOKENOMICS_STATUSBAR_MESSAGE", "").strip().lower() or "auto"
+    if os.environ.get("TOKENOMICS_STATUSBAR", "").strip().lower() == "off":
+        return "off"
+    return mode if mode in ("on", "off") else "auto"
+
+
+def message():
+    """Stop hook. Prints {"systemMessage": <the bar as plain text>} when the UI can't draw the
+    status line (or TOKENOMICS_STATUSBAR_MESSAGE=on); otherwise nothing. Never fails."""
+    try:
+        payload = read_payload()
+        mode = message_mode()
+        if mode == "off":
+            return 0
+        if mode == "auto" and not (in_app() and _is_ours(_status_line("claude"))):
+            return 0                                      # terminal draws it; or the bar is off / not ours
+        if payload.get("stop_hook_active"):               # a hook made Claude continue: wait for the real end
+            return 0
+        cfg = load_cfg()
+        state = load_state()
+        style = Style("dark", color=False, ascii_only=os.environ.get("TOKENOMICS_ASCII") == "1")
+        line = render(gather(payload, cfg, state), style, cfg, static=True)
+        save_state(state)
+        sys.stdout.write(json.dumps({"systemMessage": line}, ensure_ascii=False))
+    except Exception:
+        pass
+    return 0
 
 
 def _save_cfg(**changes):
@@ -903,7 +956,9 @@ def sync():
             import io
             with contextlib.redirect_stdout(io.StringIO()):
                 install("claude")
-            msg = ("tokenomics: status bar installed; restart Claude Code to see it. Tip: to get "
+            where = ("it shows after each reply here, and at the bottom of Claude Code in a terminal"
+                     if in_app() else "restart Claude Code to see it")
+            msg = (f"tokenomics: status bar installed; {where}. Tip: to get "
                    "tokenomics updates automatically, open /plugin > Marketplaces > tokenomics "
                    "and turn on auto-update.")
         else:
@@ -933,6 +988,8 @@ def main():
         return
     if "--sync" in args:
         sys.exit(sync())
+    if "--message" in args:
+        sys.exit(message())
     if "--status" in args:
         sys.exit(status())
     if "--update-rate" in args:

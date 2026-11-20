@@ -151,6 +151,49 @@ class CurrencyTests(unittest.TestCase):
         finally:
             t.cleanup()
 
+    def test_statusbar_message_in_desktop_and_ide_only(self):
+        """Claude Code draws statusLine only in the terminal; in the apps the Stop hook posts it."""
+        t = TempEnv()
+        try:
+            claude_dir = t.home / ".claude"
+            tx = write_transcript(t.home, "s1", [user("hi"), sonnet_msg("m1")])
+            payload = json.dumps({"session_id": "s1", "transcript_path": tx, "hook_event_name": "Stop"})
+
+            def run(entry, *flag, **extra):
+                env = t.env(TOKENOMICS_HOME=str(t.home / ".tokenomics"), CLAUDE_CONFIG_DIR=str(claude_dir),
+                            CLAUDE_CODE_ENTRYPOINT=entry, **extra)
+                return subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), *flag], input=payload,
+                                      capture_output=True, text=True, env=env, timeout=30)
+
+            # not installed yet: quiet everywhere; --sync installs it and says where it shows
+            self.assertEqual(run("claude-desktop", "--message").stdout, "")
+            self.assertIn("after each reply", json.loads(run("claude-desktop", "--sync").stdout)["systemMessage"])
+
+            for entry in ("claude-desktop", "claude-vscode", "jetbrains"):
+                p = run(entry, "--message")
+                self.assertEqual(p.returncode, 0)
+                msg = json.loads(p.stdout)["systemMessage"]
+                self.assertIn("claude-sonnet-5-5", msg)
+                self.assertIn("~£2.28", msg)                      # (1M in @2 + 0.1M out @10) * 0.76
+                self.assertNotIn("\x1b", msg)                    # plain text, no ANSI
+            self.assertEqual(run("cli", "--message").stdout, "")  # the terminal draws the real bar
+            self.assertEqual(run("", "--message").stdout, "")
+            self.assertEqual(run("claude-desktop", "--message", TOKENOMICS_STATUSBAR_MESSAGE="off").stdout, "")
+            self.assertIn("systemMessage", run("cli", "--message", TOKENOMICS_STATUSBAR_MESSAGE="on").stdout)
+
+            # someone else's status line (or the bar removed): stay quiet in the app too
+            (claude_dir / "settings.json").write_text(json.dumps({"statusLine": {"command": "other.sh"}}))
+            self.assertEqual(run("claude-desktop", "--message").stdout, "")
+        finally:
+            t.cleanup()
+
+    def test_static_render_says_when_cache_goes_cold(self):
+        style = statusbar.Style("dark", color=False)
+        info = {"model": "m", "total": 1, "cost": 0, "symbol": "£", "estimated": False, "pct": 1,
+                "ttl": 300, "remaining": 120}
+        self.assertIn("(cold at ", statusbar.render(info, style, statusbar.DEFAULT_CFG, static=True))
+        self.assertNotIn("cold at", statusbar.render(info, style, statusbar.DEFAULT_CFG))
+
 
 class CostRecordingTests(unittest.TestCase):
     def setUp(self):

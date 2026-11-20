@@ -62,7 +62,7 @@ Choose **Install for you (user scope)** so it works in every project. That's it.
 <details>
 <summary><b>Using the Claude desktop app? No terminal needed</b></summary>
 
-In the **Code** tab (a local session), click **+** next to the prompt box → **Add plugins** → add the marketplace `andrew44/tokenomics` → install **tokenomics**. Desktop and terminal share the same settings, so it works in both. The status bar shows in the terminal only.
+In the **Code** tab (a local session), click **+** next to the prompt box → **Add plugins** → add the marketplace `andrew44/tokenomics` → install **tokenomics**. Desktop and terminal share the same settings, so it works in both. The desktop app can't draw status lines, so there the status bar appears as a short message after each reply.
 </details>
 
 <details>
