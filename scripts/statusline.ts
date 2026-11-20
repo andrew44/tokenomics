@@ -369,6 +369,20 @@ export function claudeModelId(model: string | null | undefined): string | null {
   return major < 4 ? `claude-${ver}-${family}` : `claude-${family}-${ver}`
 }
 
+/** Human name for a Claude model id, e.g. 'claude-opus-5-5[1m]' -> 'Claude Opus 5.5',
+ *  'claude-3-5-haiku-20241022' -> 'Claude 3.5 Haiku'. The raw id is returned for non-Claude models. */
+export function prettyModelName(model: string | null | undefined): string {
+  const raw = model || ''
+  const id = claudeModelId(raw)
+  if (!id) return raw
+  const m = /^claude-(?:(\d+)-(\d)-([a-z]+)|([a-z]+)-(\d+)(?:-(\d))?)$/.exec(id)
+  if (!m) return raw
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+  if (m[1]) return `Claude ${m[1]}.${m[2]} ${cap(m[3])}`          // claude-3-5-haiku
+  const ver = m[6] && m[6] !== '0' ? `${m[5]}.${m[6]}` : m[5]        // claude-opus-5-5 -> 5.5
+  return `Claude ${cap(m[4])} ${ver}`
+}
+
 export type Rates = { input: number, output: number, cache_write_5m: number, cache_write_1h: number, cache_read: number, long_context?: Obj }
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -581,7 +595,7 @@ export function gather(payload: Obj, cfg: Obj, state: Obj): Info {
   if (typeof model === 'string') model = { id: model }
   else if (!isObj(model)) model = {}
   const modelId: string = model.id || ''
-  let name: string = model.display_name || modelId || ''
+  let name: string = model.display_name || prettyModelName(modelId) || ''
   const tpath = payload.transcript_path
   let st: Obj | null = null
   let eventsFile: string | null = null
@@ -596,7 +610,7 @@ export function gather(payload: Obj, cfg: Obj, state: Obj): Info {
     }
   }
   const hasTx = Boolean(st && st.msgs)
-  if (!name && hasTx && st!.model) name = st!.model
+  if (!name && hasTx && st!.model) name = prettyModelName(st!.model)
 
   // ---- total tokens (everything the session has processed, cache reads included)
   let total: number
