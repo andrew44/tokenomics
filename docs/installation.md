@@ -98,6 +98,8 @@ irm https://raw.githubusercontent.com/andrew44/tokenomics/main/install.ps1 | iex
 
 Then restart Claude Code or Copilot CLI. That's it.
 
+**No Claude Code or Copilot CLI yet?** The installer adds tokenomics to the assistants it finds, so install at least one first: [Claude Code](https://code.claude.com/docs/en/setup) or [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli). Then run the line above again.
+
 How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press Enter. On **Windows** click Start, type `PowerShell`, press Enter.
 
 #### What the installer does
@@ -261,7 +263,7 @@ What works on Copilot:
 |---|---|
 | The plugin, statusline or dashboard | **Python 3.8+** (`python3` on Mac/Linux, `python` on Windows). No extra packages, ever. The Windows installer gets it for you if it's missing. |
 | Skills via `npx skills` | Node.js |
-| Any of it | Claude Code and/or GitHub Copilot CLI |
+| Any of it | [Claude Code](https://code.claude.com/docs/en/setup) and/or [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli) |
 
 ---
 
