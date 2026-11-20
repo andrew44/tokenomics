@@ -58,6 +58,23 @@ export class Db {
     return this.raw.prepare(sql).all(...bind(params)) as Row[]
   }
 
+  /** Run `fn` as one transaction: one disk sync for all its writes instead of one per statement. */
+  transaction<T>(fn: () => T): T {
+    this.raw.exec('BEGIN')
+    try {
+      const out = fn()
+      this.raw.exec('COMMIT')
+      return out
+    } catch (e) {
+      try {
+        this.raw.exec('ROLLBACK')
+      } catch {
+        // nothing to roll back
+      }
+      throw e
+    }
+  }
+
   /** Column names of a table (empty when the table doesn't exist). */
   columns(table: string): Set<string> {
     return new Set(this.all(`PRAGMA table_info(${table})`).map((r) => String(r.name)))

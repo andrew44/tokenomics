@@ -476,6 +476,20 @@ describe('budget', () => {
   })
 })
 
+describe('store', () => {
+  test('a transaction commits together, and rolls back on an error', (c) => {
+    const t = useTemp(c)
+    const db = store.connect(t.db)
+    c.after(() => db.close())
+    db.transaction(() => store.addPromptEvent(db, 'a', 1, 0, 'opex', null))
+    assert.throws(() => db.transaction(() => {
+      store.addPromptEvent(db, 'b', 1, 0, 'opex', null)
+      throw new Error('boom')
+    }), /boom/)
+    assert.deepEqual(t.rows('SELECT session_id FROM prompt_events'), [{ session_id: 'a' }])
+  })
+})
+
 describe('spend report', () => {
   test('empty', (c) => {
     const t = useTemp(c)
