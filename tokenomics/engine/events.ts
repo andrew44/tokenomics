@@ -6,6 +6,7 @@ export const TABLES: Record<string, string> = {
   diet_events: 'session_id TEXT, source TEXT, tool TEXT, rule TEXT, est_tokens INTEGER, action TEXT',
   sherlock_events: 'session_id TEXT, wasted_usd REAL, session_usd REAL, findings INTEGER, top_kind TEXT',
   groundhog_events: 'session_id TEXT, source TEXT, tool TEXT, rule TEXT, loop_key TEXT, action TEXT, detail TEXT',
+  blinkers_events: 'session_id TEXT, source TEXT, tool TEXT, rule TEXT, path TEXT, action TEXT',
 }
 
 export function log(dbPath: string, table: string, fields: Record<string, string | number | null>): void {

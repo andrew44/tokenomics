@@ -25,7 +25,7 @@ export type ToolCall = {
   kind: string
   command: string       // shell only
   skill: string         // skill only
-  path: string          // read only
+  path: string          // read and code_edit: the file it touches (checked, never stored as content)
   ranged: boolean       // read only: an offset/limit (part of the file) was asked for
 }
 

@@ -25,33 +25,21 @@ import { existsSync, readdirSync, statSync } from 'node:fs'
 import { findTranscript } from './coach.ts'
 import { defaultDbPath } from '../tokenomics/config.ts'
 import * as currency from '../tokenomics/engine/currency.ts'
-import { withDb, type Db } from '../tokenomics/engine/db.ts'
+import { withDb } from '../tokenomics/engine/db.ts'
 import * as ledger from '../tokenomics/engine/ledger.ts'
 import { KINDS, LABELS, total } from '../tokenomics/engine/outcomes.ts'
 import * as store from '../tokenomics/engine/store.ts'
 import * as trace from '../tokenomics/engine/trace.ts'
+import * as value from '../tokenomics/services/value.ts'
 import { argValue, errText, first, isMain, logErr, readPayload, today, type Obj } from '../tokenomics/util.ts'
 
 const round2 = (v: number) => Math.round(v * 100) / 100
 const pct = (a: number, b: number) => (b ? Math.round((a - b) / b * 1000) / 10 : null)
 
-function label(db: Db, sid: string): string | null {
-  if (!db.tables().has('sessions')) return null
-  return db.get('SELECT label FROM sessions WHERE session_id=?', sid)?.label ?? null
-}
-
-/** Parse one transcript and write its ledger row. */
+/** Parse one transcript and write its ledger row (enriched by the shared services: attribution,
+ *  status, dead work; see tokenomics/services/value.ts). */
 export function recordTranscript(dbPath: string, path: string, sessionId?: string | null): ledger.LedgerRow {
-  const t = trace.parse(path)
-  const sid = sessionId || t.sessionId || basename(path, '.jsonl')
-  const db = store.connect(dbPath)
-  try {
-    const row = ledger.summarise(t, sid, label(db, sid))
-    ledger.record(db, row)
-    return row
-  } finally {
-    db.close()
-  }
+  return value.recordTranscript(dbPath, path, sessionId)
 }
 
 function hook(source: string): void {

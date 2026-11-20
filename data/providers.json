@@ -1,0 +1,27 @@
+{
+  "about": "Equivalent model offerings across providers, for bazaar (provider arbitrage) and crystalball (spend simulator). Claude rows take their prices from model-prices.json (refreshed weekly) times price_multiplier. Rows marked indicative are rough list prices to compare against, not quotes: check them against your provider and your contract, and override or add rows in ~/.tokenomics/providers.json. quality (0-100, a benchmark score you trust), latency_s (seconds to a reply) and availability (0-1) are left empty here on purpose: bazaar measures latency, availability and success rate from your own sessions, and uses any values you add.",
+  "updated": "2026-11-20",
+  "currency": "USD",
+  "unit": "per million tokens",
+  "providers": {
+    "anthropic": { "name": "Anthropic API", "caching": true },
+    "bedrock": { "name": "Amazon Bedrock", "caching": true },
+    "vertex": { "name": "Google Cloud Vertex AI", "caching": true },
+    "openai": { "name": "OpenAI API", "caching": true },
+    "google": { "name": "Google Gemini API", "caching": true }
+  },
+  "offerings": [
+    { "id": "anthropic/fable-5.2", "provider": "anthropic", "model": "claude-fable-5-2", "tier": "frontier", "prices_from": "claude-fable-5-2" },
+    { "id": "anthropic/opus-5.5", "provider": "anthropic", "model": "claude-opus-5-5", "tier": "frontier", "prices_from": "claude-opus-5-5" },
+    { "id": "anthropic/sonnet-5.5", "provider": "anthropic", "model": "claude-sonnet-5-5", "tier": "balanced", "prices_from": "claude-sonnet-5-5" },
+    { "id": "anthropic/haiku-5.5", "provider": "anthropic", "model": "claude-haiku-5-5", "tier": "fast", "prices_from": "claude-haiku-5-5" },
+    { "id": "bedrock/opus-5.5", "provider": "bedrock", "model": "claude-opus-5-5", "tier": "frontier", "prices_from": "claude-opus-5-5", "price_multiplier": 1.0, "indicative": true },
+    { "id": "bedrock/sonnet-5.5", "provider": "bedrock", "model": "claude-sonnet-5-5", "tier": "balanced", "prices_from": "claude-sonnet-5-5", "price_multiplier": 1.0, "indicative": true },
+    { "id": "bedrock/haiku-5.5", "provider": "bedrock", "model": "claude-haiku-5-5", "tier": "fast", "prices_from": "claude-haiku-5-5", "price_multiplier": 1.0, "indicative": true },
+    { "id": "vertex/opus-5.5", "provider": "vertex", "model": "claude-opus-5-5", "tier": "frontier", "prices_from": "claude-opus-5-5", "price_multiplier": 1.0, "indicative": true },
+    { "id": "vertex/sonnet-5.5", "provider": "vertex", "model": "claude-sonnet-5-5", "tier": "balanced", "prices_from": "claude-sonnet-5-5", "price_multiplier": 1.0, "indicative": true },
+    { "id": "vertex/haiku-5.5", "provider": "vertex", "model": "claude-haiku-5-5", "tier": "fast", "prices_from": "claude-haiku-5-5", "price_multiplier": 1.0, "indicative": true },
+    { "id": "openai/gpt", "provider": "openai", "model": "gpt", "tier": "balanced", "input": 2.5, "output": 10.0, "indicative": true, "note": "no cached-token price listed here: cache reads are priced as fresh input until you add cache_read" },
+    { "id": "google/gemini", "provider": "google", "model": "gemini", "tier": "balanced", "input": 1.25, "output": 10.0, "indicative": true, "note": "no cached-token price listed here: cache reads are priced as fresh input until you add cache_read" }
+  ]
+}

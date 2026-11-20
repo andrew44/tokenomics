@@ -20,6 +20,11 @@ The full detail on every tokenomics helper: what it does, how it decides, and wh
 | 👅 | **tastetest** | skill + tool | [tastetest](#tastetest) |
 | 🧹 | **springclean** | skill + tool | [springclean](#springclean) |
 | 🦫 | **groundhog** | hook + skill | [groundhog](#groundhog) |
+| 🧾 | **splitthebill** | skill + tool | [splitthebill](#splitthebill) |
+| 🏪 | **bazaar** | skill + tool | [bazaar](#bazaar) |
+| 🐴 | **blinkers** | hook + skill + tool | [blinkers](#blinkers) |
+| 🔮 | **crystalball** | skill + tool | [crystalball](#crystalball) |
+| 🪵 | **deadwood** | skill + tool | [deadwood](#deadwood) |
 | 📟 | **statusline** and **band** | tool | [statusline](#statusline) · [band](#band) |
 | 📈 | **dashboard** | tool | [dashboard](#dashboard) |
 | 🗄️ | **your data** | | [Looking at your data](#looking-at-your-data) |
@@ -307,7 +312,7 @@ Type `/clear` (or start a new session in the folder) and the `SessionStart` hook
 
 ## Value, waste and quality
 
-Seven helpers that answer the questions a spend total can't:
+Seven helpers that answer the questions a spend total can't. Three of them are tokenomics' signature features: **bangforbuck is the value meter**, **sherlock does agent forensics** and **tastetest is the quality gate** (`--gate` fails CI when a saving cost quality).
 
 | Question | Helper | Kind |
 |---|---|---|
@@ -415,7 +420,7 @@ git worktree add ../taste-a && git worktree add ../taste-b      # run the same t
 tokenomics tastetest --a <session-a> --a-dir ../taste-a --b <session-b> --b-dir ../taste-b --save "haiku trial"
 ```
 
-`--save` keeps the result; `tokenomics tastetest history` lists them. `TOKENOMICS_TASTETEST_TIMEOUT` (600 seconds) bounds each check.
+`--save` keeps the result; `tokenomics tastetest history` lists them. **As a quality gate**, `--gate` exits 1 on *false economy*, *cheaper but worse* or *worse*, so a pipeline can refuse a cheaper setup that lost quality. `TOKENOMICS_TASTETEST_TIMEOUT` (600 seconds) bounds each check.
 
 ---
 
@@ -454,6 +459,177 @@ The first time, the call is refused with the evidence ("`npm test` has failed 3 
 - `warn`: never refuse, just tell you; `off`.
 
 Polling (`sleep`, `kubectl get`, background-task output) is never counted, and a shell command ending in `# groundhog-ok` is never stopped. Each catch is logged to `groundhog_events`. `tokenomics groundhog` (or *"is it going round in circles?"*) replays a finished session and lists every loop it got into, with roughly what each cost. In Copilot CLI, which has no transcript, only identical calls in a row are caught.
+
+---
+
+## The intelligence engine
+
+Five helpers that follow the money from the budget down to the result: who spent it, whether it could have been bought cheaper, whether it went on what was asked for, what it will cost next, and what produced nothing.
+
+| Question | Helper | Kind | Claude Code | Copilot CLI |
+|---|---|---|:---:|:---:|
+| Who or what is consuming the budget? | [splitthebill](#splitthebill) | skill + tool | ✅ | counted, not priced |
+| Where is the same capability cheapest? | [bazaar](#bazaar) | skill + tool | ✅ | — |
+| Is the agent doing more than I asked? | [blinkers](#blinkers) | hook + skill + tool | ✅ | ✅ |
+| What will this cost before we adopt it? | [crystalball](#crystalball) | skill + tool | ✅ | ✅ |
+| What did we pay for that produced nothing? | [deadwood](#deadwood) | skill + tool | ✅ | counted, not priced |
+
+All five sit on the same shared services (see [Architecture](architecture.md#the-intelligence-engine)), and every success or failure they report comes from something observable (a test run, a commit, a revert, a refusal), never from token counts.
+
+### How a session's status is decided
+
+The OutcomeEngine gives every session one status, from what happened:
+
+| Status | When |
+|---|---|
+| **succeeded** | tests pass after the last edit, the change was committed or a PR opened, the commit is on the main branch, or someone marked it accepted |
+| **failed** | code was changed and the last test, lint or build run failed |
+| **discarded** | the change was reverted (`git checkout --`, `git restore`, `git reset --hard`, `git stash`), the user refused it, or every file it created was deleted |
+| **abandoned** | code was changed, then the user interrupted with nothing verified |
+| **unverified** | code was changed with no signal either way (not counted as waste) |
+| **no change** | nothing was edited: questions, research, reviews (not counted as waste) |
+
+`deadwood mark accepted|discarded|abandoned|failed --session <id>` overrides it when you know better. Copilot sessions get a status too, from their hook events (edits, and what each shell command was for), by the same rules.
+
+---
+
+## splitthebill
+
+*Cost attribution.* AI spend in the terms engineering managers and finance teams use. **splitthebill** (`scripts/splitthebill.ts`) splits the ledger by:
+
+| Dimension | From |
+|---|---|
+| project | the repository (or folder) the session ran in; `TOKENOMICS_PROJECT` to name it yourself |
+| developer | `TOKENOMICS_DEVELOPER`, else the computer's user name (never an email address) |
+| agent and subagent | the main agent and each subagent type (`Explore`, `general-purpose`, ...): a session's cost is split by what each agent actually spent |
+| task category | feature, bug fix, refactor, tests, docs, ops, research, from the request (only the category is kept) |
+| model and provider | each model's share of the session, and who served it (Anthropic API, Bedrock, Vertex, from the model id or `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX`) |
+| status | succeeded vs failed, discarded, abandoned, unverified, no change |
+| work type | OPEX (run) vs CAPEX (build), from spendlens |
+
+Each table shows sessions, spend, share, how many succeeded, **cost per success**, dead spend and the change against the period before.
+
+```bash
+tokenomics splitthebill --month 2026-11                  # every dimension
+tokenomics splitthebill --by project,developer --days 30 # just these
+tokenomics splitthebill --csv --month 2026-11 > ai-spend.csv   # one row per session, for finance
+tokenomics splitthebill --db alice.db --db bob.db        # a team view from several people's databases
+```
+
+Copilot sessions are counted (sessions, prompts, which are premium requests, and their status) but never priced.
+
+---
+
+## bazaar
+
+*Provider arbitrage.* Not just Haiku instead of Opus: the cheapest equivalent capability across the provider market. **bazaar** (`scripts/bazaar.ts`) takes the work you actually did, split by how it was billed (fresh input, cache writes, cache reads, output, per model), and prices exactly that workload on every offering in the catalogue: the same model on another cloud, and comparable models from other providers. Cached-token prices apply where an offering lists them; where it doesn't, cache reads are charged as fresh input.
+
+Then it filters and ranks on value, not price:
+
+| Factor | From |
+|---|---|
+| quality | a benchmark score (0-100) you add to the catalogue, or the success rate your own sessions measured on that model |
+| latency | the catalogue, or the median seconds to a reply measured from your transcripts |
+| availability | the catalogue, or 1 − API errors per request measured from your transcripts |
+| tier | only the same tier or stronger (`--any-tier` to relax) |
+
+The recommendation is the lowest **cost per successful task**, so a cheaper model that fails more often doesn't win.
+
+```bash
+tokenomics bazaar --days 30 --min-quality 70 --max-latency 20
+tokenomics bazaar quote --input 50000 --output 5000 --cache 0.7 --model opus   # one task, every offering
+tokenomics bazaar list                                                         # the catalogue, priced
+```
+
+**The catalogue** is `data/providers.json`. Claude rows take their prices from `data/model-prices.json` (refreshed weekly) times `price_multiplier`; rows marked *indicative* are rough list prices to compare against, not quotes. Add your negotiated prices, other providers and benchmark scores in `~/.tokenomics/providers.json` (a row with the same `id` replaces a shipped one; `"disabled": true` hides one):
+
+```json
+{"offerings": [
+  {"id": "bedrock/sonnet-5.5", "price_multiplier": 0.85},
+  {"id": "acme/coder-large", "provider": "acme", "model": "coder-large", "tier": "balanced",
+   "input": 1.5, "output": 6, "cache_read": 0.15, "quality": 72, "latency_s": 6, "availability": 0.995}
+]}
+```
+
+---
+
+## blinkers
+
+*Scope guard.* Scope creep costs twice: the tokens to write the extra change, and the time to review it. **blinkers** (`scripts/blinkers.ts`) keeps the agent on the job you asked for, without telling it to write less code. On every prompt it notes what was asked (only the files, names and kinds of work mentioned, never the text); before every edit it compares the change with that:
+
+| Finding | Caught when |
+|---|---|
+| unrequested docs | a README / docs edit the task didn't ask for |
+| unrequested tests | a new test file the task didn't ask for (the named file's own test is fine) |
+| dependency change | `package.json`, lockfiles, `requirements.txt`, `Cargo.toml`, `go.mod` ... |
+| config change | CI workflows, Dockerfiles, `tsconfig`, linter and formatter config |
+| reformatting | an edit that only changes whitespace |
+| rename | an edit that only renames one identifier, which the task didn't name |
+| outside the task | a file away from every file, folder and name the task mentioned |
+| too many files | more files than the task plausibly needs (`TOKENOMICS_BLINKERS_FILES`) |
+
+Every later request widens the scope ("now update the docs" puts docs in scope), and "the whole codebase", "everywhere" or "clean up" turn off the area checks.
+
+**Ask before expanding.** The first out-of-scope edit to a file is held: in Claude Code you get a confirm prompt with the reason; Copilot refuses the call and the agent has to ask you in chat. Each file is asked about once per session. `TOKENOMICS_BLINKERS=block` refuses instead of asking, `warn` only tells you, `off` stops it; "blinkers off" in a prompt switches it off for the session.
+
+**After the fact.**
+
+```bash
+tokenomics blinkers                                   # this folder's latest session: what went beyond the request, and its cost
+tokenomics blinkers diff --task "fix the login redirect" --base main --ci   # a branch against its task; --ci exits 1 on findings
+```
+
+Each decision is logged to `blinkers_events`, and each session's out-of-scope spend is kept in the ledger (`scope_usd`).
+
+---
+
+## crystalball
+
+*Spend simulator.* A financial planning tool for AI adoption, rather than a usage monitor. **crystalball** (`scripts/crystalball.ts`) estimates monthly spend for a workflow before you adopt it, across every model and provider in the catalogue:
+
+```bash
+tokenomics crystalball --devs 10 --tasks 20 --input 50000 --output 5000
+```
+
+```text
+10 developers × 20 tasks a day × 21 days = 4,200 tasks a month, each reading 50,000 tokens (70% from the cache) and writing 5,000.
+
+| Offering             | Tier     | Per task | Per developer / month | Team / month | Year   |
+| anthropic/haiku-5.5  | fast     | £0.0036  | £1.50                 | £15.09       | £181   |
+| anthropic/sonnet-5.5 | balanced | £0.07    | £29.05                | £290         | £3,486 |
+| anthropic/opus-5.5   | frontier | £0.14    | £58.09                | £581         | £6,971 |
+```
+
+- `--cache 0.7` is the share of input read from the prompt cache (agents usually reuse 60-90%; `0` = no caching). Input not read from the cache is written to it, as agents do.
+- `--from-history` takes tasks a day, tokens per task and cache share from your own ledger; any option still overrides.
+- `--mix "haiku=60,sonnet=35,opus=5"` prices a routed mix (as pennywise routes); `--growth 10 --months 12` adds month-by-month adoption growth.
+- **What moves the bill**: every run shows the monthly effect of bigger tasks, more output, better caching, no caching and one more developer.
+- `--tier`, `--provider`, `--model` narrow it; `--json` for a spreadsheet.
+
+Copilot bills seats and premium requests, not tokens, so it isn't simulated.
+
+---
+
+## deadwood
+
+*Dead work.* Not AI spend: wasted AI spend. **deadwood** (`scripts/deadwood.ts`) reports, for a month, what was spent on work that produced nothing:
+
+| Dead work | What counts |
+|---|---|
+| failed implementations | the whole session, when it [ended failed](#how-a-sessions-status-is-decided) |
+| work discarded | the whole session, when its change was reverted, refused or deleted |
+| abandoned tasks | the whole session, when it was interrupted with nothing verified |
+| repeated debugging | inside work that succeeded: the turns after the same check failed a second time, until it passed |
+| unused generated files | files written and then deleted, or (in work that wasn't committed) never used again |
+
+```bash
+tokenomics deadwood                       # this calendar month, against the one before
+tokenomics deadwood --month 2026-10 --merged   # --merged: how many committed sessions reached the main branch
+tokenomics deadwood session --session <id>     # one session's verdict
+tokenomics deadwood mark discarded --session <id>   # or accepted, abandoned, failed
+```
+
+The report gives dead spend and its share, the change from last month, dead work by kind, the biggest losses, and where it concentrates by project, model and task category. Questions and research are never waste, and **unverified** work (changed, no signal either way) is listed separately for you to mark rather than guessed at. Copilot sessions are judged by the same rules and counted in premium requests.
 
 ---
 

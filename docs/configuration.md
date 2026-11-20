@@ -50,6 +50,18 @@ Settings are environment variables. Set them in your shell profile, or in Claude
 | `TOKENOMICS_SPRINGCLEAN_MAX` | `1500` | Tokens one instruction file should stay under. |
 | `TOKENOMICS_TASTETEST_TIMEOUT` | `600` | Seconds each tastetest check may run. |
 
+### Intelligence engine
+
+| Setting | Default | What it does |
+|---|---|---|
+| `TOKENOMICS_BLINKERS` | `ask` | Scope guard: `ask` (hold the first out-of-scope edit to each file until you confirm: a confirm prompt in Claude Code, a refusal that makes the agent ask in Copilot), `block` (refuse; the agent must ask in chat), `warn` (tell you, never stop anything) or `off`. |
+| `TOKENOMICS_BLINKERS_FILES` | 3 per named file, at least 6 | Most files one task may change before blinkers asks. |
+| `TOKENOMICS_TELEMETRY` | `on` | `off` stops spendlens storing each hook event in the shared format (`telemetry_events`). Copilot sessions then get no status in splitthebill and deadwood. |
+| `TOKENOMICS_DEVELOPER` | your user name | Who the work is attributed to in splitthebill. Set a team handle to share reports; an email address is never used. |
+| `TOKENOMICS_PROJECT` | the repository's name | Attribute every session to this project instead. |
+
+Provider prices, benchmark scores, latency and availability for bazaar and crystalball go in `~/.tokenomics/providers.json` (see [bazaar](reference.md#bazaar)).
+
 ### pennywise router
 
 | Setting | Default | What it does |

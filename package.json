@@ -1,7 +1,7 @@
 {
   "name": "tokenomics",
   "private": true,
-  "description": "A cost-cutting toolkit for AI coding assistants: live spend, coaching and guard-rails for Claude Code and GitHub Copilot CLI.",
+  "description": "Make every AI token earn its keep: an AI spend intelligence engine (observe, understand, optimise, prove) for Claude Code and GitHub Copilot CLI.",
   "license": "Apache-2.0",
   "type": "module",
   "engines": {

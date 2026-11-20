@@ -38,6 +38,11 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 | Prove an optimisation (cheaper model, trimmed instructions) hasn't damaged quality | [tastetest](#tastetest) | Skill + Tool |
 | Clean up CLAUDE.md / AGENTS.md: duplicates, stale paths, contradictions | [springclean](#springclean) | Skill + Tool |
 | Stop the AI going round in circles | [groundhog](#groundhog) | Hook (plus a skill to check a session) |
+| Split the bill by project, developer, agent, model, provider or outcome, or give finance a CSV | [splitthebill](#splitthebill) | Skill + Tool |
+| Find the cheapest provider for the same capability | [bazaar](#bazaar) | Skill + Tool |
+| Keep the AI to what I asked for, and ask before it wanders | [blinkers](#blinkers) | Hook (plus a skill to check a session or branch) |
+| Forecast what a team's AI adoption will cost before we start | [crystalball](#crystalball) | Skill + Tool |
+| See what we spent on work that produced nothing this month | [deadwood](#deadwood) | Skill + Tool |
 
 ```mermaid
 flowchart TD
@@ -47,6 +52,7 @@ flowchart TD
     Q -->|"Charts"| DB["dashboard<br/>(tool)"]
     Q -->|"Guard rails that act on their own"| H["Hooks:<br/>pennywise, diet, budget, doggybag,<br/>haggle, groundhog"]
     Q -->|"Value, waste and quality"| V["bangforbuck, sherlock, waistline,<br/>tastetest, springclean (skills)"]
+    Q -->|"Attribution, planning and dead work"| I["splitthebill, bazaar, crystalball,<br/>deadwood, blinkers (skills)"]
     Q -->|"Data collected in the background"| SL["spendlens<br/>(hook)"]
 ```
 
@@ -140,6 +146,44 @@ Skills are instructions the assistant follows when you ask. They only run when y
 
 **How:** *"is it going round in circles?"*. Tool: `tokenomics groundhog`.
 
+### splitthebill
+
+**What it does.** Answers *"who or what is consuming the budget?"*: spend by project, developer, agent and subagent, task category, model, provider, successful vs unsuccessful work, and OPEX vs CAPEX, each with cost per success and the change against the period before. `--csv` gives finance one row per session; `--db a.db --db b.db` combines a team's databases.
+
+**Reach for it when:** a manager or finance asks where the money goes, you need a chargeback or showback, or one project or agent seems to cost more than it should.
+
+**How:** *"split the bill by project for November"*, *"how much do subagents cost us?"*. Tool: `tokenomics splitthebill`. Details: [splitthebill](reference.md#splitthebill).
+
+### bazaar
+
+**What it does.** Answers *"where is the same capability cheapest?"*: prices the work you actually did (input, output and cached tokens, per model) on every equivalent offering across providers, filters by quality, latency and availability measured from your own sessions, and recommends the lowest cost per successful task.
+
+**Reach for it when:** choosing between the Anthropic API, Bedrock and Vertex, comparing vendors, or renegotiating a contract.
+
+**How:** *"which provider is best value for our work?"*. Tool: `tokenomics bazaar` or `tokenomics bazaar quote --input 50000 --output 5000`. Details: [bazaar](reference.md#bazaar).
+
+### crystalball
+
+**What it does.** Answers *"what will this cost?"* before you adopt an agentic workflow: developers × tasks a day × tokens per task, priced across every model and provider, with routed mixes, adoption growth and what moves the bill. `--from-history` starts from your own numbers.
+
+**Reach for it when:** writing a budget, proposing a rollout, or comparing models for a team.
+
+**How:** *"what would 10 developers doing 20 tasks a day cost?"*. Tool: `tokenomics crystalball --devs 10 --tasks 20 --input 50000 --output 5000`. Details: [crystalball](reference.md#crystalball).
+
+### deadwood
+
+**What it does.** Answers *"what did we pay for that produced nothing?"*: a monthly report of spend on failed implementations, discarded or rejected work, abandoned tasks, repeated debugging and generated files never used, judged from tests, commits, reverts and refusals rather than token counts.
+
+**Reach for it when:** it's month end, or bangforbuck shows a lot of spend with nothing to show.
+
+**How:** *"how much did we waste this month?"*. Tool: `tokenomics deadwood`. Details: [deadwood](reference.md#deadwood).
+
+### blinkers (skill)
+
+**What it does.** Checks a finished session, or a branch against its task, for changes beyond the request (unrequested docs and tests, dependency and config changes, renames and reformatting, files outside the task) and what they cost. The [blinkers hook](#blinkers) catches them live.
+
+**How:** *"did it do more than I asked?"*. Tool: `tokenomics blinkers`, or `tokenomics blinkers diff --task "..." --base main`.
+
 ---
 
 
@@ -152,8 +196,8 @@ Where each hook fires:
 | Moment | Claude Code event | Copilot CLI event | Hooks |
 |--------|-------------------|-------------------|-------|
 | Session starts (or `/clear`) | `SessionStart` | (none) | doggybag, waistline\* |
-| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, doggybag, haggle\* |
-| A tool is about to run | `PreToolUse` (diet: `Read`, `Bash`; the rest: every tool) | `preToolUse` | diet, groundhog, haggle\* |
+| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, doggybag, haggle\*, blinkers |
+| A tool is about to run | `PreToolUse` (diet: `Read`, `Bash`; blinkers: edits; the rest: every tool) | `preToolUse` | diet, groundhog, haggle\*, blinkers |
 | A tool has run | (none) | `postToolUse` | spendlens |
 | The assistant finishes a turn | `Stop` | (none) | spendlens, doggybag, bangforbuck, haggle |
 | Session ends | `SessionEnd` | `sessionEnd` | spendlens, doggybag, bangforbuck\*, sherlock\*, haggle\* |
@@ -232,6 +276,14 @@ sequenceDiagram
 ### haggle (hook)
 
 **What it does.** Quotes each substantial prompt as you send it and tracks the task's spend as it runs; tells you once it passes its estimate and its cap; if you set the price (`haggle £2: ...`, or `TOKENOMICS_HAGGLE=strict`) it stops the agent at the cap and has it ask you to approve more (`haggle +£1`). Claude Code only. Details: [haggle](reference.md#haggle).
+
+### blinkers
+
+**What it does.** Notes what each prompt asks for (only the files, names and kinds of work mentioned) and checks every edit before it happens. The first edit to a file that goes beyond the task (docs or tests nobody asked for, dependency or config changes, a rename or reformat, a file away from everything the task named) is held until you confirm: a confirm prompt in Claude Code, a refusal that makes the agent ask in Copilot CLI. Each file is asked about once per session.
+
+**Reach for it (keep it on) when:** you want small, reviewable changes; an agent tends to "improve" things along the way.
+
+**When it's in the way:** say *"blinkers off"* in a prompt, or set `TOKENOMICS_BLINKERS=warn` (or `off`). Details: [blinkers](reference.md#blinkers).
 
 ### bangforbuck, sherlock and waistline (hooks)
 
@@ -322,10 +374,23 @@ tokenomics bangforbuck --days 30                 # cost per outcome; also: sessi
 tokenomics haggle quote "migrate auth" --price 2 # is it worth £2?   haggle status: quoted vs actual
 tokenomics sherlock --session <id>               # hidden waste in a session
 tokenomics waistline --days 30                   # cost regression; --save-baseline / --baseline F --ci
-tokenomics tastetest --a <id> --b <id> --a-dir ../a --b-dir ../b
+tokenomics tastetest --a <id> --b <id> --a-dir ../a --b-dir ../b   # add --gate to fail CI on a quality loss
 tokenomics springclean --dir .                   # context hygiene audit
 tokenomics groundhog --session <id>              # loops in a finished session
 ```
+
+### Intelligence engine tools
+
+```
+tokenomics splitthebill --month 2026-11          # spend by project, developer, agent, category, model, provider, status
+tokenomics splitthebill --csv > ai-spend.csv     # one row per session, for finance; --db a.db --db b.db for a team
+tokenomics bazaar --min-quality 70               # best-value provider for your own workload; quote, list
+tokenomics blinkers diff --task "..." --base main --ci   # scope creep on a branch; blinkers: the latest session
+tokenomics crystalball --devs 10 --tasks 20 --input 50000 --output 5000   # monthly forecast; --from-history
+tokenomics deadwood --month 2026-11              # spend on work that produced nothing; session, mark <status>
+```
+
+The signature features also answer to what they do: `tokenomics value-meter` (bangforbuck), `agent-forensics` (sherlock), `quality-gate` (tastetest), and the new tools to `cost-attribution`, `provider-arbitrage`, `scope-guard`, `spend-simulator` and `dead-work`.
 
 ### update_prices.ts
 

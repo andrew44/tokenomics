@@ -11,7 +11,7 @@ import {
   addUsage, prompt, TOOL_CODE_EDIT, TOOL_OTHER, TOOL_READ, TOOL_SHELL, TOOL_SKILL, toolCall, tokenUsage,
   type SessionEvidence, type ToolCall, type TokenUsage,
 } from '../engine/evidence.ts'
-import { PlatformAdapter } from '../platform/adapter.ts'
+import { PlatformAdapter, type LifecycleEvent } from '../platform/adapter.ts'
 import { BILLING_ANTHROPIC_TOKENS, Capability, NATIVE, NONE, PARTIAL, support } from '../platform/capabilities.ts'
 import { first, frontmatterDescription, int, isObj, walkStrings, type Obj } from '../util.ts'
 import { findFiles, isDir, isFile } from './fsutil.ts'
@@ -58,6 +58,13 @@ export class ClaudeCodeAdapter extends PlatformAdapter {
     [Capability.TOOL_EVENTS]: support(NATIVE, 'not needed: the transcript has every tool call'),
     [Capability.BILLING_INFO]: support(PARTIAL, 'tokens only; prices come from a price table'),
     [Capability.AVAILABLE_MODELS]: support(NONE, ''),
+  }
+
+  override lifecycle(payload: Obj, mode: string): LifecycleEvent {
+    const name = String(first(payload, ['hook_event_name', 'hookEventName'], ''))
+    const map: Record<string, LifecycleEvent> = { UserPromptSubmit: 'prompt', PreToolUse: 'tool_call', PostToolUse: 'tool_result',
+      Stop: 'turn_end', SubagentStop: 'turn_end', SessionStart: 'session_start', SessionEnd: 'session_end' }
+    return map[name] ?? super.lifecycle(payload, mode)
   }
 
   override event(payload: Obj, mode: string): string {
@@ -144,7 +151,7 @@ export class ClaudeCodeAdapter extends PlatformAdapter {
 
   tool(name: string, inp: Obj): ToolCall {
     if (name === 'Skill') return toolCall(name, TOOL_SKILL, { skill: String(inp.skill || inp.name || '') })
-    if (EDIT_TOOLS.has(name)) return toolCall(name, TOOL_CODE_EDIT)
+    if (EDIT_TOOLS.has(name)) return toolCall(name, TOOL_CODE_EDIT, { path: String(inp.file_path || inp.notebook_path || '') })
     if (name === 'Bash') return toolCall(name, TOOL_SHELL, { command: String(inp.command ?? '') })
     if (name === 'Read') {
       return toolCall(name, TOOL_READ, { path: String(inp.file_path || ''),
@@ -161,6 +168,10 @@ export class ClaudeCodeAdapter extends PlatformAdapter {
   // ---- hook output ---------------------------------------------------------------------
   override denyTool(reason: string): Obj {
     return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } }
+  }
+
+  override askTool(reason: string): Obj {
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: reason } }
   }
 
   override blockPrompt(reason: string): Obj {

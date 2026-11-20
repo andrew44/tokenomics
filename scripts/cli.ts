@@ -18,6 +18,13 @@
  *   tokenomics haggle [...]       quote a task before it starts: haggle quote "task" --price 2
  *   tokenomics springclean        audit CLAUDE.md / AGENTS.md for duplicate, stale and bloated context
  *   tokenomics groundhog          list the loops this folder's latest session went round
+ *   tokenomics splitthebill [...] who and what spent the budget: project, developer, agent, model ... (--csv)
+ *   tokenomics bazaar [...]       the best-value provider for the same work (quote, list)
+ *   tokenomics blinkers [...]     scope creep in a session (check) or a branch (diff --task "...")
+ *   tokenomics crystalball [...]  what a team's AI adoption will cost a month (--devs 10 --tasks 20 ...)
+ *   tokenomics deadwood [...]     this month's spend on work that produced nothing (session, mark)
+ *
+ * Signature features: value-meter (bangforbuck), agent-forensics (sherlock), quality-gate (tastetest).
  *   tokenomics update             fetch the latest version and refresh everything
  *   tokenomics uninstall [--purge]  remove it all (--purge also deletes your recorded data)
  *   tokenomics setup              (re)do the setup the installer does; idempotent
@@ -404,6 +411,7 @@ function overview(): number {
   say(`  data         ${existsSync(db) ? db : 'nothing recorded yet'}`)
   say('')
   say('Commands: dashboard [--demo] · report · bangforbuck · waistline · sherlock · tastetest · haggle · springclean · groundhog')
+  say('          splitthebill · bazaar · blinkers · crystalball · deadwood')
   say('          statusline · router · doggybag · update · uninstall · setup')
   return 0
 }
@@ -418,6 +426,22 @@ const TOOLS: Record<string, [string, string[], string[]]> = {
   haggle: ['haggle.ts', ['quote', 'status'], ['status']],
   springclean: ['springclean.ts', [], []],
   groundhog: ['groundhog.ts', ['check'], ['check']],
+  splitthebill: ['splitthebill.ts', [], []],
+  bazaar: ['bazaar.ts', ['quote', 'list'], []],
+  blinkers: ['blinkers.ts', ['check', 'diff'], ['check']],
+  crystalball: ['crystalball.ts', [], []],
+  deadwood: ['deadwood.ts', ['report', 'session', 'mark'], ['report']],
+  // the signature features, by what they do
+  'value-meter': ['bangforbuck.ts', ['report', 'session', 'mark', 'ingest'], ['report']],
+  'agent-forensics': ['sherlock.ts', [], []],
+  forensics: ['sherlock.ts', [], []],
+  'quality-gate': ['tastetest.ts', ['history'], []],
+  // descriptive names for the new helpers
+  'cost-attribution': ['splitthebill.ts', [], []],
+  'provider-arbitrage': ['bazaar.ts', ['quote', 'list'], []],
+  'scope-guard': ['blinkers.ts', ['check', 'diff'], ['check']],
+  'spend-simulator': ['crystalball.ts', [], []],
+  'dead-work': ['deadwood.ts', ['report', 'session', 'mark'], ['report']],
 }
 
 export async function main(argv: string[]): Promise<number> {
