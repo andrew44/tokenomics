@@ -72,7 +72,7 @@ tokenomics/
 ├── dashboard/index.html            the dashboard page
 ├── tests/                          unittest suite
 ├── docs/                           guides (you are here)
-└── .github/workflows/              tests + weekly price refresh
+└── .github/workflows/              tests, installer checks (macOS/Windows/Linux), weekly price refresh, releases
 ```
 
 ## Adding a helper
@@ -83,6 +83,16 @@ tokenomics/
 4. Add a settings switch (`TOKENOMICS_<NAME>=off`) so people can opt out.
 5. Log what it did to a `<name>_events` table so the spend report can show it.
 6. Add tests, and document it in [the reference](reference.md) and [Skills, tools and hooks](skills-tools-and-hooks.md).
+
+
+## Releasing
+
+There's nothing to do by hand: **every update to `main` becomes a GitHub release** once the tests pass ([release.yml](../.github/workflows/release.yml)).
+
+- **Patch releases are automatic.** The workflow bumps the patch number (1.3.0 → 1.3.1), writes it to both `.claude-plugin/plugin.json` and `plugin.json`, commits `Release v1.3.1` to `main`, then publishes the release with generated notes and the installers attached. The version bump matters: Claude Code only sends plugin users an update when the version changes.
+- **Minor or major release?** Raise `version` in both manifests in your pull request (e.g. to `1.4.0`). That version is released as it is.
+- **Price updates** from the weekly workflow are released too. If nothing changed since the last release, no release is made.
+- If `main` is protected, allow GitHub Actions to push to it (or the version-bump commit will be refused).
 
 ---
 
