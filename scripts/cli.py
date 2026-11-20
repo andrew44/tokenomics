@@ -214,12 +214,19 @@ def setup(args):
     path, new_terminal = install_launcher()
     say(f"  ✓ 'tokenomics' command: {path}")
     say("")
+    names = " / ".join("Claude Code" if c == "claude" else "Copilot CLI" for c in found)
     if found:
-        say("Restart Claude Code / Copilot CLI to switch it all on. Then try:")
-        say('    "coach, review my prompts"   ·   "spend report"   ·   tokenomics dashboard --demo')
+        say("Done! Next steps:")
+        say(f"  1. Quit and reopen {names} (type /exit, then start it again).")
+        say('  2. Ask it: "coach, review my prompts" or "spend report".')
+        step = 3
+    else:
+        say("Done (no assistant to connect yet). Next steps:")
+        step = 1
     if new_terminal:
-        say("")
-        say("Open a new terminal to use the 'tokenomics' command.")
+        say(f"  {step}. Open a new terminal window, then try: tokenomics dashboard --demo")
+    else:
+        say(f"  {step}. See where your tokens go: tokenomics dashboard --demo")
     return 0
 
 
