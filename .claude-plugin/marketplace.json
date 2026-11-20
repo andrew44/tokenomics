@@ -5,7 +5,7 @@
     {
       "name": "tokenomics",
       "source": "./",
-      "description": "Cut and understand AI coding spend: OPEX/CAPEX tagging, cheaper-model nudges, context diet, budgets, spend reports."
+      "description": "Cut and understand AI coding spend: OPEX/CAPEX tagging, cheaper-model nudges, context diet, budgets, spend reports, cost per outcome, task quotes, agent forensics, cost-regression checks, quality A/B tests, context audits and loop breaking."
     }
   ]
 }

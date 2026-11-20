@@ -31,6 +31,13 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 | Know how much AI time went on building vs running things | [spendlens](#spendlens) + [dashboard](#dashboard) / [spend-report](#spend-report) | Hook + Tool / Skill |
 | Get raw numbers for a script or spreadsheet | [coach.ts --json](#coachts), [report.ts --json](#reportts), or [sqlite3](reference.md#looking-at-your-data) | Tool |
 | Refresh model prices | [update_prices.ts](#update_pricests) | Tool |
+| Know whether the AI is delivering value for the money (cost per feature, bug fixed, passing suite) | [bangforbuck](#bangforbuck) | Skill (hook records it) |
+| Know whether a task is worth £2 before it starts, and hold the agent to a price | [haggle](#haggle) | Skill + Hook |
+| Find where the money is disappearing inside a session | [sherlock](#sherlock) | Skill |
+| Know whether I'm getting worse value than last month, or fail CI on cost creep | [waistline](#waistline) | Skill + Tool |
+| Prove an optimisation (cheaper model, trimmed instructions) hasn't damaged quality | [tastetest](#tastetest) | Skill + Tool |
+| Clean up CLAUDE.md / AGENTS.md: duplicates, stale paths, contradictions | [springclean](#springclean) | Skill + Tool |
+| Stop the AI going round in circles | [groundhog](#groundhog) | Hook (plus a skill to check a session) |
 
 ```mermaid
 flowchart TD
@@ -38,7 +45,8 @@ flowchart TD
     Q -->|"A summary of spend over time"| SR["spend-report<br/>(skill)"]
     Q -->|"A live view while I work"| SB["statusline<br/>(tool)"]
     Q -->|"Charts"| DB["dashboard<br/>(tool)"]
-    Q -->|"Guard rails that act on their own"| H["Hooks:<br/>pennywise, diet, budget, doggybag"]
+    Q -->|"Guard rails that act on their own"| H["Hooks:<br/>pennywise, diet, budget, doggybag,<br/>haggle, groundhog"]
+    Q -->|"Value, waste and quality"| V["bangforbuck, sherlock, waistline,<br/>tastetest, springclean (skills)"]
     Q -->|"Data collected in the background"| SL["spendlens<br/>(hook)"]
 ```
 
@@ -78,7 +86,62 @@ Skills are instructions the assistant follows when you ask. They only run when y
 
 **How:** say *"spend report"*, *"where did my tokens go this week?"*, or name a period: *"spend report for this month in dollars"*. Script behind it: [`report.ts`](#reportts). Needs the plugin installed so spendlens has been recording.
 
+### bangforbuck
+
+**What it does.** Answers *"is the AI actually delivering value for the money?"* with the cost of useful work rather than tokens: cost per completed feature, bug fixed, passing test suite, commit, PR and successful agent task, each against the previous period, plus, per model, cost per session next to **cost per success** (the cheapest model is often not the best value). A hook fills the ledger at the end of every turn.
+
+**Reach for it when:** someone asks whether the AI is worth it; you're choosing a default model; or you want a value number to track month to month rather than a spend number.
+
+**How:** *"is the AI worth the money?"*, *"cost per feature this month"*, *"which model is best value?"*. Tool: `tokenomics bangforbuck`. Details: [bangforbuck](reference.md#bangforbuck).
+
+### haggle
+
+**What it does.** Answers *"is this task worth spending £2 on?"* before the work starts: a quote with input, output and tool costs from your own history, and a verdict against your price. Substantial prompts get a quote automatically; start a prompt with `haggle £2:` and the agent must stop and ask before going over.
+
+**Reach for it when:** you're about to hand over a big task, a refactor or a migration, and want to know the bill first, or want a hard ceiling on it.
+
+**How:** *"how much would it cost to migrate the auth module?"*, *"is this worth £2?"*. Tool: `tokenomics haggle quote "..." --price 2`. Details: [haggle](reference.md#haggle).
+
+### sherlock
+
+**What it does.** Answers *"where is the money disappearing?"* with a forensic audit of what the agent did: files read twice, calls repeated for the same answer, searches rephrased into the same results, big outputs never used, subagents doing overlapping or one-step jobs. Each with its cost, why it was waste, and the fix.
+
+**Reach for it when:** coach says a session was expensive and you want to know which *steps* were wasted, or bangforbuck shows a costly session with nothing to show.
+
+**How:** *"where did the money go in that session?"*, *"sherlock"*. Tool: `tokenomics sherlock`. Details: [sherlock](reference.md#sherlock).
+
+### waistline
+
+**What it does.** Answers *"am I getting worse value than last month?"*: compares equivalent work across periods (cost per session, per result and per kind of task, context per request, tool calls, new tools, model changes) and names the cause of any creep. Also runs in CI against a committed baseline.
+
+**Reach for it when:** the bill feels higher but nothing obvious changed; after adding an MCP server, a bigger CLAUDE.md or a new model; or to stop cost creep in an automated agent pipeline.
+
+**How:** *"am I getting worse value than last month?"*. Tool: `tokenomics waistline --days 30`; CI: `--baseline file --ci`. Details: [waistline](reference.md#waistline).
+
+### tastetest
+
+**What it does.** Answers *"can I prove the optimisation hasn't damaged quality?"*: compares two runs of the same task on cost and on evidence of quality (your tests, linter and type checker in each working copy, plus each transcript's signals) and gives a quality-adjusted saving with a verdict: safe saving, cheaper but worse, or false economy.
+
+**Reach for it when:** trialling a cheaper model, a trimmed CLAUDE.md or a new prompt, before making it the default.
+
+**How:** *"did the Haiku run do as well as the Opus one?"*. Tool: `tokenomics tastetest --a <id> --a-dir ../a --b <id> --b-dir ../b`. Details: [tastetest](reference.md#tastetest).
+
+### springclean
+
+**What it does.** Audits the instructions that load with every session for duplicates across files, outdated paths and commands, oversized files, changelogs and long examples, contradictions and heavy startup context, and proposes a cleanup with what it saves per request and per month. Applies only the edits you approve.
+
+**Reach for it when:** CLAUDE.md has grown for months, several tools each have their own instruction file, or waistline says context per request is creeping up.
+
+**How:** *"springclean my CLAUDE.md"*. Tool: `tokenomics springclean`. Details: [springclean](reference.md#springclean).
+
+### groundhog
+
+**What it does.** Checks a finished session for loops (the same call again, a command failing over and over, edits made and undone, tokens climbing with no progress) and what they cost. The [groundhog hook](#groundhog-1) catches them live.
+
+**How:** *"is it going round in circles?"*. Tool: `tokenomics groundhog`.
+
 ---
+
 
 ## Hooks
 
@@ -88,14 +151,14 @@ Where each hook fires:
 
 | Moment | Claude Code event | Copilot CLI event | Hooks |
 |--------|-------------------|-------------------|-------|
-| Session starts (or `/clear`) | `SessionStart` | (none) | doggybag |
-| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, doggybag |
-| A tool is about to run | `PreToolUse` (`Read`, `Bash`) | `preToolUse` | diet |
+| Session starts (or `/clear`) | `SessionStart` | (none) | doggybag, waistline\* |
+| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, doggybag, haggle\* |
+| A tool is about to run | `PreToolUse` (diet: `Read`, `Bash`; the rest: every tool) | `preToolUse` | diet, groundhog, haggle\* |
 | A tool has run | (none) | `postToolUse` | spendlens |
-| The assistant finishes a turn | `Stop` | (none) | spendlens, doggybag |
-| Session ends | `SessionEnd` | `sessionEnd` | spendlens, doggybag |
+| The assistant finishes a turn | `Stop` | (none) | spendlens, doggybag, bangforbuck, haggle |
+| Session ends | `SessionEnd` | `sessionEnd` | spendlens, doggybag, bangforbuck\*, sherlock\*, haggle\* |
 
-\* Claude Code only: Copilot ignores prompt-hook output, so it can't pause a prompt.
+\* Claude Code only: Copilot ignores prompt-hook output, so it can't pause a prompt, and it has no transcript or token counts for the value and waste helpers to read.
 
 ```mermaid
 sequenceDiagram
@@ -155,6 +218,24 @@ sequenceDiagram
 **Reach for it when:** you step away from a session for more than a few minutes and plan to come back. Instead of carrying on in the cold session (which re-writes the whole conversation into the cache), type `/clear` and keep going. Need one now? `tokenomics doggybag`.
 
 **Turn it off** (`TOKENOMICS_DOGGYBAG=off`) if you never resume work across breaks. Copilot support is best effort. Details: [Using doggybag](reference.md#doggybag).
+
+---
+
+### groundhog
+
+**What it does.** Before every tool call, checks whether the agent is going round in circles: the same call with the same input again with nothing changed, a command that keeps failing, an edit made and undone, or 20 calls of mostly errors with the context still growing. The first time, it refuses the call with the evidence and tells the agent to change strategy; by default it refuses at most twice and then lets it through and tells you (`interrupt` ends the turn instead).
+
+**Reach for it (keep it on) when:** you let the agent work unattended, or on long debugging sessions where a stuck agent burns money fastest.
+
+**When it's wrong:** append `# groundhog-ok` to a command; `TOKENOMICS_GROUNDHOG=warn` for notices only. In Copilot CLI it catches identical calls in a row. Details: [groundhog](reference.md#groundhog).
+
+### haggle (hook)
+
+**What it does.** Quotes each substantial prompt as you send it and tracks the task's spend as it runs; tells you once it passes its estimate and its cap; if you set the price (`haggle £2: ...`, or `TOKENOMICS_HAGGLE=strict`) it stops the agent at the cap and has it ask you to approve more (`haggle +£1`). Claude Code only. Details: [haggle](reference.md#haggle).
+
+### bangforbuck, sherlock and waistline (hooks)
+
+Quiet record-keepers for the skills above. **bangforbuck** writes each session's cost and outcomes to the ledger at every turn end; **sherlock** logs each session's estimated waste at session end (shown in the spend report); **waistline** checks once a day at session start and shows one line if last week cost noticeably more per session or per result than the week before. Each has an `=off` switch (see [Configuration](configuration.md#value-waste-and-quality)).
 
 ---
 
@@ -232,6 +313,20 @@ node scripts/coach.ts --transcript path/to/file.jsonl
 
 `node scripts/spendlens.ts capabilities` lists what each assistant can report (transcript, token counts, tool events, billing). **Reach for it** when a column is empty and you want to know whether that's expected for that assistant.
 
+### Value, waste and quality tools
+
+The scripts behind the seven value skills; run them directly for no-token answers or JSON (`--json` on each):
+
+```
+tokenomics bangforbuck --days 30                 # cost per outcome; also: session, mark <kind>, ingest <dir>
+tokenomics haggle quote "migrate auth" --price 2 # is it worth £2?   haggle status: quoted vs actual
+tokenomics sherlock --session <id>               # hidden waste in a session
+tokenomics waistline --days 30                   # cost regression; --save-baseline / --baseline F --ci
+tokenomics tastetest --a <id> --b <id> --a-dir ../a --b-dir ../b
+tokenomics springclean --dir .                   # context hygiene audit
+tokenomics groundhog --session <id>              # loops in a finished session
+```
+
 ### update_prices.ts
 
 `scripts/update_prices.ts`: refreshes `data/model-prices.json` from Claude's pricing page. A GitHub Action already runs it every Monday.
@@ -250,7 +345,10 @@ node scripts/update_prices.ts --check    # exit 1 if out of date
 - **Everyone:** install the plugin (spendlens, diet, doggybag and pennywise run by default) and the [statusline](#statusline).
 - **Paying personally or on an allowance:** also set a [budget](#budget).
 - **Weekly:** ask for a [spend-report](#spend-report).
-- **After any session that surprised you:** ask the [coach](#coach).
+- **After any session that surprised you:** ask the [coach](#coach), then [sherlock](#sherlock) for the wasted steps.
+- **Monthly:** ask [bangforbuck](#bangforbuck) whether value is improving and [waistline](#waistline) whether costs are creeping; [springclean](#springclean) your instruction files.
+- **Before a big task:** ask [haggle](#haggle) for a quote, or start the prompt with `haggle £X:`.
+- **Before switching to a cheaper model or trimmed instructions for good:** run a [tastetest](#tastetest).
 - **Teams:** share a database with `TOKENOMICS_DB` and look at the [dashboard](#dashboard) together.
 
 See [Installation](installation.md) to get set up, [Configuration](configuration.md) for every setting, and [Installation → Troubleshooting](installation.md#troubleshooting) if something looks wrong.

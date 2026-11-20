@@ -69,13 +69,22 @@ export function build(dbPath: string, days = 7, money?: [string, string, number]
       "WHERE substr(ts,1,10) >= ? AND action='denied' GROUP BY rule ORDER BY 2 DESC")
     const budget = Object.fromEntries(ev('budget_events', 'SELECT action, COUNT(*) AS n FROM budget_events WHERE day >= ? ' +
       'GROUP BY action').map((r) => [r.action, r.n]))
-    return { rows, spend, daily, pennywise, ho, diet, budget }
+    const groundhog = Object.fromEntries(ev('groundhog_events', 'SELECT action, COUNT(*) AS n FROM groundhog_events ' +
+      'WHERE substr(ts,1,10) >= ? GROUP BY action').map((r) => [r.action, r.n]))
+    const sherlock = ev('sherlock_events', 'SELECT COUNT(*) AS n, COALESCE(SUM(wasted_usd),0) AS w, COALESCE(SUM(session_usd),0) AS s ' +
+      'FROM sherlock_events WHERE substr(ts,1,10) >= ?')[0] ?? { n: 0, w: 0, s: 0 }
+    const haggle = ev('contracts', "SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN spent_usd >= cap_usd THEN 1 ELSE 0 END),0) AS over, " +
+      'COALESCE(SUM(est_mid),0) AS quoted, COALESCE(SUM(spent_usd),0) AS spent FROM contracts WHERE day >= ?')[0] ?? { n: 0, over: 0, quoted: 0, spent: 0 }
+    const value = ev('ledger', "SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN primary_outcome != 'none' THEN 1 ELSE 0 END),0) AS p, " +
+      "COALESCE(SUM(cost_usd),0) AS c, COALESCE(SUM(CASE WHEN primary_outcome = 'none' THEN cost_usd ELSE 0 END),0) AS w FROM ledger WHERE day >= ?")[0] ??
+      { n: 0, p: 0, c: 0, w: 0 }
+    return { rows, spend, daily, pennywise, ho, diet, budget, groundhog, sherlock, haggle, value }
   }, { readOnly: true })
   if (data === null) {
     out.reason = 'no-table'
     return out
   }
-  const { rows, spend, daily, pennywise, ho, diet, budget } = data
+  const { rows, spend, daily, pennywise, ho, diet, budget, groundhog, sherlock, haggle, value } = data
   if (!rows.length && !spend.size) {
     out.reason = 'no-rows'
     return out
@@ -129,6 +138,11 @@ export function build(dbPath: string, days = 7, money?: [string, string, number]
         tokens_avoided_if_used: Math.max(0, ho.ctx - ho.bag) },
       diet: diet.map((d) => ({ rule: d.rule, denied: d.n, est_tokens: d.t })),
       budget,
+      groundhog,
+      sherlock: { sessions: sherlock.n, wasted: round2(sherlock.w * rate), of_spend: round2(sherlock.s * rate) },
+      haggle: { contracts: haggle.n, over_cap: haggle.over, quoted: round2(haggle.quoted * rate), spent: round2(haggle.spent * rate) },
+      bangforbuck: { sessions: value.n, productive: value.p, cost_per_success: value.p ? round2(value.c * rate / value.p) : null,
+        nothing_to_show: round2(value.w * rate) },
     },
   })
   return out
@@ -197,6 +211,23 @@ export function markdown(r: Obj): string {
   const b = h.budget
   if (Object.keys(b).length) {
     L.push(`- budget: ${b.warned ?? 0} warnings, ${b.blocked ?? 0} pauses, ${(b.overridden ?? 0) + (b.bypassed ?? 0)} carried on over the limit.`)
+  }
+  if (h.bangforbuck?.sessions) {
+    const v = h.bangforbuck
+    L.push(`- bangforbuck: ${v.productive} of ${v.sessions} sessions produced a result` +
+      (v.cost_per_success !== null ? `, ${m(v.cost_per_success)} per successful session` : '') +
+      (v.nothing_to_show ? `; ${m(v.nothing_to_show)} went on sessions with nothing to show.` : '.'))
+  }
+  if (h.sherlock?.sessions && h.sherlock.wasted) {
+    L.push(`- sherlock: about ${m(h.sherlock.wasted)} of hidden waste found in ${h.sherlock.sessions} sessions (repeated reads, redundant calls, unused results).`)
+  }
+  const gh = h.groundhog ?? {}
+  if (Object.keys(gh).length) {
+    L.push(`- groundhog: ${(gh.denied ?? 0) + (gh.interrupted ?? 0)} loops broken, ${gh.warned ?? 0} warnings.`)
+  }
+  if (h.haggle?.contracts) {
+    L.push(`- haggle: ${h.haggle.contracts} tasks quoted at ${m(h.haggle.quoted)} in total; they cost ${m(h.haggle.spent)} ` +
+      `(${h.haggle.over_cap} went over their cap).`)
   }
   const srcs = Object.entries(r.by_source).map(([k, v]: [string, any]) => `${k}: ${v.sessions} sessions / ${v.prompts} prompts`).join(', ')
   L.push('', `Platforms: ${srcs}.`, '')

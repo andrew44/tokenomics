@@ -171,6 +171,14 @@ export class ClaudeCodeAdapter extends PlatformAdapter {
     return { systemMessage: message }
   }
 
+  override interrupt(reason: string): Obj {
+    return { continue: false, stopReason: reason, systemMessage: reason }
+  }
+
+  override addContext(text: string): Obj {
+    return { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text } }
+  }
+
   // ---- skills on disk ----------------------------------------------------------------
   override skillRoots(cwd: string | null): string[] {
     return [...(cwd ? [join(cwd, '.claude')] : []), join(homedir(), '.claude')]

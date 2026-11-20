@@ -11,6 +11,13 @@
  *                                 --band-off, --status   ("statusbar", the old name, still works)
  *   tokenomics router [...]       pennywise model router: serve [--port N], explain "prompt", env
  *   tokenomics doggybag           pack a doggybag (resume note) for this folder's latest session now
+ *   tokenomics bangforbuck [...]  cost per outcome: per feature, bug fixed, passing suite (alias: value)
+ *   tokenomics waistline [...]    cost regression: is the same work getting dearer? (--ci for pipelines)
+ *   tokenomics sherlock [...]     agent forensics: where this folder's latest session wasted money
+ *   tokenomics tastetest [...]    compare two runs of a task: cost vs quality (--a ... --b ...)
+ *   tokenomics haggle [...]       quote a task before it starts: haggle quote "task" --price 2
+ *   tokenomics springclean        audit CLAUDE.md / AGENTS.md for duplicate, stale and bloated context
+ *   tokenomics groundhog          list the loops this folder's latest session went round
  *   tokenomics update             fetch the latest version and refresh everything
  *   tokenomics uninstall [--purge]  remove it all (--purge also deletes your recorded data)
  *   tokenomics setup              (re)do the setup the installer does; idempotent
@@ -396,8 +403,21 @@ function overview(): number {
   const db = process.env.TOKENOMICS_DB || join(TK_HOME, 'spendlens.db')
   say(`  data         ${existsSync(db) ? db : 'nothing recorded yet'}`)
   say('')
-  say('Commands: dashboard [--demo] · report · statusline · update · uninstall · setup')
+  say('Commands: dashboard [--demo] · report · bangforbuck · waistline · sherlock · tastetest · haggle · springclean · groundhog')
+  say('          statusline · router · doggybag · update · uninstall · setup')
   return 0
+}
+
+/** name -> [script, its subcommands, what to run when none is given]. */
+const TOOLS: Record<string, [string, string[], string[]]> = {
+  bangforbuck: ['bangforbuck.ts', ['report', 'session', 'mark', 'ingest'], ['report']],
+  value: ['bangforbuck.ts', ['report', 'session', 'mark', 'ingest'], ['report']],
+  waistline: ['waistline.ts', [], []],
+  sherlock: ['sherlock.ts', [], []],
+  tastetest: ['tastetest.ts', ['history'], []],
+  haggle: ['haggle.ts', ['quote', 'status'], ['status']],
+  springclean: ['springclean.ts', [], []],
+  groundhog: ['groundhog.ts', ['check'], ['check']],
 }
 
 export async function main(argv: string[]): Promise<number> {
@@ -426,6 +446,11 @@ export async function main(argv: string[]): Promise<number> {
     return script('pennywise.ts', ...rest)
   }
   if (cmd === 'doggybag') return script('doggybag.ts', 'write', ...rest)
+  const tool = Object.hasOwn(TOOLS, cmd) ? TOOLS[cmd] : undefined
+  if (tool) {
+    const [file, subs, fallback] = tool
+    return script(file, ...(rest.length && subs.includes(rest[0]) ? rest : [...fallback, ...rest]))
+  }
   say(`Unknown command: ${cmd}. Run 'tokenomics help'.`)
   return 2
 }

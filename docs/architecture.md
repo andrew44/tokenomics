@@ -18,6 +18,7 @@ flowchart LR
 - **Adapters** (`tokenomics/adapters/`): translation only, no scoring. Each one lists its capabilities (transcript, token counts, tool events, billing and so on) as `native`, `partial` or `none`.
 - **If something is missing**, the engine copes: no transcript means it uses the prompt and tool events it stored; an unknown assistant, or an adapter that fails to load, still gets its prompts logged by session id, and the other assistant is unaffected.
 - **Billing stays separate**: Claude Code tokens are priced (`engine/pricing.ts`); Copilot premium requests are never turned into tokens or money.
+- **Value helpers read behaviour, not totals**: `engine/trace.ts` turns a transcript into steps (each tool call with its input and result) and turns (each request with its usage and cost). bangforbuck, sherlock, groundhog, haggle and tastetest all work on that, so a new transcript format means one new parser, not seven.
 - **Guards share the engine too**: diet's rules (`engine/diet.ts`) and budget's limits (`engine/budget.ts`) are written once; each adapter says how to deny a tool call, block a prompt or show a notice on its platform (or that it can't).
 
 Everything is TypeScript. Node.js 22.18+ runs the `.ts` files directly (it strips the types itself), so there is no build step and nothing is compiled; SQLite comes from Node's built-in `node:sqlite`. There are no runtime packages at all: TypeScript and `@types/node` are dev dependencies, used only to type-check (`npm run typecheck`).
@@ -50,10 +51,14 @@ tokenomics/
 │   ├── coach/SKILL.md              prompt and cache review skill
 │   ├── spend-report/SKILL.md       weekly spend report skill
 │   ├── dashboard/SKILL.md          opens the dashboard (/tokenomics:dashboard)
-│   └── statusline/SKILL.md         installs / removes the statusline, band on/off (/tokenomics:statusline)
+│   ├── statusline/SKILL.md         installs / removes the statusline, band on/off (/tokenomics:statusline)
+│   └── bangforbuck/ haggle/ sherlock/ waistline/ tastetest/ springclean/ groundhog/
+│                                   value, waste and quality skills (each a SKILL.md over its script)
 ├── tokenomics/
 │   ├── engine/                     shared logic: classifier.ts, llm.ts, store.ts, session.ts, evidence.ts,
-│   │                               pricing.ts, currency.ts, diet.ts, budget.ts, events.ts
+│   │                               pricing.ts, currency.ts, diet.ts, budget.ts, events.ts, and for the
+│   │                               value helpers: trace.ts (what the agent did, from a transcript),
+│   │                               outcomes.ts, ledger.ts, forensics.ts, loops.ts, contract.ts
 │   ├── platform/                   common adapter interface + capability registry
 │   ├── adapters/                   claude_code.ts, copilot.ts (translation only)
 │   ├── config.ts                   shared settings
@@ -71,6 +76,13 @@ tokenomics/
 │   ├── coach.ts                    transcript analyser used by the coach skill
 │   ├── statusline.ts               the statusline for Claude Code and Copilot CLI (terminal); --json feeds the band
 │   ├── dashboard.ts                local web server over the spendlens database (--background)
+│   ├── bangforbuck.ts              cost per outcome; writes the ledger at each turn end
+│   ├── haggle.ts                   task quotes and contracts (prompt, guard, settle, close hooks)
+│   ├── sherlock.ts                 agent forensics: costed waste in a session
+│   ├── waistline.ts                cost regression between periods or against a baseline (--ci)
+│   ├── tastetest.ts                two runs of a task: cost vs quality, quality-adjusted saving
+│   ├── springclean.ts              context hygiene audit of instruction files
+│   ├── groundhog.ts                loop breaker (pre-tool hook) and session replay
 │   └── update_prices.ts            refreshes data/model-prices.json from Claude's pricing page
 ├── data/model-prices.json          Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly
 ├── dashboard/index.html            the dashboard page
