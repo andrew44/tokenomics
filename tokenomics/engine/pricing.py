@@ -1,7 +1,7 @@
 """Cost calculation for token-billed platforms (Anthropic). Platform-independent.
 
-Overrides come from the same place as the status bar's: "prices" in ~/.tokenomics/statusbar.json
-(or $TOKENOMICS_HOME/statusbar.json). Converting to the display currency: engine/currency.py.
+Overrides come from the same place as the statusline's: "prices" in ~/.tokenomics/statusline.json
+(or $TOKENOMICS_HOME/statusline.json; statusbar.json, its name before v1.4, until it is renamed). Converting to the display currency: engine/currency.py.
 
 Copilot bills premium requests, not tokens: nothing here is ever applied to Copilot sessions.
 """
@@ -17,15 +17,18 @@ from .evidence import TokenUsage
 
 def _cfg() -> dict:
     home = Path(os.environ.get("TOKENOMICS_HOME", str(Path.home() / ".tokenomics")))
+    path = home / "statusline.json"
+    if not path.exists():
+        path = home / "statusbar.json"                    # before v1.4
     try:
-        data = json.loads((home / "statusbar.json").read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
 
 
 # Per-model prices come from data/model-prices.json (refreshed weekly from Claude's pricing page
-# by .github/workflows/update-prices.yml). The lookup below mirrors scripts/statusbar.py, which
+# by .github/workflows/update-prices.yml). The lookup below mirrors scripts/statusline.py, which
 # must stay a single file and so has its own copy; tests/test_features.py checks they agree.
 MODEL_PRICES_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "model-prices.json"
 FAST_MULTIPLIER = 2.0             # usage.speed == "fast": fast mode bills 2x the standard rates
@@ -72,7 +75,7 @@ def _flat(pin: float, pout: float, pread: Optional[float] = None) -> dict:
 def rates_for(model: Optional[str], cfg: Optional[Mapping] = None) -> dict:
     """Per-million-token USD rates: input, output, cache_write_5m, cache_write_1h, cache_read
     (and long_context when the model has a long-prompt tier). Order: user overrides in
-    statusbar.json ("prices", most specific key wins), then the data file, then family fallbacks."""
+    statusline.json ("prices", most specific key wins), then the data file, then family fallbacks."""
     cfg = _cfg() if cfg is None else cfg
     m = re.sub(r"[\s._]+", "-", (model or "").lower())
     best = None
@@ -108,7 +111,7 @@ def rates_for(model: Optional[str], cfg: Optional[Mapping] = None) -> dict:
 
 
 def usage_cost_usd(u: TokenUsage, model: Optional[str], cfg: Optional[Mapping] = None) -> float:
-    """Cost in USD of one request's usage (same rules as scripts/statusbar.py usage_cost_usd)."""
+    """Cost in USD of one request's usage (same rules as scripts/statusline.py usage_cost_usd)."""
     r = rates_for(model, cfg)
     w1h = min(u.cache_creation_1h_tokens, u.cache_creation_tokens)
     w5m = u.cache_creation_tokens - w1h

@@ -4,7 +4,7 @@
   report.py                 # last 7 days, Markdown
   report.py --days 30       # any window (0 = all time)
   report.py --json          # machine-readable (used by the spend-report skill)
-  report.py --currency USD  # GBP (default), USD or EUR; default from TOKENOMICS_CURRENCY / statusbar.json
+  report.py --currency USD  # GBP (default), USD or EUR; default from TOKENOMICS_CURRENCY / statusline.json
   report.py --db PATH       # another database (default $TOKENOMICS_DB or ~/.tokenomics/spendlens.db)
 
 Covers: spend in your currency (GBP, USD or EUR; token-billed platforms only) and how it splits OPEX / CAPEX, by
@@ -213,7 +213,7 @@ def main():
     ap.add_argument("--db", default=os.environ.get("TOKENOMICS_DB", str(Path.home() / ".tokenomics" / "spendlens.db")))
     ap.add_argument("--days", type=int, default=7)
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--currency", help="GBP, USD or EUR (default: TOKENOMICS_CURRENCY, then statusbar.json, then GBP)")
+    ap.add_argument("--currency", help="GBP, USD or EUR (default: TOKENOMICS_CURRENCY, then statusline.json, then GBP)")
     a = ap.parse_args()
     from tokenomics.engine import currency
     if a.currency:

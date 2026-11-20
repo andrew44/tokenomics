@@ -1,20 +1,20 @@
-// tokenomics status bar in the apps, which don't draw the `statusLine` setting (a mod: see
-// https://code.claude.com/docs/en/plugins/mods/interface):
+// The band: the tokenomics statusline in Claude Code's apps, which don't draw the CLI's
+// `statusLine` setting (a mod: see https://code.claude.com/docs/en/plugins/mods/interface).
 //   * Claude desktop app (and mobile): a row in the band above the prompt box (AbovePrompt).
-//   * VS Code: this plugin's status line above the prompt box ($.ui.status).
-//   * Terminal: nothing here; it keeps its real status line (scripts/statusbar.py).
-// The numbers come from scripts/statusbar.py --json, fed the same figures the terminal's status
-// line gets ($.session.usage), so every surface shows the same bar. A timer started at
-// session.start redraws the cache countdown each second and re-reads the numbers when the
-// transcript grows mid-turn.
+//   * VS Code, which has no band: the plugin's status line above the prompt box ($.ui.status).
+//   * Terminal: nothing here; the CLI statusline is scripts/statusline.py itself.
+// The numbers come from scripts/statusline.py --json, fed the same figures the CLI statusline
+// gets ($.session.usage), so both show the same line. A timer started at session.start redraws
+// the cache countdown each second and re-reads the numbers when the transcript grows mid-turn.
+// Off with `tokenomics statusline --band-off` or TOKENOMICS_BAND=off (statusline.py decides).
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Bar } from '../types'
+import type { Line } from '../types'
 
-const bar = atom({ plugin: 'tokenomics', key: 'bar' } as const, null)
+const line = atom({ plugin: 'tokenomics', key: 'line' } as const, null)
 
-const REFRESH_MS = 3000          // mid-turn: at most one statusbar.py run per 3s
+const REFRESH_MS = 3000          // mid-turn: at most one statusline.py run per 3s
 const DEFAULT_ICONS = ['⧗', '⏳︎', '⧖']
 
 let lastRun = 0
@@ -27,7 +27,7 @@ function mmss(seconds: number) {
 }
 
 /** The cache countdown: icon, colour and text, at `nowSec`. */
-function timer(b: Bar, nowSec: number) {
+function timer(b: Line, nowSec: number) {
   const [full, half, empty] = (b.icons?.length === 3 ? b.icons : DEFAULT_ICONS) as [string, string, string]
   if (b.cold_at == null) return { icon: empty, color: undefined, text: '--:--' }
   const rem = Math.max(0, b.cold_at - nowSec)
@@ -38,8 +38,8 @@ function timer(b: Bar, nowSec: number) {
   return { icon: empty, color: 'red', text: mmss(rem) }
 }
 
-/** The bar as one plain line (VS Code's status line has no colours). */
-function plainLine(b: Bar, nowSec: number) {
+/** The line as plain text (VS Code's status line has no colours). */
+function plainLine(b: Line, nowSec: number) {
   const t = timer(b, nowSec)
   const flag = b.level === 'red' ? ' ▲' : ''
   return [`◆ ${b.model ?? ''}`.trim(), `ctx ${b.gauge ?? ''} ${Math.round(b.pct ?? 0)}%${flag}`,
@@ -51,7 +51,7 @@ async function appSurfaces($: EngineInterface) {
   return (await $.session.surfaces()).filter(s => s !== 'terminal')
 }
 
-/** Re-read the numbers from statusbar.py, with the figures the terminal's status line gets. */
+/** Re-read the numbers from statusline.py, with the figures the CLI statusline gets. */
 async function refresh($: EngineInterface) {
   lastRun = Date.now()
   try {
@@ -66,24 +66,24 @@ async function refresh($: EngineInterface) {
         current_context_tokens: usage.context.tokens },
       cost: usage.cost ? { total_cost_usd: usage.cost.usd } : undefined,
     }
-    // --band: an app shows the bar here, so statusbar.py's after-reply message stays quiet
-    const argv = ['sh', `${$.plugin.root}/scripts/run.sh`, 'statusbar.py', '--json']
+    // --band: an app shows the band here, so statusline.py's after-reply message stays quiet
+    const argv = ['sh', `${$.plugin.root}/scripts/run.sh`, 'statusline.py', '--json']
     const { exitCode, stdout } = await $.process.run(apps.length ? [...argv, '--band', sid] : argv, {
       stdin: JSON.stringify(payload), env: await $.process.hookEnv(), timeoutMs: 10000 })
     if (exitCode !== 0 || !stdout.trim()) return
-    const data = JSON.parse(stdout) as Bar
-    await update($, bar, () => data)
+    const data = JSON.parse(stdout) as Line
+    await update($, line, () => data)
   } catch {
-    // never get in the way: no Python, no transcript yet... the bar just stays as it was
+    // never get in the way: no Python, no transcript yet... the band just stays as it was
   }
 }
 
 /** Each second: redraw the countdown, and re-read the numbers when the transcript grew. */
 async function tick($: EngineInterface) {
   const apps = await appSurfaces($)
-  if (!apps.length) return                        // terminal only: its status line does this
+  if (!apps.length) return                        // terminal only: the CLI statusline does this
   $.ui.invalidate('ui.render')
-  const b = await read($, bar)
+  const b = await read($, line)
   if (apps.includes('vscode') && b?.show) {
     $.ui.status(plainLine(b, (await $.clock.now()) / 1000))
     statusShown = true
@@ -124,7 +124,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.surface === 'terminal' || e.props.hasSurvey) return next(e)
-    const b = await read($, bar)
+    const b = await read($, line)
     if (!b || !b.show) return next(e)
     const { Box, Text } = $.ui.resolve(e)
     const t = timer(b, (await $.clock.now()) / 1000)

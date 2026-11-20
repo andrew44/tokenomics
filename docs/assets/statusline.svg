@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="840" height="230" viewBox="0 0 840 230" role="img" aria-label="tokenomics status bar: model, context usage, tokens, cost and prompt-cache countdown">
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="230" viewBox="0 0 840 230" role="img" aria-label="tokenomics statusline: model, context usage, tokens, cost and prompt-cache countdown">
 <rect x="0.5" y="0.5" width="839" height="229" rx="14" fill="#1e1e2e" stroke="#313244"/>
 <rect x="0.5" y="0.5" width="839" height="40" rx="14" fill="#181825"/>
 <rect x="0.5" y="26" width="839" height="15" fill="#181825"/>
 <circle cx="24" cy="21" r="6" fill="#f38ba8"/><circle cx="44" cy="21" r="6" fill="#f9e2af"/><circle cx="64" cy="21" r="6" fill="#a6e3a1"/>
-<text x="420" y="26" text-anchor="middle" fill="#7f849c" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13">statusbar · fresh → busy → time to wrap up</text>
+<text x="420" y="26" text-anchor="middle" fill="#7f849c" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13">statusline · fresh → busy → time to wrap up</text>
 <text x="40" y="96" fill="#afd7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">◆ Sonnet 5.5</text>
 <rect x="190" y="81" width="1.5" height="19" fill="#45475a"/>
 <rect x="470" y="81" width="1.5" height="19" fill="#45475a"/>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tokenomics / statusbar: a live status line for Claude Code and GitHub Copilot CLI.
+"""tokenomics / statusline: a live status line for Claude Code and GitHub Copilot CLI.
 
 Shows, on one line:
   * model
@@ -8,37 +8,42 @@ Shows, on one line:
   * session cost    (in GBP, USD or EUR, e.g. £1.37)
   * prompt-cache expiry countdown (MM:ss) with an egg-timer that empties as the cache goes cold
 
-Both CLIs run this as a command, pipe a JSON payload on stdin and print whatever we write to
-stdout. Stdlib only. Never raises: on any problem it prints a minimal line and exits 0.
+Two places show it:
+  * the statusline: the CLIs' own status line (settings.json "statusLine"), in the terminal. Both
+    CLIs run this script as a command, pipe a JSON payload on stdin and print what we write.
+  * the band: Claude Code's apps don't draw a status line, so hooks/band.tsx (a mod) draws the
+    same line in the desktop app's band above the prompt box (VS Code: the plugin's line above
+    the prompt box), from --json. Where mods can't run, --message posts it after each reply.
+Stdlib only. Never raises: on any problem it prints a minimal line and exits 0.
 
 Usage
-  statusbar.py                      render once from the stdin JSON (what the CLIs do)
-  statusbar.py --install [claude|copilot|both]   wire it into the CLI settings (backs them up);
-                                    add --keep-existing to skip a CLI that has another status line
-  statusbar.py --uninstall [claude|copilot|both]
-  statusbar.py --status             say where the status bar is installed
-  statusbar.py --sync               SessionStart hook (plugin): refresh the installed copy after a
+  statusline.py                     render once from the stdin JSON (what the CLIs do)
+  statusline.py --install [claude|copilot|both]  wire the statusline into the CLI settings (backs
+                                    them up); add --keep-existing to skip a CLI that has another
+  statusline.py --uninstall [claude|copilot|both]
+  statusline.py --status            say where the statusline is installed, and if the band is on
+  statusline.py --sync              SessionStart hook (plugin): refresh the installed copy after a
                                     plugin update; install it if no status line is set
-                                    (TOKENOMICS_STATUSBAR=ask only suggests it once, =off stays quiet)
-  statusbar.py --message            Stop hook (plugin): in apps that don't draw status lines
-                                    (Claude desktop app, VS Code, JetBrains) post the bar as a
-                                    message after each reply; silent in the terminal
-                                    (TOKENOMICS_STATUSBAR_MESSAGE=auto|on|off, default auto)
-  statusbar.py --json               the bar's numbers as JSON, from the stdin JSON (for the
-                                    Claude desktop app's band, hooks/band.tsx)
-  statusbar.py --watch [--path FILE]  live-refresh every second (for terminals/CLIs that only
+                                    (TOKENOMICS_STATUSLINE=ask only suggests it once, =off stays quiet)
+  statusline.py --band-on / --band-off   show or hide the band in the apps (saved in the config)
+  statusline.py --json              the line's numbers as JSON, from the stdin JSON (for the band)
+  statusline.py --message           Stop hook (plugin): where mods can't run (older Claude Code)
+                                    in the desktop app or VS Code, post the line after each reply
+  statusline.py --watch [--path FILE]  live-refresh every second (for terminals/CLIs that only
                                     redraw on activity, so the timer keeps ticking)
-  statusbar.py --demo               preview every state (use with --theme light|dark)
-  statusbar.py --update-rate        fetch today's USD->GBP and USD->EUR rates and save them
-  statusbar.py --set-currency GBP|USD|EUR   save the display currency
+  statusline.py --demo              preview every state (use with --theme light|dark)
+  statusline.py --update-rate       fetch today's USD->GBP and USD->EUR rates and save them
+  statusline.py --set-currency GBP|USD|EUR   save the display currency
   Flags: --theme light|dark|system   --currency GBP|USD|EUR   --ascii   --no-color
 
-Config: ~/.tokenomics/statusbar.json (or $TOKENOMICS_HOME/statusbar.json), all optional:
+Config: ~/.tokenomics/statusline.json (or $TOKENOMICS_HOME/statusline.json), all optional:
   {"theme": "system", "currency": "GBP", "usd_gbp": 0.76, "usd_eur": 0.86, "cache_ttl": null,
-   "width": 12, "warn": 75, "crit": 90}
+   "width": 12, "warn": 75, "crit": 90, "band": true}
+  (statusbar.json, its name before v1.4, is still read and is renamed at the next session start.)
 Env overrides: TOKENOMICS_THEME, TOKENOMICS_CURRENCY, TOKENOMICS_USD_GBP, TOKENOMICS_USD_EUR,
-  TOKENOMICS_CACHE_TTL (seconds), TOKENOMICS_STATUSBAR_MESSAGE (auto|on|off),
+  TOKENOMICS_CACHE_TTL (seconds), TOKENOMICS_STATUSLINE (auto|ask|off), TOKENOMICS_BAND (on|off),
   TOKENOMICS_ASCII=1, TOKENOMICS_TIMER_ICONS="full,half,empty", NO_COLOR.
+  (TOKENOMICS_STATUSBAR, the old name of TOKENOMICS_STATUSLINE, still works.)
 """
 import json
 import os
@@ -52,8 +57,16 @@ from pathlib import Path
 
 HOME = Path.home()
 CFG_DIR = Path(os.environ.get("TOKENOMICS_HOME", str(HOME / ".tokenomics")))
-CFG_FILE = CFG_DIR / "statusbar.json"
-STATE_FILE = CFG_DIR / "statusbar-state.json"
+CFG_FILE = CFG_DIR / "statusline.json"
+STATE_FILE = CFG_DIR / "statusline-state.json"
+# Before v1.4 this was the "statusbar": these names are still read, and migrate() renames them.
+OLD_CFG_FILE = CFG_DIR / "statusbar.json"
+OLD_NAMES = ("statusbar.py",)
+
+
+def cfg_file():
+    """The config to read: statusline.json, or statusbar.json until it has been renamed."""
+    return CFG_FILE if CFG_FILE.exists() or not OLD_CFG_FILE.exists() else OLD_CFG_FILE
 
 DEFAULT_CFG = {"theme": "system", "cache_ttl": None,
                "width": 12, "warn": 75, "crit": 90}
@@ -61,9 +74,9 @@ DEFAULT_CFG = {"theme": "system", "cache_ttl": None,
 # ---- currency: keep identical to tokenomics/engine/currency.py (tests/test_features.py checks) ---
 # BEGIN CURRENCY
 # Display currency: USD, EUR or GBP (default). Chosen by TOKENOMICS_CURRENCY, then "currency" in
-# statusbar.json; "$", "€", "£", "usd", "euro", "pounds" ... are accepted too. Prices are in USD
+# statusline.json; "$", "€", "£", "usd", "euro", "pounds" ... are accepted too. Prices are in USD
 # and converted at the rate in TOKENOMICS_USD_EUR / TOKENOMICS_USD_GBP, then "usd_eur" /
-# "usd_gbp" in statusbar.json, then the defaults below (`statusbar.py --update-rate` saves
+# "usd_gbp" in statusline.json, then the defaults below (`statusline.py --update-rate` saves
 # today's rates).
 CURRENCIES = {"USD": ("$", None, 1.0), "EUR": ("€", "usd_eur", 0.86), "GBP": ("£", "usd_gbp", 0.76)}
 DEFAULT_CURRENCY = "GBP"
@@ -106,7 +119,7 @@ def format_money(amount, symbol, whole_above=None):
 
 # Price tables (USD per million tokens). Only used when the CLI does not report a cost itself
 # (Copilot, or older Claude Code). Marked with "~" on screen.
-#  1. {"prices": {"opus": [5, 25], "sonnet": [3, 15]}} in statusbar.json wins (substring match);
+#  1. {"prices": {"opus": [5, 25], "sonnet": [3, 15]}} in statusline.json wins (substring match);
 #  2. then data/model-prices.json, per Claude model id, kept current by
 #     .github/workflows/update-prices.yml from Claude's pricing page;
 #  3. then this per-family fallback.
@@ -129,7 +142,7 @@ _model_prices_cache = None
 def load_cfg():
     cfg = dict(DEFAULT_CFG)
     try:
-        cfg.update(json.loads(CFG_FILE.read_text(encoding="utf-8")))
+        cfg.update(json.loads(cfg_file().read_text(encoding="utf-8")))
     except (OSError, ValueError):
         pass
     env = os.environ
@@ -718,7 +731,7 @@ def watch(args):
         sys.stdout.write("\n")
 
 
-BAND_FILE = CFG_DIR / "statusbar-band.json"
+BAND_FILE = CFG_DIR / "band-sessions.json"
 
 
 def band_sessions():
@@ -730,7 +743,7 @@ def band_sessions():
 
 
 def _band_drawn(session_id):
-    """Remember that the band draws the bar in this session, so --message stays quiet there."""
+    """Remember that the band draws the line in this session, so --message stays quiet there."""
     seen = band_sessions()
     if session_id in seen:
         return
@@ -744,20 +757,26 @@ def _band_drawn(session_id):
         pass
 
 
-def band_wanted():
-    """The band follows the installed bar, like the message: on while ours is the status line."""
-    mode = message_mode()
-    return mode == "on" or (mode == "auto" and _is_ours(_status_line("claude")))
+def band_wanted(cfg=None):
+    """The band is on unless TOKENOMICS_BAND=off or "band": false in the config (--band-off).
+    It doesn't depend on the CLI statusline: a terminal can have its own status line set and the
+    desktop app still gets the band."""
+    env = os.environ.get("TOKENOMICS_BAND", "").strip().lower()
+    if env in ("off", "0", "false", "no"):
+        return False
+    if env in ("on", "1", "true", "yes"):
+        return True
+    return (cfg if cfg is not None else load_cfg()).get("band", True) is not False
 
 
 def as_json(args):
-    """The bar's parts, already formatted, for the apps (hooks/band.tsx). The band draws
+    """The line's parts, already formatted, for the band (hooks/band.tsx). The band draws
     and ticks the countdown itself, from `cold_at` (epoch seconds; null: nothing cached yet).
-    {"show": false} when the bar is off or not ours. `--band SESSION_ID`: the band is showing it
+    {"show": false} when the band is off. `--band SESSION_ID`: the band is showing it
     in that session, so the after-reply message stays quiet there."""
     try:
         if not band_wanted():
-            sys.stdout.write(json.dumps({"show": False}))
+            sys.stdout.write(json.dumps({"show": False}))   # --band-off / TOKENOMICS_BAND=off
             return 0
         sid = _flag(args, "--band")
         if sid is not None:
@@ -785,9 +804,9 @@ def as_json(args):
 
 # ----------------------------------------------------------------------------- apps ------
 # Claude Code only draws `statusLine` in the terminal. In the apps, hooks/band.tsx (a mod) shows
-# the bar from --json: the desktop app's band above the prompt, VS Code's plugin status line.
+# the line from --json: the desktop app's band above the prompt, VS Code's plugin status line.
 # Where mods can't run (older Claude Code, mods off), the apps still show a hook's
-# "systemMessage", so the Stop hook posts the bar once per reply instead.
+# "systemMessage", so the Stop hook posts the line once per reply instead.
 # CLAUDE_CODE_ENTRYPOINT says where Claude Code runs.
 
 APP_ENTRYPOINTS = ("desktop", "vscode", "jetbrains", "ide")
@@ -799,27 +818,18 @@ def in_app():
     return any(k in entry for k in APP_ENTRYPOINTS)
 
 
-def message_mode():
-    mode = os.environ.get("TOKENOMICS_STATUSBAR_MESSAGE", "").strip().lower() or "auto"
-    if os.environ.get("TOKENOMICS_STATUSBAR", "").strip().lower() == "off":
-        return "off"
-    return mode if mode in ("on", "off") else "auto"
-
-
 def message():
-    """Stop hook. Prints {"systemMessage": <the bar as plain text>} when the UI can't draw the
-    status line (or TOKENOMICS_STATUSBAR_MESSAGE=on); otherwise nothing. Never fails."""
+    """Stop hook: the band's stand-in where mods can't run. Prints {"systemMessage": <the line as
+    plain text>} in the desktop app or VS Code while the band is on and hasn't drawn in this
+    session; otherwise nothing (the terminal has its statusline). Never fails."""
     try:
         payload = read_payload()
-        mode = message_mode()
-        if mode == "off":
+        if not in_app() or not band_wanted():
             return 0
-        if mode == "auto" and not (in_app() and _is_ours(_status_line("claude"))):
-            return 0                                      # terminal draws it; or the bar is off / not ours
         if payload.get("stop_hook_active"):               # a hook made Claude continue: wait for the real end
             return 0
-        if mode == "auto" and payload.get("session_id") in band_sessions():
-            return 0                                      # the desktop band already shows it
+        if payload.get("session_id") in band_sessions():
+            return 0                                      # the band already shows it
         cfg = load_cfg()
         state = load_state()
         style = Style("dark", color=False, ascii_only=os.environ.get("TOKENOMICS_ASCII") == "1")
@@ -834,7 +844,7 @@ def message():
 def _save_cfg(**changes):
     cfg = {}
     try:
-        cfg = json.loads(CFG_FILE.read_text(encoding="utf-8"))
+        cfg = json.loads(cfg_file().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         pass
     cfg.update(changes)
@@ -899,7 +909,7 @@ def _settings_path(target):
 
 
 def _installed_copy():
-    return CFG_DIR / "statusbar.py"
+    return CFG_DIR / "statusline.py"
 
 
 def _copy_files():
@@ -926,7 +936,47 @@ def _status_line(target):
 
 
 def _is_ours(command):
-    return bool(command) and "statusbar.py" in command and str(CFG_DIR) in command
+    return bool(command) and str(CFG_DIR) in command and any(
+        n in command for n in ("statusline.py",) + OLD_NAMES)
+
+
+def _is_old(command):
+    """Ours, but still pointing at the pre-v1.4 statusbar.py copy."""
+    return _is_ours(command) and "statusline.py" not in command
+
+
+def statusline_mode():
+    """TOKENOMICS_STATUSLINE (or its old name TOKENOMICS_STATUSBAR): auto, ask or off."""
+    for name in ("TOKENOMICS_STATUSLINE", "TOKENOMICS_STATUSBAR"):
+        v = os.environ.get(name, "").strip().lower()
+        if v:
+            return v
+    return ""
+
+
+def migrate():
+    """Move a pre-v1.4 "statusbar" install to the statusline names. Quiet; never raises.
+
+    statusbar.json -> statusline.json, statusbar-offered -> statusline-offered, the CLIs'
+    statusLine commands re-pointed at statusline.py, and the old copy and state removed."""
+    try:
+        if OLD_CFG_FILE.exists() and not CFG_FILE.exists():
+            OLD_CFG_FILE.rename(CFG_FILE)
+        old_hint = CFG_DIR / "statusbar-offered"
+        if old_hint.exists() and not HINT_FILE.exists():
+            old_hint.rename(HINT_FILE)
+        olds = [t for t in ("claude", "copilot") if _is_old(_status_line(t))]
+        if olds:
+            import contextlib
+            import io
+            with contextlib.redirect_stdout(io.StringIO()):
+                for t in olds:
+                    install(t)
+        if not any(_is_old(_status_line(t)) for t in ("claude", "copilot")):
+            for name in OLD_NAMES + ("statusbar-state.json",):
+                (CFG_DIR / name).unlink(missing_ok=True)
+    except Exception:
+        pass
 
 
 def install(target, remove=False, keep_existing=False):
@@ -965,6 +1015,9 @@ def install(target, remove=False, keep_existing=False):
         _write_json(path, data)
         print(f"{'Removed from' if remove else 'Installed in'} {path} (backup: settings.json.tokenomics.bak)")
     if not remove:
+        for name in OLD_NAMES:                            # the pre-v1.4 copy, if nothing points at it now
+            if not any(_is_old(_status_line(t)) for t in ("claude", "copilot")):
+                (CFG_DIR / name).unlink(missing_ok=True)
         print(f"Restart the CLI to pick it up. Preview: python3 \"{dest}\" --demo --theme light")
 
 
@@ -973,15 +1026,24 @@ def status():
         cmd = _status_line(t)
         where = _settings_path(t)
         if _is_ours(cmd):
-            print(f"{t}: installed ({where})")
+            print(f"{t} statusline: installed ({where})")
         elif cmd:
-            print(f"{t}: another status line is set in {where}: {cmd}")
+            print(f"{t} statusline: another status line is set in {where}: {cmd}")
         else:
-            print(f"{t}: not installed")
+            print(f"{t} statusline: not installed")
+    print("claude band (desktop app): " + ("on" if band_wanted() else "off")
+          + (" (TOKENOMICS_BAND)" if os.environ.get("TOKENOMICS_BAND") else ""))
     return 0
 
 
-HINT_FILE = CFG_DIR / "statusbar-offered"
+def set_band(on):
+    _save_cfg(band=bool(on))
+    print(f"The band in the Claude desktop app is now {'on' if on else 'off'}; it changes at the next "
+          f"reply. Saved to {CFG_FILE}")
+    return 0
+
+
+HINT_FILE = CFG_DIR / "statusline-offered"
 
 
 def _same(a, b):
@@ -1002,9 +1064,9 @@ def _out_of_date():
 def sync():
     """SessionStart hook. Quiet and fast; never fails the session.
 
-    * Installed already: refresh ~/.tokenomics/statusbar.py and the price list from the plugin, so
-      the bar updates whenever the plugin does.
-    * No status line at all: install it (TOKENOMICS_STATUSBAR=ask only says once how to; =off
+    * Installed already: refresh ~/.tokenomics/statusline.py and the price list from the plugin, so
+      the statusline updates whenever the plugin does.
+    * No status line at all: install it (TOKENOMICS_STATUSLINE=ask only says once how to; =off
       does nothing).
     * Someone else's status line: leave it alone.
     """
@@ -1014,7 +1076,8 @@ def sync():
     except (OSError, ValueError):
         pass
     try:
-        mode = os.environ.get("TOKENOMICS_STATUSBAR", "").strip().lower()
+        migrate()
+        mode = statusline_mode()
         cmd = _status_line("claude")
         if _is_ours(cmd) or _is_ours(_status_line("copilot")):
             if _out_of_date():
@@ -1027,9 +1090,9 @@ def sync():
             import io
             with contextlib.redirect_stdout(io.StringIO()):
                 install("claude")
-            where = ("it shows after each reply here, and at the bottom of Claude Code in a terminal"
-                     if in_app() else "restart Claude Code to see it")
-            msg = (f"tokenomics: status bar installed; {where}. Tip: to get "
+            where = ("it shows at the bottom of Claude Code in a terminal; here, in the band above "
+                     "the prompt box" if in_app() else "restart Claude Code to see it")
+            msg = (f"tokenomics: statusline installed; {where}. Tip: to get "
                    "tokenomics updates automatically, open /plugin > Marketplaces > tokenomics "
                    "and turn on auto-update.")
         else:
@@ -1037,7 +1100,7 @@ def sync():
                 return 0
             CFG_DIR.mkdir(parents=True, exist_ok=True)
             HINT_FILE.write_text(datetime.now(timezone.utc).isoformat(), encoding="utf-8")
-            msg = ("tokenomics: want the live cost and cache status bar? Run /tokenomics:statusbar. "
+            msg = ("tokenomics: want the live cost and cache statusline? Run /tokenomics:statusline. "
                    "This tip shows once.")
         sys.stdout.write(json.dumps({"systemMessage": msg}))
     except Exception:
@@ -1059,6 +1122,8 @@ def main():
         return
     if "--sync" in args:
         sys.exit(sync())
+    if "--band-on" in args or "--band-off" in args:
+        sys.exit(set_band("--band-on" in args))
     if "--message" in args:
         sys.exit(message())
     if "--json" in args:

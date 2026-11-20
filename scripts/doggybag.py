@@ -315,10 +315,10 @@ def cold_cost(ctx, model):
     """(usd, amount in the display currency, symbol) to re-write `ctx` tokens to the cache."""
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
-        import statusbar
-        cfg = statusbar.load_cfg()
-        usd = statusbar.usage_cost_usd({"cache_creation_input_tokens": ctx}, model, cfg)
-        _, symbol, rate = statusbar.currency(cfg)
+        import statusline
+        cfg = statusline.load_cfg()
+        usd = statusline.usage_cost_usd({"cache_creation_input_tokens": ctx}, model, cfg)
+        _, symbol, rate = statusline.currency(cfg)
         return usd, usd * rate, symbol
     except Exception:
         return None, None, None

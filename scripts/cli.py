@@ -6,7 +6,8 @@ Installed by the one-line installer (install.sh / install.ps1) as `tokenomics` o
   tokenomics                    what's installed, and what to try next
   tokenomics dashboard [--demo] open the dashboard (runs in the background; --stop to stop it)
   tokenomics report [--days N]  spend report in the terminal
-  tokenomics statusbar [...]    status bar options, e.g. --demo, --set-currency USD, --status
+  tokenomics statusline [...]   statusline and band options, e.g. --demo, --set-currency USD,
+                                --band-off, --status   ("statusbar", the old name, still works)
   tokenomics router [...]       pennywise model router: serve [--port N], explain "prompt", env
   tokenomics doggybag           pack a doggybag (resume note) for this folder's latest session now
   tokenomics update             fetch the latest version and refresh everything
@@ -14,8 +15,8 @@ Installed by the one-line installer (install.sh / install.ps1) as `tokenomics` o
   tokenomics setup              (re)do the setup the installer does; idempotent
 
 Setup does, for each assistant it finds on this computer:
-  Claude Code  -> adds the plugin (skills + hooks) and the status bar
-  Copilot CLI  -> adds the plugin and the status bar
+  Claude Code  -> adds the plugin (skills + hooks + the desktop app's band) and the statusline
+  Copilot CLI  -> adds the plugin and the statusline
 It never replaces a status line you already have. Stdlib only, Python 3.8+.
 """
 import os
@@ -194,7 +195,7 @@ def remove_launcher():
 
 def setup(args):
     want_plugin = "--no-plugin" not in args
-    want_bar = "--no-statusbar" not in args
+    want_line = not ({"--no-statusline", "--no-statusbar"} & set(args))   # --no-statusbar: the old name
     found = [c for c in ("claude", "copilot") if has(c)]
     say("Setting up tokenomics")
     say("")
@@ -211,22 +212,23 @@ def setup(args):
                 manual = (f"claude plugin marketplace add {REPO} && claude plugin install {PLUGIN}"
                           if cli == "claude" else f"copilot plugin install {REPO}")
                 say(f"  ! {name}: couldn't add the plugin automatically. Run: {manual}")
-        if want_bar:
+        if want_line:
             import io
             import contextlib
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 sys.path.insert(0, str(HERE))
-                import statusbar
+                import statusline
+                statusline.migrate()                      # a pre-v1.4 "statusbar" install
                 try:
-                    statusbar.install(cli, keep_existing=True)
+                    statusline.install(cli, keep_existing=True)
                 except SystemExit as e:                   # e.g. settings.json isn't valid JSON
                     print(f"Skipped {cli}: {e}")
             out = buf.getvalue()
             if "Skipped" in out:
-                say(f"  · {name}: kept your existing status line (replace it with: tokenomics statusbar --install {cli})")
+                say(f"  · {name}: kept your existing status line (replace it with: tokenomics statusline --install {cli})")
             else:
-                say(f"  ✓ {name}: status bar installed")
+                say(f"  ✓ {name}: statusline installed")
     remember_python()
     path, new_terminal = install_launcher()
     say(f"  ✓ 'tokenomics' command: {path}")
@@ -290,17 +292,17 @@ def update(args):
         say("  ✓ Claude Code plugin updated" if claude_plugin("update") else "  · Claude Code plugin: no update applied")
     if has("copilot"):
         say("  ✓ Copilot CLI plugin updated" if copilot_plugin("update") else "  · Copilot CLI plugin: no update applied")
-    # Re-run setup from the fresh copy so the status bar, launcher and anything new are current.
+    # Re-run setup from the fresh copy so the statusline, launcher and anything new are current.
     return subprocess.call([sys.executable, str(APP_DIR / "scripts" / "cli.py"), "setup", "--no-plugin", *args],
                            stdin=subprocess.DEVNULL)
 
 
 def uninstall(args):
     sys.path.insert(0, str(HERE))
-    import statusbar
+    import statusline
     for t in ("claude", "copilot"):
-        if statusbar._is_ours(statusbar._status_line(t)):
-            statusbar.install(t, remove=True)
+        if statusline._is_ours(statusline._status_line(t)):
+            statusline.install(t, remove=True)
     if has("claude") and claude_plugin("uninstall"):
         say("Removed the Claude Code plugin.")
     if has("copilot") and copilot_plugin("uninstall"):
@@ -318,7 +320,7 @@ def uninstall(args):
             delete_later(runtime)                                 # it may be running this command
         else:
             shutil.rmtree(runtime, ignore_errors=True)
-        for name in ("statusbar.py", "model-prices.json", "python"):
+        for name in ("statusline.py", "statusbar.py", "model-prices.json", "python"):
             try:
                 (TK_HOME / name).unlink()
             except OSError:
@@ -334,11 +336,11 @@ def overview():
     for cli, name in (("claude", "Claude Code"), ("copilot", "Copilot CLI")):
         say(f"  {name:12} {'found' if has(cli) else 'not found'}")
     sys.stdout.flush()
-    script("statusbar.py", "--status")
+    script("statusline.py", "--status")
     db = Path(os.environ.get("TOKENOMICS_DB", str(TK_HOME / "spendlens.db")))
     say(f"  data         {db if db.exists() else 'nothing recorded yet'}")
     say("")
-    say("Commands: dashboard [--demo] · report · statusbar · update · uninstall · setup")
+    say("Commands: dashboard [--demo] · report · statusline · update · uninstall · setup")
     return 0
 
 
@@ -368,8 +370,8 @@ def main(argv=None):
         return script("dashboard.py", *rest)
     if cmd == "report":
         return script("report.py", *rest)
-    if cmd == "statusbar":
-        return script("statusbar.py", *(rest or ["--status"]))
+    if cmd in ("statusline", "statusbar"):                # statusbar: the name before v1.4
+        return script("statusline.py", *(rest or ["--status"]))
     if cmd in ("router", "pennywise"):
         if not rest or rest[0] not in ("serve", "explain", "env"):
             say("Usage: tokenomics router serve [--port N] | explain \"prompt\" | env [--port N]")

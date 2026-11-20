@@ -17,7 +17,7 @@ SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 import report  # noqa: E402
-import statusbar  # noqa: E402
+import statusline  # noqa: E402
 
 SONNET = {"input_tokens": 1_000_000, "output_tokens": 100_000, "cache_creation_input_tokens": 0,
           "cache_read_input_tokens": 0}
@@ -30,8 +30,8 @@ def sonnet_msg(mid, usage=SONNET):
 
 
 class PricingTests(unittest.TestCase):
-    def test_engine_and_statusbar_agree_for_every_model(self):
-        """statusbar.py keeps its own copy of the lookup (it is installed as a single file)."""
+    def test_engine_and_statusline_agree_for_every_model(self):
+        """statusline.py keeps its own copy of the lookup (it is installed as a single file)."""
         models = list(json.loads((ROOT / "data" / "model-prices.json").read_text())["models"])
         names = models + ["claude-opus-4-1-20250805", "Opus 5.5", "claude-opus-5-5[1m]", "gpt-5", "mystery",
                           "us.anthropic.claude-sonnet-4-5-20250929-v1:0", "claude-haiku-5-5"]
@@ -47,7 +47,7 @@ class PricingTests(unittest.TestCase):
                     for cfg in cfgs:
                         with self.subTest(model=model, fast=fast, big=big, cfg=bool(cfg)):
                             self.assertAlmostEqual(pricing.usage_cost_usd(tu, model, cfg),
-                                                   statusbar.usage_cost_usd(raw, model, cfg))
+                                                   statusline.usage_cost_usd(raw, model, cfg))
 
     def test_versions_priced_separately(self):
         cases = {
@@ -99,12 +99,12 @@ class CurrencyTests(unittest.TestCase):
     def tearDown(self):
         self.env.stop()
 
-    def test_block_matches_statusbar(self):
+    def test_block_matches_statusline(self):
         def block(path):
             text = path.read_text(encoding="utf-8")
             start = text.index("\n", text.index("# BEGIN CURRENCY")) + 1
             return text[start:text.index("# END CURRENCY")]
-        self.assertEqual(block(ROOT / "tokenomics" / "engine" / "currency.py"), block(SCRIPTS / "statusbar.py"))
+        self.assertEqual(block(ROOT / "tokenomics" / "engine" / "currency.py"), block(SCRIPTS / "statusline.py"))
 
     def test_choice_and_aliases(self):
         self.assertEqual(currency.current(), ("GBP", "£", 0.76))                # default unchanged
@@ -126,33 +126,34 @@ class CurrencyTests(unittest.TestCase):
         self.assertEqual(currency.format_money(-3, "$"), "-$3.00")
         self.assertEqual(currency.format_money(250.4, "£", whole_above=100), "£250")
 
-    def test_statusbar_shows_chosen_currency(self):
-        style = statusbar.Style("dark", color=False, ascii_only=True)
+    def test_statusline_shows_chosen_currency(self):
+        style = statusline.Style("dark", color=False, ascii_only=True)
         payload = {"model": {"id": "claude-opus-5-5"}, "cost": {"total_cost_usd": 2.0},
                    "context_window": {"used_percentage": 10}}
         for cfg, want in (({}, "£1.52"), ({"currency": "USD"}, "$2.00"), ({"currency": "EUR"}, "€1.72")):
-            cfg = {**statusbar.DEFAULT_CFG, **cfg}
-            line = statusbar.render(statusbar.gather(payload, cfg, {}), style, cfg)
+            cfg = {**statusline.DEFAULT_CFG, **cfg}
+            line = statusline.render(statusline.gather(payload, cfg, {}), style, cfg)
             self.assertIn(want, line)
 
-    def test_statusbar_flags(self):
+    def test_statusline_flags(self):
         t = TempEnv()
         try:
             env = t.env(TOKENOMICS_HOME=str(t.home))
             payload = json.dumps({"cost": {"total_cost_usd": 1.0}})
-            run = lambda *a: subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), "--no-color", *a],  # noqa: E731
+            run = lambda *a: subprocess.run([sys.executable, str(SCRIPTS / "statusline.py"), "--no-color", *a],  # noqa: E731
                                             input=payload, capture_output=True, text=True, env=env, timeout=30)
             self.assertIn("$1.00", run("--currency", "usd").stdout)
             self.assertIn("£0.76", run().stdout)
             self.assertIn("now show in EUR", run("--set-currency", "€").stdout)
             self.assertIn("€0.86", run().stdout)
-            self.assertEqual(json.loads((t.home / "statusbar.json").read_text())["currency"], "EUR")
+            self.assertEqual(json.loads((t.home / "statusline.json").read_text())["currency"], "EUR")
             self.assertEqual(run("--set-currency", "yen").returncode, 1)
         finally:
             t.cleanup()
 
-    def test_statusbar_message_in_desktop_and_ide_only(self):
-        """Claude Code draws statusLine only in the terminal; in the apps the Stop hook posts it."""
+    def test_message_stands_in_for_the_band_in_the_apps(self):
+        """The CLI statusline is the terminal's; in the apps, where mods can't run, the Stop hook
+        posts the line. It goes with the band, not with the CLI statusline being installed."""
         t = TempEnv()
         try:
             claude_dir = t.home / ".claude"
@@ -162,12 +163,8 @@ class CurrencyTests(unittest.TestCase):
             def run(entry, *flag, **extra):
                 env = t.env(TOKENOMICS_HOME=str(t.home / ".tokenomics"), CLAUDE_CONFIG_DIR=str(claude_dir),
                             CLAUDE_CODE_ENTRYPOINT=entry, **extra)
-                return subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), *flag], input=payload,
+                return subprocess.run([sys.executable, str(SCRIPTS / "statusline.py"), *flag], input=payload,
                                       capture_output=True, text=True, env=env, timeout=30)
-
-            # not installed yet: quiet everywhere; --sync installs it and says where it shows
-            self.assertEqual(run("claude-desktop", "--message").stdout, "")
-            self.assertIn("after each reply", json.loads(run("claude-desktop", "--sync").stdout)["systemMessage"])
 
             for entry in ("claude-desktop", "claude-vscode", "jetbrains"):
                 p = run(entry, "--message")
@@ -176,18 +173,26 @@ class CurrencyTests(unittest.TestCase):
                 self.assertIn("claude-sonnet-5-5", msg)
                 self.assertIn("~£2.28", msg)                      # (1M in @2 + 0.1M out @10) * 0.76
                 self.assertNotIn("\x1b", msg)                    # plain text, no ANSI
-            self.assertEqual(run("cli", "--message").stdout, "")  # the terminal draws the real bar
+            self.assertEqual(run("cli", "--message").stdout, "")  # the terminal has the CLI statusline
             self.assertEqual(run("", "--message").stdout, "")
-            self.assertEqual(run("claude-desktop", "--message", TOKENOMICS_STATUSBAR_MESSAGE="off").stdout, "")
-            self.assertIn("systemMessage", run("cli", "--message", TOKENOMICS_STATUSBAR_MESSAGE="on").stdout)
+            self.assertEqual(run("claude-desktop", "--message", TOKENOMICS_BAND="off").stdout, "")
 
-            # someone else's status line (or the bar removed): stay quiet in the app too
+            # someone else's CLI status line doesn't matter to the apps
+            claude_dir.mkdir(parents=True, exist_ok=True)
             (claude_dir / "settings.json").write_text(json.dumps({"statusLine": {"command": "other.sh"}}))
+            self.assertIn("systemMessage", run("claude-desktop", "--message").stdout)
+
+            # --band-off is saved and wins until --band-on
+            self.assertIn("now off", run("cli", "--band-off").stdout)
             self.assertEqual(run("claude-desktop", "--message").stdout, "")
+            self.assertIn("band (desktop app): off", run("cli", "--status").stdout)
+            self.assertIn("systemMessage", run("claude-desktop", "--message", TOKENOMICS_BAND="on").stdout)
+            run("cli", "--band-on")
+            self.assertIn("systemMessage", run("claude-desktop", "--message").stdout)
         finally:
             t.cleanup()
 
-    def test_statusbar_json_for_the_desktop_band(self):
+    def test_json_for_the_band(self):
         """hooks/band.tsx draws from --json; once it has drawn a session, --message stays quiet."""
         t = TempEnv()
         try:
@@ -198,24 +203,21 @@ class CurrencyTests(unittest.TestCase):
             def run(*flag, **extra):
                 env = t.env(TOKENOMICS_HOME=str(t.home / ".tokenomics"), CLAUDE_CONFIG_DIR=str(claude_dir),
                             CLAUDE_CODE_ENTRYPOINT="claude-desktop", **extra)
-                return subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), *flag], input=payload,
+                return subprocess.run([sys.executable, str(SCRIPTS / "statusline.py"), *flag], input=payload,
                                       capture_output=True, text=True, env=env, timeout=30)
 
-            self.assertEqual(json.loads(run("--json", "--band", "s2").stdout), {"show": False})  # not installed
-            run("--sync")
             self.assertTrue(json.loads(run("--json").stdout)["show"])  # read, not drawn yet (or VS Code)
             self.assertIn("systemMessage", run("--message").stdout)   # so the message still comes
-            bar = json.loads(run("--json", "--band", "s2").stdout)
-            self.assertTrue(bar["show"])
-            self.assertEqual((bar["model"], bar["cost"], bar["level"]), ("claude-sonnet-5-5", "~£2.28", "red"))   # 1M tokens: a full window
-            self.assertEqual(len(bar["gauge"]), 12)
-            self.assertEqual(bar["ttl"], 300)
+            line = json.loads(run("--json", "--band", "s2").stdout)
+            self.assertTrue(line["show"])
+            self.assertEqual((line["model"], line["cost"], line["level"]), ("claude-sonnet-5-5", "~£2.28", "red"))   # 1M tokens: a full window
+            self.assertEqual(len(line["gauge"]), 12)
+            self.assertEqual(line["ttl"], 300)
             self.assertEqual(run("--message").stdout, "")             # the band shows it instead
-            self.assertEqual(json.loads(run("--json", "--band", "s2", TOKENOMICS_STATUSBAR_MESSAGE="off").stdout),
+            self.assertEqual(json.loads(run("--json", "--band", "s2", TOKENOMICS_BAND="off").stdout),
                              {"show": False})
-            self.assertEqual(json.loads(run("--json").stdout)["cost"], "~£2.28")
             # the band passes the engine's own figures ($.session.usage): exact cost, its context %
-            exact = subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), "--json"], capture_output=True,
+            exact = subprocess.run([sys.executable, str(SCRIPTS / "statusline.py"), "--json"], capture_output=True,
                                    text=True, timeout=30, input=json.dumps({
                                        "transcript_path": tx, "model": {"id": "claude-opus-5-5"},
                                        "cost": {"total_cost_usd": 2.0},
@@ -228,11 +230,11 @@ class CurrencyTests(unittest.TestCase):
             t.cleanup()
 
     def test_static_render_says_when_cache_goes_cold(self):
-        style = statusbar.Style("dark", color=False)
+        style = statusline.Style("dark", color=False)
         info = {"model": "m", "total": 1, "cost": 0, "symbol": "£", "estimated": False, "pct": 1,
                 "ttl": 300, "remaining": 120}
-        self.assertIn("(cold at ", statusbar.render(info, style, statusbar.DEFAULT_CFG, static=True))
-        self.assertNotIn("cold at", statusbar.render(info, style, statusbar.DEFAULT_CFG))
+        self.assertIn("(cold at ", statusline.render(info, style, statusline.DEFAULT_CFG, static=True))
+        self.assertNotIn("cold at", statusline.render(info, style, statusline.DEFAULT_CFG))
 
 
 class CostRecordingTests(unittest.TestCase):

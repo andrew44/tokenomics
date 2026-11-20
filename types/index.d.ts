@@ -1,5 +1,5 @@
-/** The status bar's numbers, as `statusbar.py --json` gives them (already formatted). */
-export type Bar = {
+/** The statusline's numbers, as `statusline.py --json` gives them (already formatted), for the band. */
+export type Line = {
   show: boolean
   model?: string
   pct?: number
@@ -16,6 +16,6 @@ export type Bar = {
 
 declare module 'claude-code' {
   interface PluginState {
-    tokenomics: { bar: Bar | null }
+    tokenomics: { line: Line | null }
   }
 }

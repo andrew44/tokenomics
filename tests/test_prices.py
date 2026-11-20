@@ -1,4 +1,4 @@
-"""Price table: parsing Claude's pricing page, merging into the JSON, and statusbar lookups."""
+"""Price table: parsing Claude's pricing page, merging into the JSON, and statusline lookups."""
 import json
 import sys
 import tempfile
@@ -8,7 +8,7 @@ from pathlib import Path
 from helpers import ROOT
 
 sys.path.insert(0, str(ROOT / "scripts"))
-import statusbar  # noqa: E402
+import statusline  # noqa: E402
 import update_prices  # noqa: E402
 
 PAGE = """## Model pricing
@@ -76,30 +76,30 @@ class ShippedFileTests(unittest.TestCase):
             self.assertGreater(models[mid]["output"], models[mid]["input"])
 
 
-class StatusbarLookupTests(unittest.TestCase):
+class StatuslineLookupTests(unittest.TestCase):
     def test_model_id_normalisation(self):
         cases = {"claude-opus-5-5[1m]": "claude-opus-5-5", "Opus 5.5": "claude-opus-5-5",
                  "claude-opus-4-1-20250805": "claude-opus-4-1", "claude-opus-4-20250514": "claude-opus-4",
                  "claude-3-5-haiku-20241022": "claude-3-5-haiku", "Claude Fable 5.2": "claude-fable-5-2",
                  "claude-sonnet-5": "claude-sonnet-5", "gpt-5": None}
         for name, want in cases.items():
-            self.assertEqual(statusbar.claude_model_id(name), want, name)
+            self.assertEqual(statusline.claude_model_id(name), want, name)
 
     def test_uses_json_cache_rates(self):
-        cost = statusbar.usage_cost_usd({"cache_read_input_tokens": 1_000_000}, "claude-opus-5-5", {})
+        cost = statusline.usage_cost_usd({"cache_read_input_tokens": 1_000_000}, "claude-opus-5-5", {})
         self.assertAlmostEqual(cost, 0.20)  # 0.05x, not the generic 0.1x
-        self.assertEqual(statusbar.price_for("claude-fable-5-2", {}), (8.0, 40.0))
+        self.assertEqual(statusline.price_for("claude-fable-5-2", {}), (8.0, 40.0))
 
     def test_long_context_tier(self):
-        short = statusbar.usage_cost_usd({"input_tokens": 100_000}, "claude-haiku-5-5", {})
-        long_ = statusbar.usage_cost_usd({"input_tokens": 200_000}, "claude-haiku-5-5", {})
+        short = statusline.usage_cost_usd({"input_tokens": 100_000}, "claude-haiku-5-5", {})
+        long_ = statusline.usage_cost_usd({"input_tokens": 200_000}, "claude-haiku-5-5", {})
         self.assertAlmostEqual(short, 0.01)
         self.assertAlmostEqual(long_, 0.10)
 
     def test_config_override_and_fallback(self):
-        self.assertEqual(statusbar.price_for("claude-opus-5-5", {"prices": {"opus": [1, 2]}}), (1.0, 2.0))
-        self.assertEqual(statusbar.price_for("claude-opus-9-9", {}), statusbar.PRICES["opus"])
-        self.assertEqual(statusbar.price_for("gpt-5", {}), statusbar.PRICES["gpt"])
+        self.assertEqual(statusline.price_for("claude-opus-5-5", {"prices": {"opus": [1, 2]}}), (1.0, 2.0))
+        self.assertEqual(statusline.price_for("claude-opus-9-9", {}), statusline.PRICES["opus"])
+        self.assertEqual(statusline.price_for("gpt-5", {}), statusline.PRICES["gpt"])
 
 
 if __name__ == "__main__":

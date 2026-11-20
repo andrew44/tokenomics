@@ -1,6 +1,6 @@
 """Display currency (USD, EUR or GBP) for every money figure tokenomics shows.
 
-The block below is identical to the one in scripts/statusbar.py, which must stay a single
+The block below is identical to the one in scripts/statusline.py, which must stay a single
 self-contained file; tests/test_features.py checks they agree. All costs are computed in USD
 (tokenomics.engine.pricing) and converted only for display or for comparing with a limit.
 """
@@ -14,9 +14,9 @@ from .pricing import _cfg
 
 # BEGIN CURRENCY
 # Display currency: USD, EUR or GBP (default). Chosen by TOKENOMICS_CURRENCY, then "currency" in
-# statusbar.json; "$", "€", "£", "usd", "euro", "pounds" ... are accepted too. Prices are in USD
+# statusline.json; "$", "€", "£", "usd", "euro", "pounds" ... are accepted too. Prices are in USD
 # and converted at the rate in TOKENOMICS_USD_EUR / TOKENOMICS_USD_GBP, then "usd_eur" /
-# "usd_gbp" in statusbar.json, then the defaults below (`statusbar.py --update-rate` saves
+# "usd_gbp" in statusline.json, then the defaults below (`statusline.py --update-rate` saves
 # today's rates).
 CURRENCIES = {"USD": ("$", None, 1.0), "EUR": ("€", "usd_eur", 0.86), "GBP": ("£", "usd_gbp", 0.76)}
 DEFAULT_CURRENCY = "GBP"
@@ -59,5 +59,5 @@ def format_money(amount, symbol, whole_above=None):
 
 
 def current(cfg: Optional[Mapping] = None) -> Tuple[str, str, float]:
-    """(code, symbol, rate per USD) from the environment and ~/.tokenomics/statusbar.json."""
+    """(code, symbol, rate per USD) from the environment and ~/.tokenomics/statusline.json."""
     return currency(_cfg() if cfg is None else cfg)
