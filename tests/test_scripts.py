@@ -305,14 +305,15 @@ class CliTests(unittest.TestCase):
         self.assertIn("statusbar.py", json.loads(self.settings.read_text())["statusLine"]["command"])
         launcher = self.t.home / ".local" / "bin" / "tokenomics"
         self.assertTrue(launcher.is_file())
-        self.assertIn("added by the tokenomics installer", (self.t.home / ".bashrc").read_text())
+        rc = self.t.home / (".bash_profile" if sys.platform == "darwin" else ".bashrc")   # what bash reads
+        self.assertIn("added by the tokenomics installer", rc.read_text())
         self.cli("setup")                                       # idempotent: one PATH line only
-        self.assertEqual((self.t.home / ".bashrc").read_text().count("tokenomics installer"), 1)
+        self.assertEqual(rc.read_text().count("tokenomics installer"), 1)
 
         self.cli("uninstall")
         self.assertNotIn("statusLine", json.loads(self.settings.read_text()))
         self.assertFalse(launcher.exists())
-        self.assertNotIn("tokenomics", (self.t.home / ".bashrc").read_text())
+        self.assertNotIn("tokenomics", rc.read_text())
         self.assertIn("plugin uninstall tokenomics@tokenomics", self.log.read_text())
 
     @unittest.skipIf(sys.platform == "win32", "uses a shell-script stand-in for claude")

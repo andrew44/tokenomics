@@ -235,11 +235,15 @@ def background(a, argv):
         kw["start_new_session"] = True
     proc = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), *args], **kw)
     PID_FILE.write_text(str(proc.pid), encoding="utf-8")
-    for _ in range(50):
-        if _port_busy(a.port):
-            break
-        if proc.poll() is not None:
-            print(f"The dashboard failed to start; see {log.name}", file=sys.stderr)
+    deadline = time.time() + 20                           # a cold start on a busy Mac can be slow
+    while not _port_busy(a.port):
+        if proc.poll() is not None or time.time() > deadline:
+            log.flush()
+            try:
+                tail = Path(log.name).read_text(encoding="utf-8", errors="replace")[-2000:]
+            except OSError:
+                tail = ""
+            print(f"The dashboard didn't start (see {log.name}).\n{tail}", file=sys.stderr)
             return 1
         time.sleep(0.1)
     print(f"tokenomics dashboard running on {url}{'  (demo data)' if a.demo else ''}\n"
