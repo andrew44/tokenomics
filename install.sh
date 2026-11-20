@@ -47,20 +47,25 @@ main() {
     }
 
     standalone_python() {
-        # A self-contained CPython build (python-build-standalone, as used by uv), unpacked into
-        # $home/runtime. Picks the newest 3.12 "install_only" build for this OS and CPU.
+        # A self-contained CPython build (python-build-standalone, as used by uv), pinned and
+        # checked against its published SHA-256, unpacked into $home/runtime. No API calls, so no
+        # rate limits.
+        base="https://github.com/astral-sh/python-build-standalone/releases/download/20241016"
         case "$(uname -s)-$(uname -m)" in
-            Darwin-arm64)              triple=aarch64-apple-darwin ;;
-            Darwin-x86_64)             triple=x86_64-apple-darwin ;;
-            Linux-x86_64)              triple=x86_64-unknown-linux-gnu ;;
-            Linux-aarch64|Linux-arm64) triple=aarch64-unknown-linux-gnu ;;
+            Darwin-arm64)              triple=aarch64-apple-darwin;      sum=4c18852bf9c1a11b56f21bcf0df1946f7e98ee43e9e4c0c5374b2b3765cf9508 ;;
+            Darwin-x86_64)             triple=x86_64-apple-darwin;       sum=60c5271e7edc3c2ab47440b7abf4ed50fbc693880b474f74f05768f5b657045a ;;
+            Linux-x86_64)              triple=x86_64-unknown-linux-gnu;  sum=43576f7db1033dd57b900307f09c2e86f371152ac8a2607133afa51cbfc36064 ;;
+            Linux-aarch64|Linux-arm64) triple=aarch64-unknown-linux-gnu; sum=bba3c6be6153f715f2941da34f3a6a69c2d0035c9c5396bc5bb68c6d2bd1065a ;;
             *) return 1 ;;
         esac
-        fetch "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest" "$tmp/rel.json" || return 1
-        url="$(grep -oE "https://[^\"]*cpython-3\.12\.[0-9]+(\+|%2B)[0-9]+-$triple-install_only\.tar\.gz" "$tmp/rel.json" | head -n 1)"
-        [ -n "$url" ] || return 1
         say "Downloading a private Python for tokenomics (one time, about 20 MB)..."
-        fetch "$url" "$tmp/python.tar.gz" || return 1
+        fetch "$base/cpython-3.12.7%2B20241016-$triple-install_only.tar.gz" "$tmp/python.tar.gz" || return 1
+        if command -v sha256sum >/dev/null 2>&1; then
+            got="$(sha256sum "$tmp/python.tar.gz" | cut -d' ' -f1)"
+        else
+            got="$(shasum -a 256 "$tmp/python.tar.gz" | cut -d' ' -f1)"
+        fi
+        [ "$got" = "$sum" ] || { say "The Python download didn't match its checksum; not using it."; return 1; }
         rm -rf "$home/runtime"
         mkdir -p "$home/runtime"
         tar -xzf "$tmp/python.tar.gz" -C "$home/runtime" || return 1

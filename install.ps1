@@ -42,14 +42,18 @@
     }
 
     function Get-PrivatePython {
-        # A self-contained CPython build (python-build-standalone, as used by uv).
-        $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
-        $rel = Invoke-RestMethod -UseBasicParsing 'https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest'
-        $asset = $rel.assets | Where-Object { $_.name -match "^cpython-3\.12\.\d+\+\d+-$arch-pc-windows-msvc-install_only\.tar\.gz$" } | Select-Object -First 1
-        if (-not $asset) { return $null }
+        # A self-contained CPython build (python-build-standalone, as used by uv), pinned and
+        # checked against its published SHA-256. No API calls, so no rate limits. The x64 build
+        # also runs on Windows on ARM.
+        $url = 'https://github.com/astral-sh/python-build-standalone/releases/download/20241016/cpython-3.12.7%2B20241016-x86_64-pc-windows-msvc-install_only.tar.gz'
+        $sum = 'f05531bff16fa77b53be0776587b97b466070e768e6d5920894de988bdcd547a'
         Write-Host 'Downloading a private Python for tokenomics (one time, about 30 MB)...'
         $tgz = Join-Path $tmp 'python.tar.gz'
-        Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $tgz
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $tgz
+        if ((Get-FileHash -Algorithm SHA256 $tgz).Hash.ToLower() -ne $sum) {
+            Write-Host "The Python download didn't match its checksum; not using it."
+            return $null
+        }
         if (Test-Path $runtime) { Remove-Item $runtime -Recurse -Force }
         New-Item -ItemType Directory -Path $runtime -Force | Out-Null
         & tar.exe -xzf $tgz -C $runtime                # tar.exe ships with Windows 10 (1803) and later
