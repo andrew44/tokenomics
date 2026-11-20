@@ -1,0 +1,19 @@
+{
+  "name": "tokenomics",
+  "private": true,
+  "description": "A cost-cutting toolkit for AI coding assistants: live spend, coaching and guard-rails for Claude Code and GitHub Copilot CLI.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 \"tests/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^5.9.2"
+  }
+}

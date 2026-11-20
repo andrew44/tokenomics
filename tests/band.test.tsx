@@ -1,4 +1,4 @@
-// claude plugin test .   (the band of hooks/band.tsx; the Python tests cover statusline.py --json)
+// claude plugin test .   (the band of hooks/band.tsx; the Node tests (tests/*.test.ts) cover statusline.ts --json)
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
@@ -77,7 +77,7 @@ test('nothing cached yet reads --:--', async ($, on) => {
   await ui.unmount()
 })
 
-// The engine beneath the band's timer and refresh: a session on `surfaces`, statusline.py
+// The engine beneath the band's timer and refresh: a session on `surfaces`, statusline.ts
 // answering `stdout`. Records each run and each status line.
 function engine(on: On, surfaces: ('terminal' | 'desktop' | 'vscode' | 'mobile')[], stdout: string) {
   const runs: { argv: readonly string[], stdin?: string }[] = []

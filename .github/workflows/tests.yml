@@ -6,20 +6,32 @@ on:
 
 jobs:
   unittest:
-    # ubuntu-22.04 still offers Python 3.8, the oldest version tokenomics supports.
+    # Node.js 22.18 is the oldest version tokenomics supports (type stripping on by default,
+    # node:sqlite built in). The tests use node:test, so nothing has to be installed.
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-22.04, python: "3.8" }
-          - { os: ubuntu-latest, python: "3.13" }
-          - { os: macos-latest, python: "3.13" }
+          - { os: ubuntu-latest, node: "22.18.0" }
+          - { os: ubuntu-latest, node: "24" }
+          - { os: macos-latest, node: "24" }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: ${{ matrix.python }}
-      - name: Run tests (stdlib only, nothing to install)
-        working-directory: tests
-        run: python -m unittest -v
+          node-version: ${{ matrix.node }}
+      - name: Run tests (Node built-ins only, nothing to install)
+        run: npm test
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Type-check with TypeScript
+        run: npm run typecheck

@@ -52,13 +52,13 @@ flowchart LR
 
 The coach needs a Claude Code conversation record, so Copilot sessions can't be reviewed.
 
-For raw numbers, run the analyser directly: `python3 scripts/coach.py [--session ID] [--json]`
+For raw numbers, run the analyser directly: `node scripts/coach.ts [--session ID] [--json]`
 
 ---
 
 ## spend-report
 
-Say **"spend report"** (or "where did my tokens go this week?") and the skill runs `scripts/report.py` and summarises it:
+Say **"spend report"** (or "where did my tokens go this week?") and the skill runs `scripts/report.ts` and summarises it:
 
 - money spent (in your currency) and the OPEX/CAPEX split of that spend
 - top projects and models
@@ -71,9 +71,9 @@ Ask for any period: "this month", "today", "all time".
 Run it yourself:
 
 ```bash
-python3 scripts/report.py                       # last 7 days, as Markdown
-python3 scripts/report.py --days 30 --json
-python3 scripts/report.py --currency EUR        # GBP, USD or EUR for this run
+node scripts/report.ts                       # last 7 days, as Markdown
+node scripts/report.ts --days 30 --json
+node scripts/report.ts --currency EUR        # GBP, USD or EUR for this run
 ```
 
 ---
@@ -133,7 +133,7 @@ flowchart LR
 - Each distinct skill that lands clearly on one side adds weight 6 to it, so one skill outweighs a few keyword hits. An ambiguous skill adds nothing.
 - Example: "Analyses App Insights" → OPEX; "Create Unit Tests using NUnit" → CAPEX.
 - A skill's description is read from its `SKILL.md` / command file on disk. Claude Code looks in the project's `.claude/`, `~/.claude/` and installed plugins, or otherwise in a skill listing found in the transcript. Copilot looks in the project's `.github/` and `.claude/` and in `~/.copilot/`.
-- To adjust the scoring, edit `OPEX_PATTERNS` / `CAPEX_PATTERNS` in `tokenomics/engine/classifier.py`, or use `TOKENOMICS_SKILL_MAP` (see [Configuration](configuration.md)). One change applies to Claude Code and Copilot alike.
+- To adjust the scoring, edit `OPEX_PATTERNS` / `CAPEX_PATTERNS` in `tokenomics/engine/classifier.ts`, or use `TOKENOMICS_SKILL_MAP` (see [Configuration](configuration.md)). One change applies to Claude Code and Copilot alike.
 
 ### Optional: let an AI model decide
 
@@ -172,7 +172,7 @@ Tokens are counted once per message. Work done by sub-agents in separate transcr
 
 ## pennywise
 
-*Penny wise, pound foolish.* A model router (`scripts/pennywise.py`): every prompt gets a complexity score and goes to the model that suits it, so a hello-world never runs on the priciest model and an architecture question never gets stuck on the cheapest.
+*Penny wise, pound foolish.* A model router (`scripts/pennywise.ts`): every prompt gets a complexity score and goes to the model that suits it, so a hello-world never runs on the priciest model and an architecture question never gets stuck on the cheapest.
 
 **How it scores.** Weighted signals, in the style of auto-routers such as LiteLLM's complexity router: prompt length, code blocks, simple-task phrases (*typo*, *rename*, *commit message*, *convert JSON*), technical terms, complex work (*refactor*, *debug*, *across the codebase*), reasoning words (*architecture*, *trade-offs*, *root cause*, *prove*, *security*), multi-step structure and stacked questions. The total lands in one of four tiers, each mapped to a model:
 
@@ -231,7 +231,7 @@ ANTHROPIC_BASE_URL=http://127.0.0.1:8787 ANTHROPIC_MODEL=pennywise claude
 
 ## diet
 
-Every token pulled into the conversation is paid for again on every later turn. **diet** (`scripts/diet.py`) is a pre-tool hook (`PreToolUse` on `Read|Bash` in Claude Code, `preToolUse` in Copilot CLI) that refuses a small set of calls known to flood the context, and tells the AI how to ask for less. The AI then retries with a narrower call by itself:
+Every token pulled into the conversation is paid for again on every later turn. **diet** (`scripts/diet.ts`) is a pre-tool hook (`PreToolUse` on `Read|Bash` in Claude Code, `preToolUse` in Copilot CLI) that refuses a small set of calls known to flood the context, and tells the AI how to ask for less. The AI then retries with a narrower call by itself:
 
 | Stopped | Suggested instead |
 |---|---|
@@ -244,13 +244,13 @@ Every token pulled into the conversation is paid for again on every later turn. 
 - A command that already pipes (`| grep`, `| head`), redirects to a file, or limits itself is never touched, and a file that can't be found is never blocked.
 - To let one command through, append `# diet-ok`.
 - Each block is logged to `diet_events` with an estimate of the tokens kept out, which shows up in the spend report.
-- Rules live in `tokenomics/engine/diet.py`, shared by both assistants.
+- Rules live in `tokenomics/engine/diet.ts`, shared by both assistants.
 
 ---
 
 ## budget
 
-Set a limit and **budget** (`scripts/budget.py`, a `UserPromptSubmit` hook) keeps an eye on it. Limits are in your chosen [currency](configuration.md#currency) (pounds by default), so `20` means £20, $20 or €20:
+Set a limit and **budget** (`scripts/budget.ts`, a `UserPromptSubmit` hook) keeps an eye on it. Limits are in your chosen [currency](configuration.md#currency) (pounds by default), so `20` means £20, $20 or €20:
 
 ```bash
 export TOKENOMICS_BUDGET_DAILY=20      # per day, all sessions together
@@ -261,7 +261,7 @@ export TOKENOMICS_BUDGET_SESSION=5     # per session
 - At **100%**, your next prompt is paused with what you've spent and some cheaper ways on (`/compact`, a smaller model, a fresh session).
 - To carry on anyway, send the same prompt again or start it with `over-budget:`; you won't be paused again for that limit that day.
 - `TOKENOMICS_BUDGET_MODE=warn` only ever shows notices.
-- Check where you are with `python3 scripts/budget.py status`.
+- Check where you are with `node scripts/budget.ts status`.
 
 Spend is worked out from the token counts spendlens records at the end of each turn, priced per model like the statusline (so it is at most one turn behind, and an estimate, not your invoice). Each increase is stored with its date, so a session that runs past midnight counts towards the right day. Copilot bills premium requests, which hooks can't see, so Copilot sessions never count towards a budget. Copilot also ignores prompt-hook output, so budget is Claude Code only.
 
@@ -269,7 +269,7 @@ Spend is worked out from the token counts spendlens records at the end of each t
 
 ## doggybag
 
-*Pack up the leftovers.* When the prompt cache goes cold, carrying on in the old session means paying to re-write the whole conversation into the cache again. **doggybag** (`scripts/doggybag.py`) packs a small digest first, so you can carry on from that instead.
+*Pack up the leftovers.* When the prompt cache goes cold, carrying on in the old session means paying to re-write the whole conversation into the cache again. **doggybag** (`scripts/doggybag.ts`) packs a small digest first, so you can carry on from that instead.
 
 **Where it goes.** Into the project: `<project>/.doggybag/<session id>.md`, plus `.doggybag/latest.md` (always the newest). The folder carries its own `.gitignore` (`*`), so it is never committed whatever your repo's rules are. The newest 10 per project are kept. Set `TOKENOMICS_DOGGYBAG_DIR` to an absolute path to keep them all in one place instead.
 
@@ -286,7 +286,7 @@ Type `/clear` (or start a new session in the folder) and the `SessionStart` hook
 
 **What's in it.** Git branch and changes, tasks, your last few requests, the last reply, files edited, recent commands, an estimate of a full resume against the size of the note, and how to carry on. It is built from the transcript by plain code; **no model is called, so it costs no tokens**.
 
-- `tokenomics doggybag` (or `python3 scripts/doggybag.py write`) packs one on demand for the folder's latest session.
+- `tokenomics doggybag` (or `node scripts/doggybag.ts write`) packs one on demand for the folder's latest session.
 - `TOKENOMICS_DOGGYBAG_INJECT=0` only tells you a doggybag exists instead of loading it.
 - Each one is logged to the `handoff_events` table (the old name, kept so your history carries over).
 - The old `TOKENOMICS_HANDOFF_*` settings still work.
@@ -303,7 +303,7 @@ One live line: model, how full the conversation is, tokens, cost and a countdown
 | **statusline** | The bottom of Claude Code or GitHub Copilot CLI **in a terminal** | The CLI's own status line: a `statusLine` entry in its `settings.json` | `/tokenomics:statusline` installs or removes it, per CLI |
 | **[band](#band)** | The **Claude desktop app**, above the prompt box | A row the plugin draws in the app's band (the app doesn't draw a status line) | On with the plugin; `/tokenomics:statusline band off` hides it |
 
-Both show the same line, worked out by the same script (`scripts/statusline.py`).
+Both show the same line, worked out by the same script (`scripts/statusline.ts`).
 
 <p align="center"><img src="assets/statusline.svg" alt="The tokenomics statusline at 8%, 76% and 92% context" width="720"></p>
 
@@ -316,7 +316,7 @@ Both show the same line, worked out by the same script (`scripts/statusline.py`)
 
 ### Install the statusline
 
-Python 3.8+, nothing else. With the plugin, in Claude Code:
+Node.js 22.18+, nothing else. With the plugin, in Claude Code:
 
 ```text
 /tokenomics:statusline                 # or: /tokenomics:statusline both   (Claude Code + Copilot CLI)
@@ -341,7 +341,7 @@ tokenomics statusline --status             # where is it installed, and is the b
 - It counts from the last request that used the cache. The cache lasts 5 minutes, or 1 hour if your session uses the 1-hour cache. Override with `"cache_ttl"` (seconds).
 - Claude Code redraws the statusline every second (this needs a recent version; on older ones it updates after each message).
 - Copilot CLI doesn't say how often it redraws or when its cache expires, so there the countdown is approximate and may only move when Copilot redraws.
-- For a smoothly ticking countdown in any assistant, run `python3 scripts/statusline.py --watch` in a spare terminal pane.
+- For a smoothly ticking countdown in any assistant, run `node scripts/statusline.ts --watch` in a spare terminal pane.
 </details>
 
 ### band
@@ -380,7 +380,7 @@ tokenomics dashboard --foreground --db /path/to/spendlens.db --port 9000
 
 Inside Claude Code, `/tokenomics:dashboard` (or *"open the dashboard"*) does the same.
 
-It reads the database read-only, listens on 127.0.0.1 only, and needs nothing beyond Python 3.8+. It uses `TOKENOMICS_DB` if set.
+It reads the database read-only, listens on 127.0.0.1 only, and needs nothing beyond Node.js 22.18+. It uses `TOKENOMICS_DB` if set.
 
 ---
 

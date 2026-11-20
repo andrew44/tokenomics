@@ -20,16 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: "24"
 
       - name: Fetch latest prices
-        run: python3 scripts/update_prices.py
+        run: node scripts/update_prices.ts
 
       - name: Run tests
-        working-directory: tests
-        run: python3 -m unittest
+        run: npm test
 
       - name: Commit if changed
         run: |

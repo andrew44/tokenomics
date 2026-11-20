@@ -84,7 +84,7 @@ The older `TOKENOMICS_HANDOFF_*` names still work.
 | `TOKENOMICS_STATUSLINE` | `auto` | The CLI statusline (terminal): what the plugin does at session start when no status line is set. `auto` (or unset) installs the statusline, `ask` shows a one-time tip instead, `off` stays quiet. Someone else's status line is never replaced, and an installed statusline is always kept up to date. `TOKENOMICS_STATUSBAR`, its old name, still works. |
 | `TOKENOMICS_BAND` | on | The band (desktop app): `off` hides the line above the prompt box, and the VS Code line and after-reply message that stand in for it; `on` shows them. Overrides `--band-off` / `--band-on`. |
 | `TOKENOMICS_THEME` | `system` | Statusline colours in the terminal: `light`, `dark` or `system`. |
-| `TOKENOMICS_CURRENCY` | `GBP` | Currency for every cost shown: `GBP` (£), `USD` ($) or `EUR` (€). Also saved by `statusline.py --set-currency`. |
+| `TOKENOMICS_CURRENCY` | `GBP` | Currency for every cost shown: `GBP` (£), `USD` ($) or `EUR` (€). Also saved by `statusline.ts --set-currency`. |
 | `TOKENOMICS_USD_EUR` | `0.86` | Euros per dollar, when the currency is EUR. |
 | `TOKENOMICS_USD_GBP` | `0.76` | Pounds per dollar, when the currency is GBP. |
 | `TOKENOMICS_CACHE_TTL` | auto | Cache lifetime in seconds for the statusline's countdown. |
@@ -96,13 +96,13 @@ The older `TOKENOMICS_HANDOFF_*` names still work.
 Costs show in pounds (£) by default. To use US dollars ($) or euros (€) instead, run one of:
 
 ```bash
-python3 ~/.tokenomics/statusline.py --set-currency USD     # or EUR, or GBP
+node ~/.tokenomics/statusline.mts --set-currency USD     # or EUR, or GBP
 export TOKENOMICS_CURRENCY=EUR                            # or set it per shell / in Claude Code's "env"
 ```
 
 The choice is saved as `"currency"` in `~/.tokenomics/statusline.json`, and the statusline, budget, spend report and doggybags all use it (`$`, `€` and `£` work too, e.g. `--set-currency €`). `TOKENOMICS_CURRENCY` wins over the saved choice, and `--currency USD` on a single statusline or report run wins over both.
 
-Prices are in dollars, so dollars need no conversion; pounds and euros are converted at 0.76 and 0.86 per dollar unless you set the rate. Run `python3 ~/.tokenomics/statusline.py --update-rate` to fetch today's rates, or set `"usd_gbp"` / `"usd_eur"` in the same file (or `TOKENOMICS_USD_GBP` / `TOKENOMICS_USD_EUR`).
+Prices are in dollars, so dollars need no conversion; pounds and euros are converted at 0.76 and 0.86 per dollar unless you set the rate. Run `node ~/.tokenomics/statusline.mts --update-rate` to fetch today's rates, or set `"usd_gbp"` / `"usd_eur"` in the same file (or `TOKENOMICS_USD_GBP` / `TOKENOMICS_USD_EUR`).
 
 ---
 
@@ -113,7 +113,7 @@ When the assistant doesn't report a cost itself (Copilot, older Claude Code), an
 For example, Fable 5.2 is $8/$40 per million input/output tokens, Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50 (or $0.50/$2.50 for prompts over 100K tokens). Each model's own cache rates are used (e.g. cache reads cost $0.20 on Fable 5.2 and $0.10 on Sonnet 5.5), fast mode counts double, and a model switch mid-session is priced message by message.
 
 - **Kept fresh automatically.** A scheduled GitHub Action (`.github/workflows/update-prices.yml`) refreshes the file from Claude's pricing page every Monday and commits any change. Retired models that drop off the page keep their last known price.
-- **Refresh it yourself** with `python3 scripts/update_prices.py`. The statusline's `--install` copies the current file next to the installed statusline.
+- **Refresh it yourself** with `node scripts/update_prices.ts`. The statusline's `--install` copies the current file next to the installed statusline.
 - **Override a price** in `~/.tokenomics/statusline.json`, by model version (input, output and optionally cache read, dollars per million tokens; the most specific key wins):
 
   ```json
