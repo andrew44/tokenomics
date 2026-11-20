@@ -298,7 +298,11 @@ Type `/clear` (or start a new session in the folder) and the `SessionStart` hook
 
 A live line at the bottom of Claude Code or GitHub Copilot CLI in a terminal.
 
-**In the Claude desktop app, VS Code and JetBrains**, which don't draw status lines, the same line appears as a short message after each reply instead, e.g. `◆ claude-opus-5-5 │ ctx ███████▋▒▒▒▒ 64% │ Σ 1.7M │ ~£0.81 │ ⧗ 04:58 (cold at 12:37)`. It's a snapshot, so the countdown also tells you the clock time the cache goes cold. It follows the installed bar (`/tokenomics:statusbar uninstall` stops it too); `TOKENOMICS_STATUSBAR_MESSAGE=off` turns just the message off (see [Configuration](configuration.md)).
+**In the Claude desktop app** (and the mobile app) the same bar sits in the **band above the prompt box**, with the same colours and a countdown that ticks every second. It updates as replies and tool results land (`hooks/band.tsx`, which reads its numbers from `statusbar.py --json`).
+
+**In VS Code and JetBrains**, which have neither a status line nor the band, it appears as a short message after each reply instead, e.g. `◆ claude-opus-5-5 │ ctx ███████▋▒▒▒▒ 64% │ Σ 1.7M │ ~£0.81 │ ⧗ 04:58 (cold at 12:37)`. It's a snapshot, so the countdown also tells you the clock time the cache goes cold. (Older desktop app versions without the band get this message too.)
+
+Both follow the installed bar: `/tokenomics:statusbar uninstall` removes them too, and `TOKENOMICS_STATUSBAR_MESSAGE=off` turns off just the band and the message (see [Configuration](configuration.md)).
 
 <p align="center"><img src="assets/statusbar.svg" alt="The tokenomics status bar at 8%, 76% and 92% context" width="720"></p>
 

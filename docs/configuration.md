@@ -82,7 +82,7 @@ The older `TOKENOMICS_HANDOFF_*` names still work.
 | Setting | Default | What it does |
 |---|---|---|
 | `TOKENOMICS_STATUSBAR` | `auto` | What the plugin does at session start when no status line is set: `auto` (or unset) installs the status bar, `ask` shows a one-time tip instead, `off` stays quiet. Someone else's status line is never replaced, and an installed bar is always kept up to date. |
-| `TOKENOMICS_STATUSBAR_MESSAGE` | `auto` | Where the status bar can't be drawn (the Claude desktop app, VS Code, JetBrains), post it as a short message after each reply instead. `auto` does that only in those apps and only while the tokenomics status bar is installed, `on` posts it everywhere (the terminal too), `off` never. |
+| `TOKENOMICS_STATUSBAR_MESSAGE` | `auto` | Where there is no status line: the desktop app shows the bar in the band above the prompt box, and VS Code and JetBrains get it as a short message after each reply. `auto` does that only while the tokenomics status bar is installed, `on` always (the message in the terminal too), `off` never. |
 | `TOKENOMICS_THEME` | `system` | Status bar colours: `light`, `dark` or `system`. |
 | `TOKENOMICS_CURRENCY` | `GBP` | Currency for every cost shown: `GBP` (£), `USD` ($) or `EUR` (€). Also saved by `statusbar.py --set-currency`. |
 | `TOKENOMICS_USD_EUR` | `0.86` | Euros per dollar, when the currency is EUR. |

@@ -306,7 +306,7 @@ To host your own copy for a team, push the folder to your own Git repo and use `
 | Hooks don't seem to run (Claude Code) | Restart Claude Code, then run `/hooks`. Make sure the plugin is switched on in `/plugin`. |
 | Sessions are missing, or labelled `unknown` | Look for `spendlens.db.err` next to the database (`~/.tokenomics/`). Errors go there, never on screen. |
 | *Everything* is labelled `unknown` | Your prompts didn't match any keywords. Add terms to the pattern lists in `tokenomics/engine/classifier.py`, or switch on the [AI classifier](reference.md#optional-let-an-ai-model-decide). |
-| The status bar doesn't show | In the desktop app or an IDE it appears as a message after each reply, not at the bottom (those apps can't draw status lines). In a terminal: restart the assistant. Run `tokenomics statusbar --status` to see which settings file it's in (another status line wins until you replace it), or re-run `/tokenomics:statusbar`. |
+| The status bar doesn't show | In the desktop app it's in the band above the prompt box; in VS Code or JetBrains, a message after each reply (neither can draw status lines). Start a new session after installing or updating the plugin. In a terminal: restart the assistant. Run `tokenomics statusbar --status` to see which settings file it's in (another status line wins until you replace it), or re-run `/tokenomics:statusbar`. |
 | Odd characters in the status bar | Use `--ascii`, or set `NO_COLOR=1` for no colours. |
 
 ---

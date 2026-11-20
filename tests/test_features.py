@@ -187,6 +187,36 @@ class CurrencyTests(unittest.TestCase):
         finally:
             t.cleanup()
 
+    def test_statusbar_json_for_the_desktop_band(self):
+        """hooks/band.tsx draws from --json; once it has drawn a session, --message stays quiet."""
+        t = TempEnv()
+        try:
+            claude_dir = t.home / ".claude"
+            tx = write_transcript(t.home, "s2", [user("hi"), sonnet_msg("m1")])
+            payload = json.dumps({"session_id": "s2", "transcript_path": tx})
+
+            def run(*flag, **extra):
+                env = t.env(TOKENOMICS_HOME=str(t.home / ".tokenomics"), CLAUDE_CONFIG_DIR=str(claude_dir),
+                            CLAUDE_CODE_ENTRYPOINT="claude-desktop", **extra)
+                return subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), *flag], input=payload,
+                                      capture_output=True, text=True, env=env, timeout=30)
+
+            self.assertEqual(json.loads(run("--json", "--band", "s2").stdout), {"show": False})  # not installed
+            run("--sync")
+            self.assertTrue(json.loads(run("--json").stdout)["show"])  # read, not drawn yet (or VS Code)
+            self.assertIn("systemMessage", run("--message").stdout)   # so the message still comes
+            bar = json.loads(run("--json", "--band", "s2").stdout)
+            self.assertTrue(bar["show"])
+            self.assertEqual((bar["model"], bar["cost"], bar["level"]), ("claude-sonnet-5-5", "~£2.28", "red"))   # 1M tokens: a full window
+            self.assertEqual(len(bar["gauge"]), 12)
+            self.assertEqual(bar["ttl"], 300)
+            self.assertEqual(run("--message").stdout, "")             # the band shows it instead
+            self.assertEqual(json.loads(run("--json", "--band", "s2", TOKENOMICS_STATUSBAR_MESSAGE="off").stdout),
+                             {"show": False})
+            self.assertEqual(json.loads(run("--json").stdout)["cost"], "~£2.28")
+        finally:
+            t.cleanup()
+
     def test_static_render_says_when_cache_goes_cold(self):
         style = statusbar.Style("dark", color=False)
         info = {"model": "m", "total": 1, "cost": 0, "symbol": "£", "estimated": False, "pct": 1,

@@ -24,6 +24,8 @@ Usage
                                     (Claude desktop app, VS Code, JetBrains) post the bar as a
                                     message after each reply; silent in the terminal
                                     (TOKENOMICS_STATUSBAR_MESSAGE=auto|on|off, default auto)
+  statusbar.py --json               the bar's numbers as JSON, from the stdin JSON (for the
+                                    Claude desktop app's band, hooks/band.tsx)
   statusbar.py --watch [--path FILE]  live-refresh every second (for terminals/CLIs that only
                                     redraw on activity, so the timer keeps ticking)
   statusbar.py --demo               preview every state (use with --theme light|dark)
@@ -716,10 +718,76 @@ def watch(args):
         sys.stdout.write("\n")
 
 
+BAND_FILE = CFG_DIR / "statusbar-band.json"
+
+
+def band_sessions():
+    try:
+        data = json.loads(BAND_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _band_drawn(session_id):
+    """Remember that the band draws the bar in this session, so --message stays quiet there."""
+    seen = band_sessions()
+    if session_id in seen:
+        return
+    seen[session_id] = time.time()
+    for k in sorted(seen, key=seen.get)[:-50]:            # keep the newest 50
+        seen.pop(k, None)
+    try:
+        CFG_DIR.mkdir(parents=True, exist_ok=True)
+        BAND_FILE.write_text(json.dumps(seen), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def band_wanted():
+    """The band follows the installed bar, like the message: on while ours is the status line."""
+    mode = message_mode()
+    return mode == "on" or (mode == "auto" and _is_ours(_status_line("claude")))
+
+
+def as_json(args):
+    """The bar's parts, already formatted, for the desktop band (hooks/band.tsx). The band draws
+    and ticks the countdown itself, from `cold_at` (epoch seconds; null: nothing cached yet).
+    {"show": false} when the bar is off or not ours. `--band SESSION_ID`: the band is showing it
+    in that session, so the after-reply message stays quiet there."""
+    try:
+        if not band_wanted():
+            sys.stdout.write(json.dumps({"show": False}))
+            return 0
+        sid = _flag(args, "--band")
+        if sid is not None:
+            _band_drawn(sid)
+        cfg = load_cfg()
+        state = load_state()
+        info = gather(read_payload(), cfg, state)
+        save_state(state)
+        warn, crit = cfg["warn"], cfg["crit"]
+        pct = info["pct"]
+        style = Style("dark", color=False, ascii_only="--ascii" in args)
+        rem = info["remaining"]
+        out = {"show": True, "model": info["model"], "pct": round(pct, 1),
+               "level": "red" if pct >= crit else ("yellow" if pct >= warn else "green"),
+               "gauge": gauge(style, pct, int(cfg["width"]), warn, crit),
+               "tokens": human(info["total"]),
+               "cost": ("~" if info["estimated"] else "") + money(info["cost"], info.get("symbol", "£")),
+               "ttl": info["ttl"], "cold_at": None if rem is None else time.time() + rem,
+               "icons": timer_icons()}
+        sys.stdout.write(json.dumps(out, ensure_ascii=False))
+    except Exception:
+        sys.stdout.write("{}")
+    return 0
+
+
 # ----------------------------------------------------------------------------- apps ------
-# Claude Code only draws `statusLine` in the terminal. The desktop app and the IDE extensions
-# ignore it, but they do show a hook's "systemMessage", so there the Stop hook posts the bar
-# once per reply instead. CLAUDE_CODE_ENTRYPOINT says where Claude Code is running.
+# Claude Code only draws `statusLine` in the terminal. The desktop app shows the bar in its band
+# above the prompt (hooks/band.tsx, from --json). VS Code and JetBrains have neither, but they
+# show a hook's "systemMessage", so there the Stop hook posts the bar once per reply instead (and
+# in a desktop app too old for the band). CLAUDE_CODE_ENTRYPOINT says where Claude Code runs.
 
 APP_ENTRYPOINTS = ("desktop", "vscode", "jetbrains", "ide")
 
@@ -749,6 +817,8 @@ def message():
             return 0                                      # terminal draws it; or the bar is off / not ours
         if payload.get("stop_hook_active"):               # a hook made Claude continue: wait for the real end
             return 0
+        if mode == "auto" and payload.get("session_id") in band_sessions():
+            return 0                                      # the desktop band already shows it
         cfg = load_cfg()
         state = load_state()
         style = Style("dark", color=False, ascii_only=os.environ.get("TOKENOMICS_ASCII") == "1")
@@ -990,6 +1060,8 @@ def main():
         sys.exit(sync())
     if "--message" in args:
         sys.exit(message())
+    if "--json" in args:
+        sys.exit(as_json(args))
     if "--status" in args:
         sys.exit(status())
     if "--update-rate" in args:

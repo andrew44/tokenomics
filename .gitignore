@@ -224,3 +224,4 @@ __marimo__/
 
 # tokenomics doggybags (session notes written into the project folder)
 .doggybag/
+.claude-plugin/types/
