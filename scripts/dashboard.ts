@@ -151,7 +151,7 @@ export function seedDemo(path: string): void {
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   try {
-    for (let i = 0; i < 190; i++) {
+    db.transaction(() => { for (let i = 0; i < 190; i++) {
       let age = Math.floor(Math.abs(rnd.gauss(0, 24)))
       if (age > 59) age = rnd.int(0, 59)
       const ts = new Date(now.getTime() - ((age * 24 + rnd.int(0, 9)) * 60 + rnd.int(0, 59)) * 60_000)
@@ -176,7 +176,7 @@ export function seedDemo(path: string): void {
       proj, side, rnd.int(0, 30), rnd.int(0, 30), rnd.int(2, 40), when, when, inp, out, cc, cr, inp + out + cc + cr,
       JSON.stringify(sk.map(([n]) => n)), sk.filter(([, sd]) => sd === 'opex').length,
       sk.filter(([, sd]) => sd === 'capex').length, JSON.stringify(detail))
-    }
+    } })
   } finally {
     db.close()
   }

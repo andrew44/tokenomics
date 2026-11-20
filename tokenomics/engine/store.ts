@@ -32,6 +32,11 @@ export const SESSION_COLUMNS: [string, string][] = [
 
 export function connect(dbPath: string): Db {
   const db = new Db(dbPath)
+  db.transaction(() => migrate(db))
+  return db
+}
+
+function migrate(db: Db): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions(
       session_id TEXT PRIMARY KEY, source TEXT, cwd TEXT, label TEXT,
@@ -53,7 +58,6 @@ export function connect(dbPath: string): Db {
   for (const [col, typ] of SESSION_COLUMNS) {
     if (!have.has(col)) db.exec(`ALTER TABLE sessions ADD COLUMN ${col} ${typ}`)
   }
-  return db
 }
 
 /** Accumulate (replace=false) or overwrite (replace=true) keyword scores. An LLM label,

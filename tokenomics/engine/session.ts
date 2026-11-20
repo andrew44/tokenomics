@@ -26,12 +26,14 @@ export function recordPrompt(adapter: PlatformAdapter, payload: Obj, s: Settings
   const prompts = ev.prompts.length ? ev.prompts : [prompt('')]
   const db = store.connect(s.dbPath)
   try {
-    for (const p of prompts) {
-      const [o, c, lab] = classifyPrompt(p)
-      store.addPromptEvent(db, ev.sessionId, o, c, lab, s.storePrompt ? p.text.slice(0, 200) : null)
-      store.upsert(db, ev.sessionId, adapter.name, ev.cwd, o, c, 1, false, labelFor)
-    }
-    store.setBilling(db, ev.sessionId, adapter.billingModel)
+    db.transaction(() => {
+      for (const p of prompts) {
+        const [o, c, lab] = classifyPrompt(p)
+        store.addPromptEvent(db, ev.sessionId, o, c, lab, s.storePrompt ? p.text.slice(0, 200) : null)
+        store.upsert(db, ev.sessionId, adapter.name, ev.cwd, o, c, 1, false, labelFor)
+      }
+      store.setBilling(db, ev.sessionId, adapter.billingModel)
+    })
   } finally {
     db.close()
   }
@@ -46,9 +48,11 @@ export function recordTool(adapter: PlatformAdapter, payload: Obj, s: Settings):
   const [o, c] = scoreTool(call)
   const db = store.connect(s.dbPath)
   try {
-    store.addToolEvent(db, sid, call.name, call.kind, call.skill, o, c)
-    store.upsert(db, sid, adapter.name, payload.cwd ?? null, o, c, 0, false, labelFor)
-    store.setBilling(db, sid, adapter.billingModel)
+    db.transaction(() => {
+      store.addToolEvent(db, sid, call.name, call.kind, call.skill, o, c)
+      store.upsert(db, sid, adapter.name, payload.cwd ?? null, o, c, 0, false, labelFor)
+      store.setBilling(db, sid, adapter.billingModel)
+    })
   } finally {
     db.close()
   }
@@ -62,8 +66,10 @@ export async function finalize(adapter: PlatformAdapter, payload: Obj, s: Settin
       await finalizeReplay(db, adapter, ev, s)
     } else if (adapter.supports(Capability.TRANSCRIPT)) {
       const base = adapter.baseEvidence(payload, 'finalize')
-      store.refreshLabel(db, base.sessionId, labelFor)
-      store.setBilling(db, base.sessionId, adapter.billingModel)
+      db.transaction(() => {
+        store.refreshLabel(db, base.sessionId, labelFor)
+        store.setBilling(db, base.sessionId, adapter.billingModel)
+      })
     } else {
       await finalizeEvents(db, adapter, adapter.baseEvidence(payload, 'finalize'), s)
     }
@@ -75,11 +81,13 @@ export async function finalize(adapter: PlatformAdapter, payload: Obj, s: Settin
 async function finalizeReplay(db: Db, adapter: PlatformAdapter, ev: SessionEvidence, s: Settings): Promise<void> {
   const cls = classify(ev, s.skillMap)
   const usage = adapter.supports(Capability.TOKEN_USAGE) ? ev.usage : null
-  store.upsert(db, ev.sessionId, adapter.name, ev.cwd, cls.opexScore, cls.capexScore, cls.promptCount, true, labelFor)
-  store.writeDetails(db, ev.sessionId, cls, usage, adapter.billingModel, 'transcript')
-  if (usage !== null && ev.usageRecords.length && adapter.billingModel === BILLING_ANTHROPIC_TOKENS) {
-    store.setCost(db, ev.sessionId, sessionCostUsd(ev.usageRecords), ev.model)
-  }
+  db.transaction(() => {
+    store.upsert(db, ev.sessionId, adapter.name, ev.cwd, cls.opexScore, cls.capexScore, cls.promptCount, true, labelFor)
+    store.writeDetails(db, ev.sessionId, cls, usage, adapter.billingModel, 'transcript')
+    if (usage !== null && ev.usageRecords.length && adapter.billingModel === BILLING_ANTHROPIC_TOKENS) {
+      store.setCost(db, ev.sessionId, sessionCostUsd(ev.usageRecords), ev.model)
+    }
+  })
   // the keyword result is already saved before any network call
   const prompts = ev.prompts.map((p) => p.llmText).filter((t): t is string => Boolean(t)).slice(0, 5)
   await llmStep(db, ev.sessionId, ev.event, prompts, ev.toolCalls.map((t) => t.name), cls.skillDetail, s)
@@ -95,8 +103,10 @@ async function finalizeEvents(db: Db, adapter: PlatformAdapter, base: SessionEvi
     base.skills.push({ name, description: adapter.skillDescription(name, base.cwd) })
   }
   const cls = classify(base, s.skillMap, [po + to, pc + tc, n])
-  store.upsert(db, sid, adapter.name, base.cwd, cls.opexScore, cls.capexScore, n, true, labelFor)
-  store.writeDetails(db, sid, cls, null, adapter.billingModel, 'hook-events')
+  db.transaction(() => {
+    store.upsert(db, sid, adapter.name, base.cwd, cls.opexScore, cls.capexScore, n, true, labelFor)
+    store.writeDetails(db, sid, cls, null, adapter.billingModel, 'hook-events')
+  })
   const prompts = s.storePrompt ? store.promptExcerpts(db, sid) : []
   await llmStep(db, sid, base.event, prompts, rows.map((r) => r.tool), cls.skillDetail, s)
 }

@@ -64,7 +64,11 @@ function isDir(p: string): boolean {
 
 /** Full path of a command on PATH (with PATHEXT on Windows), or null. */
 export function which(cmd: string): string | null {
-  const exts = WINDOWS ? ['', ...(process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';')] : ['']
+  // Windows: a bare name only runs through PATHEXT (claude -> claude.cmd), as cmd.exe and Python's
+  // shutil.which resolve it. npm also puts an extension-less sh shim beside claude.cmd that Node
+  // can't start, so that one must never be picked.
+  const pathext = (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)
+  const exts = !WINDOWS ? [''] : pathext.some((e) => cmd.toLowerCase().endsWith(e.toLowerCase())) ? [''] : pathext
   for (const dir of (process.env.PATH || '').split(delimiter)) {
     if (!dir) continue
     for (const ext of exts) {
@@ -87,10 +91,13 @@ function run(cmd: string[], quiet = true): boolean {
   const exe = which(cmd[0])          // on Windows `claude` is often claude.cmd, which needs a shell
   if (!exe) return false
   try {
-    const shell = WINDOWS && /\.(cmd|bat)$/i.test(exe)
-    const args = shell ? cmd.slice(1).map((a) => (/[\s"]/.test(a) ? `"${a.replaceAll('"', '\\"')}"` : a)) : cmd.slice(1)
-    const p = spawnSync(shell ? `"${exe}"` : exe, args, { stdio: ['ignore', quiet ? 'pipe' : 'inherit', quiet ? 'pipe' : 'inherit'],
-      timeout: 300_000, shell, windowsHide: true })
+    const stdio: ('ignore' | 'pipe' | 'inherit')[] = ['ignore', quiet ? 'pipe' : 'inherit', quiet ? 'pipe' : 'inherit']
+    // A .cmd/.bat only runs through cmd.exe: hand it one quoted command line (passing an args
+    // array with shell: true is deprecated, as the args aren't escaped).
+    const p = WINDOWS && /\.(cmd|bat)$/i.test(exe)
+      ? spawnSync([exe, ...cmd.slice(1)].map((a) => (/[\s"&|<>^]/.test(a) ? `"${a.replaceAll('"', '""')}"` : a)).join(' '),
+        { stdio, timeout: 300_000, shell: true, windowsHide: true })
+      : spawnSync(exe, cmd.slice(1), { stdio, timeout: 300_000, windowsHide: true })
     return p.status === 0
   } catch {
     return false

@@ -33,7 +33,8 @@ function ok(cond: unknown, what: string, detail = ''): void {
 const isFile = (p: string) => existsSync(p) && statSync(p).isFile()
 
 function which(cmd: string): string | null {
-  const exts = WINDOWS ? ['', ...(process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';')] : ['']
+  const pathext = (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)
+  const exts = !WINDOWS ? [''] : pathext.some((e) => cmd.toLowerCase().endsWith(e.toLowerCase())) ? [''] : pathext   // as cmd.exe resolves it
   for (const dir of (process.env.PATH || '').split(delimiter)) {
     for (const ext of exts) if (dir && isFile(join(dir, cmd + ext))) return join(dir, cmd + ext)
   }
