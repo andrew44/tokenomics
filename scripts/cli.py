@@ -43,8 +43,12 @@ def say(msg=""):
 
 def run(cmd, quiet=True):
     """Run a command; True on success. Never reads our stdin (the installer may be piped in)."""
+    exe = shutil.which(cmd[0])        # on Windows `claude` is often claude.cmd, which needs its full path
+    if not exe:
+        return False
     try:
-        p = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=quiet, text=True, timeout=300)
+        p = subprocess.run([exe, *cmd[1:]], stdin=subprocess.DEVNULL, capture_output=quiet, text=True,
+                           encoding="utf-8", errors="replace", timeout=300)
         return p.returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
@@ -281,6 +285,7 @@ def uninstall(args):
         say(f"Deleted {TK_HOME} (all recorded data).")
     else:
         shutil.rmtree(APP_DIR, ignore_errors=True)
+        shutil.rmtree(TK_HOME / "runtime", ignore_errors=True)    # the private Python, if any
         for name in ("statusbar.py", "model-prices.json", "python"):
             try:
                 (TK_HOME / name).unlink()

@@ -1,0 +1,119 @@
+name: installer
+
+# Runs the real one-line installers, exactly as a user would, on macOS, Windows and Linux, then
+# checks that every hook fires the way Claude Code runs it (tests/installer_check.py).
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unix:
+    name: ${{ matrix.os }} · ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        python: [system, standalone]       # standalone = a machine with no usable Python
+    steps:
+      - name: Stand-in for the claude CLI (records what the installer asks it to do)
+        run: |
+          mkdir -p "$RUNNER_TEMP/fakebin"
+          printf '#!/bin/sh\necho "$*" >> "%s/claude.log"\n' "$RUNNER_TEMP" > "$RUNNER_TEMP/fakebin/claude"
+          chmod +x "$RUNNER_TEMP/fakebin/claude"
+          echo "$RUNNER_TEMP/fakebin" >> "$GITHUB_PATH"
+      - name: The one-liner from the README
+        env:
+          TOKENOMICS_REPO: ${{ github.repository }}
+          TOKENOMICS_REF: ${{ github.sha }}
+          TOKENOMICS_PYTHON: ${{ matrix.python == 'standalone' && 'standalone' || '' }}
+        run: curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.sh" | sh
+      - name: Check the install
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/tests/installer_check.py" -o "$RUNNER_TEMP/check.py"
+          "$(cat ~/.tokenomics/python)" "$RUNNER_TEMP/check.py" --expect-plugin-log "$RUNNER_TEMP/claude.log" \
+            ${{ matrix.python == 'standalone' && '--expect-private-python' || '' }}
+      - name: Running it again repairs, and doesn't duplicate anything
+        env:
+          TOKENOMICS_REPO: ${{ github.repository }}
+          TOKENOMICS_REF: ${{ github.sha }}
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.sh" | sh
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.sh" | sh
+          for rc in ~/.zshrc ~/.bashrc ~/.bash_profile ~/.profile; do
+            [ -f "$rc" ] || continue
+            n=$(grep -c "tokenomics installer" "$rc" || true)
+            [ "$n" -le 1 ] || { echo "$rc has $n PATH lines"; exit 1; }
+          done
+
+  windows:
+    name: windows · ${{ matrix.shell }} · ${{ matrix.python }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]          # Windows PowerShell 5.1 and PowerShell 7
+        python: [system, standalone]
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - name: Stand-in for the claude CLI (a .cmd, like the npm install)
+        run: |
+          $fake = Join-Path $env:RUNNER_TEMP 'fakebin'
+          New-Item -ItemType Directory -Path $fake -Force | Out-Null
+          Set-Content -Path (Join-Path $fake 'claude.cmd') -Encoding ASCII -Value "@echo %* >> `"$env:RUNNER_TEMP\claude.log`""
+          Add-Content -Path $env:GITHUB_PATH -Value $fake
+      - name: The one-liner from the README
+        env:
+          TOKENOMICS_REPO: ${{ github.repository }}
+          TOKENOMICS_REF: ${{ github.sha }}
+          TOKENOMICS_PYTHON: ${{ matrix.python == 'standalone' && 'standalone' || '' }}
+        run: irm "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.ps1" | iex
+      - name: Check the install
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable('Path', 'User') + ';' + $env:Path   # as a new terminal would
+          $check = Join-Path $env:RUNNER_TEMP 'check.py'
+          Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/tests/installer_check.py" -OutFile $check
+          $py = (Get-Content "$HOME\.tokenomics\python" | Select-Object -First 1)
+          $extra = @()
+          if ('${{ matrix.python }}' -eq 'standalone') { $extra += '--expect-private-python' }
+          & $py $check --expect-plugin-log "$env:RUNNER_TEMP\claude.log" @extra
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+  real-claude-code:
+    # Informational: the installer against the real Claude Code CLI (no login needed for plugins).
+    name: real Claude Code · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: Install (macOS)
+        if: runner.os == 'macOS'
+        env:
+          TOKENOMICS_REPO: ${{ github.repository }}
+          TOKENOMICS_REF: ${{ github.sha }}
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.sh" | sh
+          claude plugin list
+          claude plugin list | grep -i tokenomics
+      - name: Install (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          TOKENOMICS_REPO: ${{ github.repository }}
+          TOKENOMICS_REF: ${{ github.sha }}
+        run: |
+          irm "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.ps1" | iex
+          claude plugin list
+          if (-not ((claude plugin list) -match 'tokenomics')) { exit 1 }
