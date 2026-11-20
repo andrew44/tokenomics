@@ -221,6 +221,19 @@ describe('statusline', () => {
     assert.deepEqual(statusline.priceFor('mystery', {}), statusline.DEFAULT_PRICE)
   })
 
+  test('model ids without a display name read as Claude names', () => {
+    assert.equal(statusline.prettyModelName('claude-opus-5-5'), 'Claude Opus 5.5')
+    assert.equal(statusline.prettyModelName('claude-opus-5-5[1m]'), 'Claude Opus 5.5')
+    assert.equal(statusline.prettyModelName('claude-opus-5'), 'Claude Opus 5')
+    assert.equal(statusline.prettyModelName('claude-opus-4-1-20250805'), 'Claude Opus 4.1')
+    assert.equal(statusline.prettyModelName('claude-3-5-haiku-20241022'), 'Claude 3.5 Haiku')
+    assert.equal(statusline.prettyModelName('gpt-5'), 'gpt-5')
+    const info = statusline.gather({ model: { id: 'claude-opus-5-5' }, context_window: { used_percentage: 40 } }, { ...statusline.DEFAULT_CFG }, {})
+    assert.equal(info.model, 'Claude Opus 5.5')
+    const named = statusline.gather({ model: { id: 'claude-opus-5-5', display_name: 'Opus 5.5' }, context_window: { used_percentage: 40 } }, { ...statusline.DEFAULT_CFG }, {})
+    assert.equal(named.model, 'Opus 5.5')
+  })
+
   test('gather accepts a string model', () => {
     const info = statusline.gather({ model: 'gpt-5', context_window: { used_percentage: 40 } }, { ...statusline.DEFAULT_CFG }, {})
     assert.deepEqual([info.model, info.pct], ['gpt-5', 40])

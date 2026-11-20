@@ -163,7 +163,7 @@ describe('currency', () => {
       const p = run(entry, ['--message'])
       assert.equal(p.status, 0)
       const msg = JSON.parse(p.stdout).systemMessage
-      assert.ok(msg.includes('claude-sonnet-5-5'))
+      assert.ok(msg.includes('Claude Sonnet 5.5'))
       assert.ok(msg.includes('~£2.28'))                        // (1M in @2 + 0.1M out @10) * 0.76
       assert.ok(!msg.includes('\x1b'))                         // plain text, no ANSI
     }
@@ -199,7 +199,7 @@ describe('currency', () => {
     assert.ok(run(['--message']).stdout.includes('systemMessage'))      // so the message still comes
     const line = JSON.parse(run(['--json', '--band', 's2']).stdout)
     assert.equal(line.show, true)
-    assert.deepEqual([line.model, line.cost, line.level], ['claude-sonnet-5-5', '~£2.28', 'red'])   // 1M tokens: a full window
+    assert.deepEqual([line.model, line.cost, line.level], ['Claude Sonnet 5.5', '~£2.28', 'red'])   // 1M tokens: a full window
     assert.equal([...line.gauge].length, 12)
     assert.equal(line.ttl, 300)
     assert.equal(run(['--message']).stdout, '')                         // the band shows it instead
