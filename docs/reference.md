@@ -13,6 +13,13 @@ The full detail on every tokenomics helper: what it does, how it decides, and wh
 | 🥗 | **diet** | hook | [diet](#diet) |
 | 💳 | **budget** | hook | [budget](#budget) |
 | 🥡 | **doggybag** | hook | [doggybag](#doggybag) |
+| 💷 | **bangforbuck** | skill + hook | [bangforbuck](#bangforbuck) |
+| 🤝 | **haggle** | skill + hook | [haggle](#haggle) |
+| 🕵️ | **sherlock** | skill + hook | [sherlock](#sherlock) |
+| 📏 | **waistline** | skill + hook + CI | [waistline](#waistline) |
+| 👅 | **tastetest** | skill + tool | [tastetest](#tastetest) |
+| 🧹 | **springclean** | skill + tool | [springclean](#springclean) |
+| 🦫 | **groundhog** | hook + skill | [groundhog](#groundhog) |
 | 📟 | **statusline** and **band** | tool | [statusline](#statusline) · [band](#band) |
 | 📈 | **dashboard** | tool | [dashboard](#dashboard) |
 | 🗄️ | **your data** | | [Looking at your data](#looking-at-your-data) |
@@ -294,6 +301,158 @@ Type `/clear` (or start a new session in the folder) and the `SessionStart` hook
 
 ---
 
+## Value, waste and quality
+
+Seven helpers that answer the questions a spend total can't:
+
+| Question | Helper | Kind |
+|---|---|---|
+| Is the AI actually delivering value for the money? | [bangforbuck](#bangforbuck) | skill + hook |
+| Is this task worth spending £2 on? | [haggle](#haggle) | skill + hook |
+| Where is the money disappearing? | [sherlock](#sherlock) | skill + hook |
+| Am I getting worse value from AI than I was last month? | [waistline](#waistline) | skill + hook + CI tool |
+| Can I prove that an optimisation hasn't damaged quality? | [tastetest](#tastetest) | skill + tool |
+| What in my instructions costs money every request for nothing? | [springclean](#springclean) | skill + tool |
+| Is the AI going round in circles? | [groundhog](#groundhog) | hook + skill |
+
+They read Claude Code transcripts (the record of every tool call and its result), so most of them are Claude Code only; groundhog also catches identical repeated calls in Copilot CLI. Like everything else here they store numbers and tool names, never your prompts or code.
+
+---
+
+## bangforbuck
+
+*Cost per outcome.* Stop measuring tokens saved; measure what it costs to get useful work done. **bangforbuck** (`scripts/bangforbuck.ts`) runs at the end of every turn (`Stop`, and `SessionEnd`) and writes one row per session to the `ledger` table: cost, tokens, tool calls, and the outcomes the agent actually achieved, read from what it did rather than what it said:
+
+| Outcome | Counted when |
+|---|---|
+| bug fixed | the same test command went from failing to passing, or a fix-type request ended with the change committed or the tests green |
+| completed feature | a build-type request ("add", "implement", ...) ended with code edited and then committed, a PR opened, or the tests green |
+| passing test suite | a test run passed (npm/pnpm/yarn test, jest, vitest, pytest, go test, cargo test, node --test and more; consecutive passes count once) |
+| commit / pull request | a successful `git commit`, `gh pr create` or PR tool call |
+| successful agent task | a subagent came back without an error |
+
+Ask *"is the AI worth the money?"* or run `tokenomics bangforbuck` for the last 30 days: cost per session that got something done, cost per feature, bug fix and passing suite (with the change against the period before), and, per model, **cost per session and cost per success side by side**. The cheapest model isn't the best value if it needs three goes: when those two disagree, the report says so. Sessions with nothing to show are totalled separately.
+
+- `bangforbuck.ts session` shows what one session bought; `mark feature "csv export"` records an outcome the heuristics can't see; `ingest ~/.claude/projects` backfills the ledger from old transcripts.
+- `TOKENOMICS_BANGFORBUCK=off` stops the recording.
+
+---
+
+## haggle
+
+*Agree a price before work starts.* **haggle** (`scripts/haggle.ts`) quotes substantial tasks the moment you send them (`UserPromptSubmit`), tracks the spend as the work runs (`PreToolUse`), and stops the agent at an agreed maximum.
+
+**The quote** is built from how the task is likely to run, learnt from your own ledger: typical turns per task scaled by how complex the prompt is (the same scoring pennywise uses), the context each request re-reads (cache reads), what each turn adds (tool results: cache writes) and what the model writes (output). The range is half to twice the turns. Once contracts have finished, quotes are calibrated by how far off earlier ones were.
+
+```text
+haggle: complex task, quoted £1.20 (likely £0.55–£2.90: input £0.40, tools £0.35, output £0.45). Cap £2.40. Set your own price with 'haggle £X: ...'.
+```
+
+**Contracts.**
+
+- Automatic quotes (complex prompts, or any estimate over £0.50) tell you when the task passes its estimate and its cap, but never stop anything.
+- Start a prompt with **`haggle £2:`** to agree a price yourself. That is a hard cap: when it's reached, the agent's next tool call is refused with an instruction to stop, report what's done and what's left, and ask you to approve more.
+- Reply **`haggle +£1`** (or `approve` once it has stopped) to raise the cap; **`haggle off`** drops the contract.
+- `TOKENOMICS_HAGGLE=strict` enforces every quote's cap; `off` turns it all off. `TOKENOMICS_HAGGLE_MIN` (0.50) and `TOKENOMICS_HAGGLE_CAP_X` (2) tune when a contract starts and how much headroom it gets.
+
+**"Is this task worth £2?"** `tokenomics haggle quote "migrate the auth module to the new token API" --price 2` answers yes / probably / tight / unlikely, with the breakdown. `tokenomics haggle status` lists recent contracts, quoted against actual.
+
+---
+
+## sherlock
+
+*Find the hidden waste.* A forensic audit of what the agent actually did, step by step. **sherlock** (`scripts/sherlock.ts`) finds the steps that added cost but no information:
+
+| Finding | What it means |
+|---|---|
+| repeated file read | the same file (same range) read again with no edit to it in between |
+| redundant call | the same call with the same input and the same result, nothing edited in between |
+| repeated search | a differently worded search that returned exactly what an earlier one did |
+| unused result | a big tool result that nothing afterwards refers to (a heuristic: "probably unused") |
+| overlapping subagents | two subagents briefed on largely the same job |
+| unnecessary delegation | a subagent sent to do a one-step lookup a single Read or Grep would have done |
+
+Each finding is costed: a wasted result is written into the cache once and re-read on every later request until the context is compacted, at that model's rates; a subagent also pays to load its own system prompt and tools. Ask *"where is the money disappearing?"* or run `tokenomics sherlock` (`--session <id>` for another session). At `SessionEnd` it logs each session's estimated waste to `sherlock_events`, which the spend report totals. `TOKENOMICS_SHERLOCK=off` stops the logging.
+
+---
+
+## waistline
+
+*AI cost regression testing.* Treat cost creep like a performance regression: catch it before it becomes normal. **waistline** (`scripts/waistline.ts`) compares equivalent work across two periods of the ledger, or against a saved baseline:
+
+- median cost per session, cost per result, and per kind of task (feature, bug fix, ...)
+- context consumption: average context per request and peak context
+- tool calls per session, **new tools** with large output, and tools whose output grew
+- **model changes**: more of the work on a different model, and its cost per turn
+
+`tokenomics waistline --days 30` compares the last 30 days with the 30 before (default 7). A measure up more than 15% (`--threshold`, or `TOKENOMICS_WAISTLINE_THRESHOLD`) is a regression; fewer than 3 sessions on either side is never called a trend. Once a day, at session start, it shows a one-line notice if last week's spend per session or per result rose past the threshold (`TOKENOMICS_WAISTLINE=off` to silence it).
+
+**In CI.** Save a baseline once and commit it, then compare transcripts from your CI agent runs on every build:
+
+```bash
+node scripts/waistline.ts --save-baseline .tokenomics-baseline.json --days 30
+node scripts/waistline.ts --baseline .tokenomics-baseline.json --transcripts ./agent-transcripts --ci
+```
+
+`--ci` exits 1 on a regression and appends the report to the GitHub Actions job summary.
+
+---
+
+## tastetest
+
+*Never sacrifice quality for savings.* Compare two runs of the same task, a baseline and an optimised one (a cheaper model, a trimmed CLAUDE.md, a new prompt), and prove whether the saving survived. **tastetest** (`scripts/tastetest.ts`):
+
+- **cost and tokens** from each side's transcript (or `--a-cost` / `--b-cost`);
+- **quality** from evidence: your tests, linter and type checker run in each side's working copy (auto-detected from package.json, pyproject.toml, Cargo.toml, go.mod, or `--check "cmd"`), plus each transcript's own signals (did the last test run pass, how many tool calls failed);
+- a **quality-adjusted saving**: 1 − (cost B / quality B) ÷ (cost A / quality A), and a verdict: *safe saving*, *cheaper but worse*, *false economy* (quality fell too far, or a check that passed for A broke for B), *paid more, got better*, *no saving* or *worse*.
+
+```bash
+git worktree add ../taste-a && git worktree add ../taste-b      # run the same task once in each
+tokenomics tastetest --a <session-a> --a-dir ../taste-a --b <session-b> --b-dir ../taste-b --save "haiku trial"
+```
+
+`--save` keeps the result; `tokenomics tastetest history` lists them. `TOKENOMICS_TASTETEST_TIMEOUT` (600 seconds) bounds each check.
+
+---
+
+## springclean
+
+*Context hygiene.* Instruction files are sent with every request of every session, so a stale line is paid for again and again. **springclean** (`scripts/springclean.ts`) audits `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md`, `~/.claude/CLAUDE.md`, `@imports`, `AGENTS.md`, `.github/copilot-instructions.md`, Cursor and Windsurf rules, nested instruction files and `.mcp.json` for:
+
+| Finding | Example |
+|---|---|
+| oversized | a 4,000-token CLAUDE.md (over `TOKENOMICS_SPRINGCLEAN_MAX`, 1,500) |
+| duplicate | the same rule in CLAUDE.md and AGENTS.md |
+| outdated | a path that no longer exists, `npm run x` with no `x` script, a missing `make` target |
+| bloat | a changelog section, a 40-line code example, a 30-row table |
+| contradiction | "use npm" in one file, "use pnpm" in another; "always X" vs "never X" |
+| startup | thousands of tokens before any work starts; many MCP servers project-wide |
+
+It proposes a cleanup with the tokens it saves per request and an estimate per month, priced on your own sessions (or typical ones until there is history). Read-only; the skill applies only the edits you approve.
+
+---
+
+## groundhog
+
+*Stop the AI living the same few minutes over and over.* **groundhog** (`scripts/groundhog.ts`) is a pre-tool hook (`PreToolUse` on every tool in Claude Code; `preToolUse` in Copilot CLI) that catches loops before they get expensive:
+
+| Loop | Caught when |
+|---|---|
+| identical call | the 3rd call with exactly the same input, with nothing changed since (`TOKENOMICS_GROUNDHOG_REPEAT`) |
+| failing command | the same command has failed 3 times in a row (`TOKENOMICS_GROUNDHOG_FAILS`), or twice with nothing edited in between |
+| edit flip-flop | the same edit made or undone on a file for the 3rd time |
+| no progress | 20 calls, most of them failing, no check passing, and the context still growing |
+
+The first time, the call is refused with the evidence ("`npm test` has failed 3 times in a row, last error: ...") and an instruction to step back and change strategy. Then, by `TOKENOMICS_GROUNDHOG`:
+
+- `block` (default): refuse twice more at most, then let it through and tell you;
+- `interrupt`: refuse once, then end the turn so you can step in;
+- `warn`: never refuse, just tell you; `off`.
+
+Polling (`sleep`, `kubectl get`, background-task output) is never counted, and a shell command ending in `# groundhog-ok` is never stopped. Each catch is logged to `groundhog_events`. `tokenomics groundhog` (or *"is it going round in circles?"*) replays a finished session and lists every loop it got into, with roughly what each cost. In Copilot CLI, which has no transcript, only identical calls in a row are caught.
+
+---
+
 ## statusline
 
 One live line: model, how full the conversation is, tokens, cost and a countdown to when the prompt cache goes cold. It shows in two places:
@@ -396,6 +555,12 @@ sqlite3 ~/.tokenomics/spendlens.db \
   "select session_id, source, label, opex_score, capex_score, prompt_count from sessions order by updated_at desc limit 10;"
 ```
 
+What each outcome cost, last 30 days (the bangforbuck report does this properly):
+
+```bash
+sqlite3 ~/.tokenomics/spendlens.db "select primary_outcome, count(*), round(sum(cost_usd),2) from ledger where day >= date('now','-30 day') group by 1;"
+```
+
 How many sessions of each label:
 
 ```bash
@@ -414,7 +579,11 @@ sqlite3 ~/.tokenomics/spendlens.db "select label, count(*) sessions, sum(input_t
 | `prompt_events` | One row per prompt, with its scores |
 | `tool_events` | Copilot tool calls (name and kind only) |
 | `cost_events` | Dated spend increases |
-| `pennywise_events`, `handoff_events`, `diet_events`, `budget_events` | What each helper did |
+| `ledger` | One row per Claude Code session for bangforbuck, waistline and haggle: cost, tokens, tool calls (by name), outcomes |
+| `outcome_marks` | Outcomes recorded by hand (`bangforbuck.ts mark`) |
+| `contracts` | haggle's quotes, caps and what each task really cost |
+| `tastetest_runs` | Saved taste tests |
+| `pennywise_events`, `handoff_events`, `diet_events`, `budget_events`, `sherlock_events`, `groundhog_events`, `waistline_events` | What each helper did |
 
 ---
 

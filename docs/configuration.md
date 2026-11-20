@@ -33,6 +33,23 @@ Settings are environment variables. Set them in your shell profile, or in Claude
 | `TOKENOMICS_BUDGET_WARN` | `80` | Percent of a limit at which budget shows a notice. |
 | `TOKENOMICS_BUDGET_MODE` | `block` | `block`, `warn` (notices only) or `off`. |
 
+### Value, waste and quality
+
+| Setting | Default | What it does |
+|---|---|---|
+| `TOKENOMICS_BANGFORBUCK` | `on` | `off` stops bangforbuck writing the ledger at the end of each turn (waistline and haggle then have no history to learn from). |
+| `TOKENOMICS_HAGGLE` | `quote` | `quote` (quote substantial tasks, warn past the estimate and cap, enforce only prices you set with `haggle £X:`), `strict` (enforce every quote's cap) or `off`. |
+| `TOKENOMICS_HAGGLE_MIN` | `0.50` | Smallest estimate, in your currency, that gets a contract (complex prompts always do). |
+| `TOKENOMICS_HAGGLE_CAP_X` | `2` | An automatic contract's cap is this many times the estimate. |
+| `TOKENOMICS_GROUNDHOG` | `block` | `block` (refuse a looping call, at most twice, then let it through and tell you), `interrupt` (refuse once, then end the turn), `warn` or `off`. |
+| `TOKENOMICS_GROUNDHOG_REPEAT` | `3` | groundhog catches the Nth identical call with nothing changed in between. |
+| `TOKENOMICS_GROUNDHOG_FAILS` | `3` | groundhog catches a command that has failed this many times in a row. |
+| `TOKENOMICS_SHERLOCK` | `on` | `off` stops sherlock logging each session's waste at session end (the `sherlock` skill and tool still work). |
+| `TOKENOMICS_WAISTLINE` | `on` | `off` silences waistline's once-a-day cost-creep notice at session start. |
+| `TOKENOMICS_WAISTLINE_THRESHOLD` | `15` | Percent rise that counts as a cost regression. |
+| `TOKENOMICS_SPRINGCLEAN_MAX` | `1500` | Tokens one instruction file should stay under. |
+| `TOKENOMICS_TASTETEST_TIMEOUT` | `600` | Seconds each tastetest check may run. |
+
 ### pennywise router
 
 | Setting | Default | What it does |

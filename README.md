@@ -36,6 +36,7 @@ Every message you send re-sends the **whole conversation**. Long chats, pasted l
 - 📟 **See it live.** A statusline in the terminal (and the same line in the desktop app's band) with context fill, tokens, cost in £/$/€ and a countdown to when the cache goes cold.
 - 🛡️ **Stop waste automatically.** Guard-rails that catch context floods, over-specced models and runaway spend *before* they cost you.
 - 🧑‍🏫 **Get better at it.** A coach that reviews your prompts, and a weekly spend report with three fixes tied to your own numbers.
+- 💷 **Know what you're getting for it.** Cost per feature shipped and bug fixed, a price agreed before a task starts, a forensic audit of wasted steps, cost-regression checks (in CI too), and proof that a cheaper setup didn't cost you quality.
 - 🔒 **Stays on your machine.** One local SQLite file. No account, no telemetry, no packages to install: it's TypeScript that Node.js runs directly.
 
 <sub>⚠️ Costs shown are estimates, not a bill. Always check your provider's billing page. See the <a href="#disclaimer">disclaimer</a>.</sub>
@@ -54,7 +55,7 @@ tokenomics is a [Claude Code plugin](https://code.claude.com/docs/en/plugins). I
 
 <sub>On Claude Code older than v2.1.275, use two lines instead: <code>/plugin marketplace add andrew44/tokenomics</code> then <code>/plugin install tokenomics@tokenomics</code>.</sub>
 
-Choose **Install for you (user scope)** so it works in every project. That's it. 🎉 You get every skill, all five hooks and, from your next session, the live statusline (in the desktop app: the band). Now try:
+Choose **Install for you (user scope)** so it works in every project. That's it. 🎉 You get every skill, all the hooks and, from your next session, the live statusline (in the desktop app: the band). Now try:
 
 > 💬 *"coach, review my prompts"*  ·  💬 *"spend report"*  ·  💬 `/tokenomics:dashboard`
 
@@ -145,6 +146,13 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 | 🥡 | **[doggybag](docs/reference.md#doggybag)** | Packs a free "where we got to" note into `.doggybag/` in your project just before the cache goes cold; `/clear` picks it straight back up. | hook | ✅ | ✅ |
 | 📟 | **[statusline](docs/reference.md#statusline)** and **[band](docs/reference.md#band)** | Context fill, tokens, cost and a cache countdown, live: the statusline at the bottom of your assistant in a terminal, the band above the prompt box in the desktop app. On automatically; `/tokenomics:statusline` to manage both. | tool | ✅ | ✅ |
 | 📈 | **[dashboard](docs/reference.md#dashboard)** | A local web view of where your tokens went, split by OPEX/CAPEX, project and day. | tool | ✅ | ✅ |
+| 💷 | **[bangforbuck](docs/reference.md#bangforbuck)** | *Is the AI delivering value for the money?* Cost per completed feature, bug fixed, passing test suite and successful agent task, and which model gives the cheapest **successful** result. | skill + hook | ✅ | — |
+| 🤝 | **[haggle](docs/reference.md#haggle)** | *Is this task worth £2?* Quotes a task before it starts (input, output and tool costs), warns when it runs over, and with `haggle £2:` stops the agent at the agreed price until you approve more. | skill + hook | ✅ | — |
+| 🕵️ | **[sherlock](docs/reference.md#sherlock)** | *Where is the money disappearing?* A forensic audit of what the agent did: repeated reads, redundant calls, rephrased searches, unused output, overlapping or needless subagents, each costed. | skill + hook | ✅ | — |
+| 📏 | **[waistline](docs/reference.md#waistline)** | *Am I getting worse value than last month?* Cost-regression checks on equivalent work: context creep, new expensive tools, model changes. Fails CI on cost creep. | skill + hook + CI | ✅ | — |
+| 👅 | **[tastetest](docs/reference.md#tastetest)** | *Did the optimisation damage quality?* Compares two runs of a task on cost, tests, lint and type checks, and gives a quality-adjusted saving. | skill + tool | ✅ | — |
+| 🧹 | **[springclean](docs/reference.md#springclean)** | Audits CLAUDE.md, AGENTS.md and friends for duplicated, outdated, bloated and contradictory instructions, with the saving from cleaning them up. | skill + tool | ✅ | ✅ |
+| 🦫 | **[groundhog](docs/reference.md#groundhog)** | Catches the AI going round in circles (the same call again, a command failing over and over, edits made and undone) and makes it change strategy. | hook + skill | ✅ | ✅ |
 
 > **Skills** run when you ask. **Hooks** run automatically. **Tools** you run yourself. Not sure which you need? → [Skills, tools and hooks](docs/skills-tools-and-hooks.md)
 
@@ -184,6 +192,36 @@ doggybag: the prompt cache went cold 42 min ago, so this prompt re-writes about 
 Cheaper: /clear and your doggybag (1,450 tokens, .doggybag/latest.md) loads automatically.
 ```
 
+### haggle agrees a price before the work starts
+
+```text
+you:     haggle £2: migrate the billing module to the new invoices API
+haggle:  complex task, quoted £1.20 (likely £0.55–£2.90: input £0.40, tools £0.35, output £0.45). Agreed cap £2.00.
+...
+agent:   I've reached the agreed £2.00. Done: models and service layer. Left: 3 callers and their tests (about £0.60 more).
+you:     haggle +£1
+```
+
+### groundhog breaks the loop
+
+```text
+groundhog: `npm test` has failed 3 times in a row (last error: "expected 200, received 401"). Running it again
+will not change the answer. Stop and change strategy: re-read the error, say what you have tried and why it did
+not work, form a different hypothesis, or ask the user for help. That loop has cost about £0.38 so far.
+```
+
+### bangforbuck measures the result, not the tokens
+
+```text
+£0.84 per session that got something done (-12% vs before). 41 of 52 sessions produced a result.
+
+  bug fixed            14   £0.61 each
+  completed feature     9   £1.92 each
+  passing test suite   37   £0.33 each
+
+Cheapest per session is claude-haiku-5-5, but best value per result is claude-sonnet-5-5.
+```
+
 ### The dashboard shows where it all went
 
 <picture>
@@ -207,6 +245,8 @@ flowchart LR
     DB --> W["📈 dashboard"]
     You -.->|live| B["📟 statusline / band"]
     You -.->|on request| C["🧑‍🏫 coach"]
+    You -->|every tool call| L["🦫 groundhog · 🤝 haggle<br/><i>going in circles? over the price?</i>"]
+    DB --> V["💷 bangforbuck · 📏 waistline · 🕵️ sherlock<br/><i>value, creep, waste</i>"]
 ```
 
 **OPEX or CAPEX?** spendlens answers the question finance teams keep asking: *how much of our AI spend goes on building things, and how much on keeping them running?* It scores the words in your prompts, the tools the AI used and the skills it ran. [How it decides →](docs/reference.md#how-it-decides)
@@ -260,7 +300,7 @@ npm test                          # node:test, Node.js 22.18+
 npm install && npm run typecheck  # tsc --noEmit
 ```
 
-Start with [Architecture](docs/architecture.md). More hooks, tools and skills are on the way.
+Start with [Architecture](docs/architecture.md).
 
 ## ☕ Support
 

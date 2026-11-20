@@ -81,6 +81,16 @@ export class PlatformAdapter {
     return null
   }
 
+  /** Hook output that ends the agent's turn now (it stops working and waits for the user). */
+  interrupt(_reason: string): Obj | null {
+    return null
+  }
+
+  /** Prompt hook output that adds a note for the model to read alongside the user's prompt. */
+  addContext(_text: string): Obj | null {
+    return null
+  }
+
   skillRoots(_cwd: string | null): string[] {
     return []
   }
