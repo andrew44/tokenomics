@@ -25,6 +25,9 @@ The full detail on every tokenomics helper: what it does, how it decides, and wh
 | 🐴 | **blinkers** | hook + skill + tool | [blinkers](#blinkers) |
 | 🔮 | **crystalball** | skill + tool | [crystalball](#crystalball) |
 | 🪵 | **deadwood** | skill + tool | [deadwood](#deadwood) |
+| 🧳 | **packlight** | skill + tool | [packlight](#packlight) |
+| ⚓ | **ballast** | hook + skill | [ballast](#ballast) |
+| 🧇 | **waffle** | skill + tool | [waffle](#waffle) |
 | 📟 | **statusline** and **band** | tool | [statusline](#statusline) · [band](#band) |
 | 📈 | **dashboard** | tool | [dashboard](#dashboard) |
 | 🗄️ | **your data** | | [Looking at your data](#looking-at-your-data) |
@@ -630,6 +633,61 @@ tokenomics deadwood mark discarded --session <id>   # or accepted, abandoned, fa
 ```
 
 The report gives dead spend and its share, the change from last month, dead work by kind, the biggest losses, and where it concentrates by project, model and task category. Questions and research are never waste, and **unverified** work (changed, no signal either way) is listed separately for you to mark rather than guessed at. Copilot sessions are judged by the same rules and counted in premium requests.
+
+---
+
+## packlight
+
+*Fixed overhead.* Before you type a word, every request already holds the system prompt, every connected MCP server's tool definitions, a line per installed skill and your instruction files, and that load is re-sent with every step of every session. **packlight** (`scripts/packlight.ts`) measures it from your own Claude Code transcripts:
+
+| It reports | How |
+|---|---|
+| baseline | each session's first request, less your first prompt: what you start with before any work. Median, largest, and the median **week by week**, so a cleanup shows up as a drop |
+| overhead | the baseline re-read at every request (cache-read prices) plus one cache write per session, and its share of all spend; per month |
+| MCP servers | every server in `~/.claude.json` (user and this project's local servers), the project's `.mcp.json`, enabled plugins and `~/.copilot/mcp-config.json`, with how often its tools (`mcp__<server>__...`) were called |
+| skills | every skill in `~/.claude/skills`, the project's `.claude/skills` and enabled plugins, the tokens its name and description add to each request, and how often it ran (the `Skill` tool or a slash command) |
+| saving | removing the unused skills, exactly (their description tokens x your requests); an MCP server's size can't be read without connecting to it, so the baseline before and after is the measure |
+
+```bash
+tokenomics packlight                  # the last 30 days
+tokenomics packlight --days 7 --json
+```
+
+Read-only. Nothing is called unused when there are no sessions in the period. Instruction files are [springclean](#springclean)'s job.
+
+---
+
+## ballast
+
+*Context carried between tasks.* Every step re-sends the whole conversation. Start a different task in the same chat and the last task comes along, re-read at every step of the new one. **ballast** (`scripts/ballast.ts`, rules in `tokenomics/engine/ballast.ts`) is a prompt hook (`UserPromptSubmit`, Claude Code) that speaks up when the conversation is over `TOKENOMICS_BALLAST_MIN_TOKENS` (60,000) and:
+
+| Rule | When |
+|---|---|
+| new task | the prompt has little in common with your recent prompts and the files the agent touched (4+ content words, at most 15% shared), or says so ("new task", "unrelated", "something else", "switching to") |
+| heavy | the context has grown past another multiple of the threshold (60k, 120k, 180k ...) |
+
+Each rule speaks once per size band per session, with the cost of re-reading the context per step and for a task like your last ones, and the way out: `/clear` (the [doggybag](#doggybag) note keeps where you got to) or `/compact <what to keep>`. Prompts starting with `/` are never checked, and a cold cache is left to doggybag. `TOKENOMICS_BALLAST=warn` (default, a notice), `block` (pause that prompt once; send it again to go ahead) or `off`. Each notice is logged to `ballast_events`.
+
+`tokenomics ballast` (or *"should I have cleared?"*) replays a session: every task switch that carried a heavy context, and what re-reading it cost until it was compacted, cleared or the session ended. Copilot CLI reports no token counts, so it has no ballast hook.
+
+---
+
+## waffle
+
+*Output spend.* Output tokens cost five times input tokens and are never cached. **waffle** (`scripts/waffle.ts`, rules in `tokenomics/engine/verbosity.ts`) splits a session's output three ways, estimated from the transcript: the **replies** you read, the **tool input** the agent wrote (edits, new files, commands) and **thinking** (the rest of the billed output). Then it costs the avoidable part:
+
+| Finding | What counts |
+|---|---|
+| long replies | final replies over `TOKENOMICS_WAFFLE_LONG` tokens (500, about 375 words); the excess is counted |
+| recaps | replies that end a task by restating it ("## Summary", "Here's what I changed") |
+| whole-file rewrites | `Write` over a file that already existed (1,500+ characters), where an `Edit` would send only the changed lines |
+
+Each comes with its fix: a one-line brevity rule for CLAUDE.md or a terse output style, Edit over Write, and a lower effort when thinking is most of the output on routine work.
+
+```bash
+tokenomics waffle                      # the newest session in this folder
+tokenomics waffle --days 7             # every session this week, wordiest first
+```
 
 ---
 

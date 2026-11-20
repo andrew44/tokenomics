@@ -23,6 +23,9 @@
  *   tokenomics blinkers [...]     scope creep in a session (check) or a branch (diff --task "...")
  *   tokenomics crystalball [...]  what a team's AI adoption will cost a month (--devs 10 --tasks 20 ...)
  *   tokenomics deadwood [...]     this month's spend on work that produced nothing (session, mark)
+ *   tokenomics packlight [...]    what every request carries (MCP servers, skills) and which you never use
+ *   tokenomics ballast [...]      context carried from one task into the next in a session, and its cost
+ *   tokenomics waffle [...]       output spend: long replies, recaps, whole-file rewrites, thinking (--days 7)
  *
  * Signature features: value-meter (bangforbuck), agent-forensics (sherlock), quality-gate (tastetest).
  *   tokenomics update             fetch the latest version and refresh everything
@@ -411,7 +414,7 @@ function overview(): number {
   say(`  data         ${existsSync(db) ? db : 'nothing recorded yet'}`)
   say('')
   say('Commands: dashboard [--demo] · report · bangforbuck · waistline · sherlock · tastetest · haggle · springclean · groundhog')
-  say('          splitthebill · bazaar · blinkers · crystalball · deadwood')
+  say('          splitthebill · bazaar · blinkers · crystalball · deadwood · packlight · ballast · waffle')
   say('          statusline · router · doggybag · update · uninstall · setup')
   return 0
 }
@@ -431,6 +434,9 @@ const TOOLS: Record<string, [string, string[], string[]]> = {
   blinkers: ['blinkers.ts', ['check', 'diff'], ['check']],
   crystalball: ['crystalball.ts', [], []],
   deadwood: ['deadwood.ts', ['report', 'session', 'mark'], ['report']],
+  packlight: ['packlight.ts', [], []],
+  ballast: ['ballast.ts', ['check'], ['check']],
+  waffle: ['waffle.ts', [], []],
   // the signature features, by what they do
   'value-meter': ['bangforbuck.ts', ['report', 'session', 'mark', 'ingest'], ['report']],
   'agent-forensics': ['sherlock.ts', [], []],
@@ -442,6 +448,9 @@ const TOOLS: Record<string, [string, string[], string[]]> = {
   'scope-guard': ['blinkers.ts', ['check', 'diff'], ['check']],
   'spend-simulator': ['crystalball.ts', [], []],
   'dead-work': ['deadwood.ts', ['report', 'session', 'mark'], ['report']],
+  'fixed-overhead': ['packlight.ts', [], []],
+  'context-carry': ['ballast.ts', ['check'], ['check']],
+  'output-audit': ['waffle.ts', [], []],
 }
 
 export async function main(argv: string[]): Promise<number> {

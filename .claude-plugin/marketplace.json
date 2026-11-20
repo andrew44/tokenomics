@@ -7,7 +7,7 @@
     {
       "name": "tokenomics",
       "source": "./",
-      "description": "Make every AI token earn its keep: OPEX/CAPEX tagging, model routing, context diet, budgets, cost per outcome, agent forensics, quality gates, cost attribution, provider arbitrage, scope guard, spend simulation, dead-work reports, task quotes, cost-regression checks and loop breaking."
+      "description": "Make every AI token earn its keep: OPEX/CAPEX tagging, model routing, context diet, budgets, cost per outcome, agent forensics, quality gates, cost attribution, provider arbitrage, scope guard, spend simulation, dead-work reports, task quotes, cost-regression checks, loop breaking, fixed-overhead audits, context-carry warnings and output audits."
     }
   ]
 }
