@@ -9,6 +9,7 @@ jobs:
     # Node.js 22.18 is the oldest version tokenomics supports (type stripping on by default,
     # node:sqlite built in). The tests use node:test, so nothing has to be installed.
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15           # a hung runner should fail fast, not sit for hours
     strategy:
       fail-fast: false
       matrix:
@@ -26,6 +27,7 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
