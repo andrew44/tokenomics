@@ -1,5 +1,6 @@
-"""The standalone scripts: coach, dashboard, handoff, statusbar, pennywise."""
+"""The standalone scripts: coach, dashboard, doggybag, statusbar, pennywise."""
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -9,14 +10,14 @@ import unittest
 from unittest import mock
 from pathlib import Path
 
-from helpers import ROOT, TempEnv, assistant, user, write_transcript
+from helpers import ROOT, USAGE, TempEnv, assistant, user, write_transcript
 
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 import dashboard  # noqa: E402
-import handoff  # noqa: E402
+import doggybag  # noqa: E402
 import pennywise  # noqa: E402
 import statusbar  # noqa: E402
 
@@ -89,33 +90,75 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(dashboard.build(str(self.t.home / "nope.db"), 30)["reason"], "no-database")
 
 
-class HandoffTests(unittest.TestCase):
+class DoggybagTests(unittest.TestCase):
     def setUp(self):
         self.t = TempEnv()
-        self.old_dir = handoff.OUT_DIR
-        handoff.OUT_DIR = self.t.home / "handoffs"
-        handoff.OUT_DIR.mkdir()
+        self.cwd = self.t.home / "proj"
+        self.cwd.mkdir()
 
     def tearDown(self):
-        handoff.OUT_DIR = self.old_dir
         self.t.cleanup()
 
     def _meta(self, **kw):
-        md = handoff.OUT_DIR / "old.md"
-        md.write_text("# Handoff")
-        meta = {"session_id": "old", "cwd": "/w", "written": time.time(), "path": str(md)}
+        d = doggybag.bag_dir(str(self.cwd), create=True)
+        md = d / "old.md"
+        md.write_text("# Doggybag")
+        meta = {"session_id": "old", "cwd": str(self.cwd), "written": time.time(), "path": str(md)}
         meta.update(kw)
-        (handoff.OUT_DIR / "old.json").write_text(json.dumps(meta))
+        (d / "old.json").write_text(json.dumps(meta))
 
-    def test_start_notice(self):
+    def _transcript(self, ts):
+        usage = dict(USAGE, cache_read_input_tokens=50000)
+        rec = assistant("m1", [("Edit", {"file_path": "/w/login.py"})], usage=usage)
+        rec["timestamp"] = ts
+        return write_transcript(self.t.home, "sess", [user("add a login page"), rec])
+
+    def test_folder_is_inside_project_and_self_ignoring(self):
+        d = doggybag.bag_dir(str(self.cwd), create=True)
+        self.assertEqual(d, self.cwd / ".doggybag")
+        self.assertIn("*", (d / ".gitignore").read_text())
+
+    def test_pack_writes_session_file_and_latest(self):
+        path = self._transcript("2026-01-01T00:00:00Z")
+        m = doggybag.pack({"session_id": "sess", "cwd": str(self.cwd), "transcript_path": path}, "claude-code", "manual")
+        d = self.cwd / ".doggybag"
+        self.assertEqual(Path(m["path"]), d / "sess.md")
+        self.assertTrue((d / "latest.md").read_text().startswith("# Doggybag: session sess"))
+        self.assertIn(".doggybag/latest.md", (d / "sess.md").read_text())
+
+    def test_start_injects_latest_by_default(self):
         self._meta(handoff_tokens=900, ctx_tokens=150000)
-        out = handoff.start({"session_id": "new", "cwd": "/w", "source": "startup"})
+        out = doggybag.start({"session_id": "new", "cwd": str(self.cwd), "source": "clear"})
         self.assertIn("about 900 tokens vs 150,000", out["systemMessage"])
+        self.assertIn("# Doggybag", out["hookSpecificOutput"]["additionalContext"])
 
-    def test_start_notice_without_token_counts(self):
+    def test_start_notice_only(self):
         self._meta()
-        out = handoff.start({"session_id": "new", "cwd": "/w", "source": "startup"})
+        with mock.patch.object(doggybag, "INJECT", False):
+            out = doggybag.start({"session_id": "new", "cwd": str(self.cwd), "source": "startup"})
         self.assertIn("about ? tokens vs ?", out["systemMessage"])
+        self.assertNotIn("hookSpecificOutput", out)
+
+    def test_cold_prompt_packs_and_warns(self):
+        path = self._transcript("2020-01-01T00:00:00Z")          # cache long expired
+        d = {"session_id": "sess", "cwd": str(self.cwd), "transcript_path": path, "prompt": "carry on"}
+        with mock.patch.object(doggybag, "COLD_MIN_TOKENS", 0):
+            out = doggybag.prompt(d, "claude-code")
+        self.assertIn("went cold", out["systemMessage"])
+        self.assertTrue((self.cwd / ".doggybag" / "latest.md").is_file())
+
+    def test_cold_prompt_block_once(self):
+        path = self._transcript("2020-01-01T00:00:00Z")
+        d = {"session_id": "sess", "cwd": str(self.cwd), "transcript_path": path, "prompt": "carry on"}
+        with mock.patch.object(doggybag, "COLD_MIN_TOKENS", 0), mock.patch.object(doggybag, "COLD_MODE", "block"):
+            self.assertEqual(doggybag.prompt(d, "claude-code")["decision"], "block")
+            self.assertNotIn("decision", doggybag.prompt(d, "claude-code"))
+
+    def test_warm_prompt_is_silent(self):
+        ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        path = self._transcript(ts)
+        d = {"session_id": "sess", "cwd": str(self.cwd), "transcript_path": path, "prompt": "carry on"}
+        self.assertIsNone(doggybag.prompt(d, "claude-code"))
 
     def test_copilot_prefers_own_session_transcript(self):
         root = self.t.home / "session-state"
@@ -123,9 +166,9 @@ class HandoffTests(unittest.TestCase):
             (root / sid).mkdir(parents=True)
             (root / sid / "events.jsonl").write_text("{}\n")
             time.sleep(0.02)                              # "other" is newer
-        p = handoff.resolve_transcript({"sessionId": "mine", "transcript_path": str(root)}, "copilot")
+        p = doggybag.resolve_transcript({"sessionId": "mine", "transcript_path": str(root)}, "copilot")
         self.assertEqual(p.parent.name, "mine")
-        p = handoff.resolve_transcript({"transcript_path": str(root)}, "copilot")
+        p = doggybag.resolve_transcript({"transcript_path": str(root)}, "copilot")
         self.assertEqual(p.parent.name, "other")
 
     def test_digest(self):
@@ -133,7 +176,7 @@ class HandoffTests(unittest.TestCase):
             user("add a login page"),
             assistant("m1", [("Edit", {"file_path": "/w/login.py"}), ("Bash", {"command": "pytest -q"})]),
         ])
-        r = handoff.digest(path)
+        r = doggybag.digest(path)
         self.assertEqual((r["prompts"], r["files"], r["cmds"]), (["add a login page"], ["/w/login.py"], ["pytest -q"]))
 
 
@@ -229,41 +272,121 @@ class StatusbarInstallTests(unittest.TestCase):
 
 
 class PennywiseTests(unittest.TestCase):
-    def test_rate(self):
-        self.assertEqual(pennywise.rate("create a hello world console app")[0], 1)
-        self.assertIsNone(pennywise.rate("design the architecture for a distributed queue")[0])
-        self.assertIsNone(pennywise.rate("```\ncode\n```")[0])
+    def test_score_tiers(self):
+        tiers = [pennywise.score(p)["tier"] for p in (
+            "create a hello world console app",
+            "add a /health endpoint to the flask api",
+            "refactor the auth module across all services and migrate the database schema",
+            "design the architecture for a distributed queue and compare the trade-offs")]
+        self.assertEqual(tiers, ["SIMPLE", "MEDIUM", "COMPLEX", "REASONING"])
+
+    def test_tier_map_from_env(self):
+        with mock.patch.dict(os.environ, {"TOKENOMICS_ROUTER_TIERS": "REASONING=fable"}):
+            r = pennywise.score("design the architecture and compare the trade-offs", cfg=pennywise.load_config())
+        self.assertEqual(r["model"], "fable")
+        self.assertTrue(pennywise.resolve_model("fable").startswith("claude-fable"))
 
     def test_tier_of(self):
-        self.assertEqual([pennywise.tier_of(m) for m in ("claude-haiku-x", "Sonnet", "opus", "gpt-5")],
-                         [1, 2, 3, None])
+        self.assertEqual([pennywise.tier_of(m) for m in ("claude-haiku-x", "Sonnet", "opus", "claude-fable-5-2", "gpt-5")],
+                         [1, 2, 3, 4, None])
 
     def _handle(self, prompt, model="claude-opus-5-5", mode="route"):
-        old = pennywise.MODE
-        pennywise.MODE = mode
-        try:
-            with tempfile.TemporaryDirectory() as d, \
-                    mock.patch.object(pennywise, "DB_PATH", str(Path(d) / "db.sqlite")), \
-                    mock.patch.object(pennywise, "STATE_PATH", Path(d) / "state.json"):
-                return pennywise.handle({"session_id": "s", "model": model, "prompt": prompt})
-        finally:
-            pennywise.MODE = old
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.object(pennywise, "MODE", mode), \
+                mock.patch.dict(os.environ, {"ANTHROPIC_BASE_URL": ""}), \
+                mock.patch.object(pennywise, "DB_PATH", str(Path(d) / "db.sqlite")), \
+                mock.patch.object(pennywise, "STATE_PATH", Path(d) / "state.json"):
+            return pennywise.handle({"session_id": "s", "model": model, "prompt": prompt})
 
-    def test_routes_simple_prompt_to_cheaper_subagent(self):
+    def test_routes_simple_prompt_down(self):
         out = self._handle("create a hello world console app")
         self.assertNotIn("decision", out)
         ctx = out["hookSpecificOutput"]
         self.assertEqual(ctx["hookEventName"], "UserPromptSubmit")
         self.assertIn('model: "haiku"', ctx["additionalContext"])
-        self.assertIn("Haiku", out["systemMessage"])
+        self.assertIn("down to Haiku", out["systemMessage"])
 
-    def test_route_leaves_hard_cheap_and_bypassed_prompts_alone(self):
-        self.assertIsNone(self._handle("design the architecture for a distributed queue"))
+    def test_routes_hard_prompt_up(self):
+        out = self._handle("design the architecture for a distributed queue and compare trade-offs",
+                           model="claude-haiku-5-5")
+        self.assertIn('model: "opus"', out["hookSpecificOutput"]["additionalContext"])
+
+    def test_forced_model(self):
+        out = self._handle("sonnet: summarise the README")
+        self.assertIn('model: "sonnet"', out["hookSpecificOutput"]["additionalContext"])
+
+    def test_leaves_follow_ups_bypass_and_same_tier_alone(self):
+        self.assertIsNone(self._handle("yes, do it"))
         self.assertIsNone(self._handle("create a hello world console app", model="claude-haiku-5-5"))
         self.assertIsNone(self._handle("keep-model: create a hello world console app"))
+        self.assertIsNone(self._handle("create a hello world console app", mode="proxy"))
 
     def test_block_mode_still_pauses(self):
         self.assertEqual(self._handle("create a hello world console app", mode="block")["decision"], "block")
+
+
+class PennywiseProxyTests(unittest.TestCase):
+    """The routing proxy against a fake upstream."""
+
+    def setUp(self):
+        import http.server
+        import threading
+        self.seen = []
+        seen = self.seen
+
+        class Up(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                b = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                seen.append(b["model"])
+                if b["model"].startswith("claude-haiku") and "FAIL" in json.dumps(b):
+                    self.send_response(529)
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                for i in range(3):
+                    self.wfile.write(f"data: {i}\n\n".encode())
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = mock.patch.object(pennywise, "DB_PATH", str(Path(self.tmp.name) / "db.sqlite"))
+        self.db.start()
+        self.up = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Up)
+        threading.Thread(target=self.up.serve_forever, daemon=True).start()
+        self.srv = pennywise.serve(0, upstream=f"http://127.0.0.1:{self.up.server_port}")
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        self.srv.shutdown()
+        self.up.shutdown()
+        self.db.stop()
+        self.tmp.cleanup()
+
+    def call(self, msgs, model="pennywise"):
+        import urllib.request
+        r = urllib.request.Request(f"http://127.0.0.1:{self.srv.server_port}/v1/messages", method="POST",
+                                   data=json.dumps({"model": model, "system": "s", "messages": msgs}).encode(),
+                                   headers={"content-type": "application/json"})
+        return urllib.request.urlopen(r, timeout=10).read().decode()
+
+    def test_routing(self):
+        first = {"role": "user", "content": "create a hello world console app"}
+        self.assertEqual(self.call([first]).count("data:"), 3)            # stream passes through
+        loop = [first, {"role": "assistant", "content": [{"type": "tool_use", "id": "t", "name": "Bash", "input": {}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t", "content": "ok"}]}]
+        self.call(loop)
+        hard = loop + [{"role": "assistant", "content": "done"},
+                       {"role": "user", "content": "design the architecture for a queue and compare trade-offs"}]
+        self.call(hard)
+        big = hard + [{"role": "assistant", "content": "x" * 200000}, {"role": "user", "content": "fix the typo"}]
+        self.call(big)                                                    # warm + big context: stays put
+        self.call([{"role": "user", "content": "FAIL fix the typo"}])     # haiku fails -> fallback
+        self.call([first], model="claude-haiku-5-5")                      # not ours: untouched
+        fams = [m.split("-")[1] for m in self.seen]
+        self.assertEqual(fams, ["haiku", "haiku", "opus", "opus", "haiku", "opus", "haiku"])
 
 
 if __name__ == "__main__":

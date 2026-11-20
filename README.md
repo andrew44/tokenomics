@@ -138,10 +138,10 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 | 🧑‍🏫 | **[coach](docs/reference.md#coach)** | Reads your conversation and tells you where tokens were wasted, with the fixes and a rewrite of your weakest prompt. | skill | ✅ | — |
 | 📊 | **[spend-report](docs/reference.md#spend-report)** | "Spend report" gets you the week's spend, OPEX vs CAPEX, costliest sessions, and three ways to spend less. | skill | ✅ | — |
 | 🔍 | **[spendlens](docs/reference.md#spendlens)** | Silently labels each session **OPEX** (running things) or **CAPEX** (building things) and logs tokens and cost. | hook | ✅ | ✅ |
-| 🪙 | **[pennywise](docs/reference.md#pennywise)** | Model router: hands simple prompts to a cheaper model (e.g. Haiku) automatically, keeps hard ones on yours. | hook | ✅ | — |
+| 🪙 | **[pennywise](docs/reference.md#pennywise)** | Model router: scores every prompt and sends it to the model that suits it (Haiku for a hello-world, Opus for architecture). Runs as a hook, or as a local routing proxy. | hook + tool | ✅ | — |
 | 🥗 | **[diet](docs/reference.md#diet)** | Stops tool calls that would flood the context (whole lockfiles, unbounded logs) and tells the AI to ask for less. | hook | ✅ | ✅ |
 | 💳 | **[budget](docs/reference.md#budget)** | Daily and per-session limits in your currency. Warns at 80%, pauses at 100%. | hook | ✅ | — |
-| 🔖 | **[handoff](docs/reference.md#handoff)** | Writes a free "where we got to" note just before the cache expires, so you can resume cheaply. | hook | ✅ | ✅ |
+| 🥡 | **[doggybag](docs/reference.md#doggybag)** | Packs a free "where we got to" note into `.doggybag/` in your project just before the cache goes cold; `/clear` picks it straight back up. | hook | ✅ | ✅ |
 | 📟 | **[statusbar](docs/reference.md#statusbar)** | Context fill, tokens, cost and a cache countdown, live at the bottom of your assistant. On automatically; `/tokenomics:statusbar` to manage it. | tool | ✅ | ✅ |
 | 📈 | **[dashboard](docs/reference.md#dashboard)** | A local web view of where your tokens went, split by OPEX/CAPEX, project and day. | tool | ✅ | ✅ |
 
@@ -153,12 +153,14 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 
 ### pennywise routes the over-specced prompt
 
-You ask for a hello-world on the priciest model. pennywise routes it to Haiku without you lifting a finger:
+You ask for a hello-world on the priciest model. pennywise scores it SIMPLE and routes it to Haiku without you lifting a finger (and routes an architecture question *up* if you're on Haiku):
 
 ```text
-pennywise: routing this small, self-contained task to Haiku instead of Opus.
-Prefix a prompt with 'keep-model:' to keep it on Opus.
+pennywise: routing down to Haiku (SIMPLE, score -0.25) instead of Opus.
+Start a prompt with 'keep-model:' to keep it on Opus.
 ```
+
+Want true per-request routing, like an auto-router? `tokenomics router serve`, then start Claude Code with `ANTHROPIC_BASE_URL=http://127.0.0.1:8787 ANTHROPIC_MODEL=pennywise`. Every turn goes upstream on the right model, cache-aware, with fallback.
 
 ### diet stops the context flood
 
@@ -172,9 +174,14 @@ small range with offset/limit.
 
 Unbounded `kubectl logs`, `git log`, `find /` and giant `cat`s get the same treatment. Append `# diet-ok` when you really do need it all.
 
-### handoff saves you from the cold-cache tax
+### doggybag saves you from the cold-cache tax
 
-Step away for a coffee and the prompt cache expires; resuming means paying to reload everything. Sixty seconds before that happens, handoff writes `~/.tokenomics/handoffs/<session>.md` (branch, changes, tasks, last requests) using **plain code, zero tokens**. Start fresh with `Continue from @<that file>`.
+Step away for a coffee and the prompt cache expires; carrying on means paying to reload everything. Sixty seconds before that happens, doggybag packs `.doggybag/latest.md` in your project (branch, changes, tasks, last requests) using **plain code, zero tokens**. The folder ignores itself in git. Come back, and your next prompt tells you:
+
+```text
+doggybag: the prompt cache went cold 42 min ago, so this prompt re-writes about 180,000 tokens (about £0.71).
+Cheaper: /clear and your doggybag (1,450 tokens, .doggybag/latest.md) loads automatically.
+```
 
 ### The dashboard shows where it all went
 
@@ -193,7 +200,7 @@ Step away for a coffee and the prompt cache expires; resuming means paying to re
 flowchart LR
     You(["You + your AI assistant"]) -->|every prompt| G["🪙 pennywise · 💳 budget<br/><i>is this worth it?</i>"]
     You -->|every tool call| D["🥗 diet<br/><i>is this too big?</i>"]
-    You -->|every turn| S["🔍 spendlens · 🔖 handoff<br/><i>record it, bookmark it</i>"]
+    You -->|every turn| S["🔍 spendlens · 🥡 doggybag<br/><i>record it, pack it up</i>"]
     S --> DB[("~/.tokenomics/<br/>spendlens.db")]
     DB --> R["📊 spend-report"]
     DB --> W["📈 dashboard"]

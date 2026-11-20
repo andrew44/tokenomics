@@ -3,7 +3,7 @@
   "hooks": {
     "userPromptSubmitted": [
       { "type": "command", "bash": "sh scripts/run.sh spendlens.py prompt copilot", "powershell": "$p = Get-Content \"$HOME/.tokenomics/python\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $p) { $p = \"python\" }; & $p scripts\\spendlens.py prompt copilot", "timeoutSec": 10 },
-      { "type": "command", "bash": "sh scripts/run.sh handoff.py arm copilot", "powershell": "$p = Get-Content \"$HOME/.tokenomics/python\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $p) { $p = \"python\" }; & $p scripts\\handoff.py arm copilot", "timeoutSec": 10 }
+      { "type": "command", "bash": "sh scripts/run.sh doggybag.py arm copilot", "powershell": "$p = Get-Content \"$HOME/.tokenomics/python\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $p) { $p = \"python\" }; & $p scripts\\doggybag.py arm copilot", "timeoutSec": 10 }
     ],
     "preToolUse": [
       { "type": "command", "bash": "sh scripts/run.sh diet.py copilot", "powershell": "$p = Get-Content \"$HOME/.tokenomics/python\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $p) { $p = \"python\" }; & $p scripts\\diet.py copilot", "timeoutSec": 10 }
@@ -13,7 +13,7 @@
     ],
     "sessionEnd": [
       { "type": "command", "bash": "sh scripts/run.sh spendlens.py finalize copilot", "powershell": "$p = Get-Content \"$HOME/.tokenomics/python\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $p) { $p = \"python\" }; & $p scripts\\spendlens.py finalize copilot", "timeoutSec": 20 },
-      { "type": "command", "bash": "sh scripts/run.sh handoff.py end copilot", "powershell": "$p = Get-Content \"$HOME/.tokenomics/python\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $p) { $p = \"python\" }; & $p scripts\\handoff.py end copilot", "timeoutSec": 20 }
+      { "type": "command", "bash": "sh scripts/run.sh doggybag.py end copilot", "powershell": "$p = Get-Content \"$HOME/.tokenomics/python\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $p) { $p = \"python\" }; & $p scripts\\doggybag.py end copilot", "timeoutSec": 20 }
     ]
   }
 }

@@ -7,6 +7,8 @@ Installed by the one-line installer (install.sh / install.ps1) as `tokenomics` o
   tokenomics dashboard [--demo] open the dashboard (runs in the background; --stop to stop it)
   tokenomics report [--days N]  spend report in the terminal
   tokenomics statusbar [...]    status bar options, e.g. --demo, --set-currency USD, --status
+  tokenomics router [...]       pennywise model router: serve [--port N], explain "prompt", env
+  tokenomics doggybag           pack a doggybag (resume note) for this folder's latest session now
   tokenomics update             fetch the latest version and refresh everything
   tokenomics uninstall [--purge]  remove it all (--purge also deletes your recorded data)
   tokenomics setup              (re)do the setup the installer does; idempotent
@@ -368,6 +370,13 @@ def main(argv=None):
         return script("report.py", *rest)
     if cmd == "statusbar":
         return script("statusbar.py", *(rest or ["--status"]))
+    if cmd in ("router", "pennywise"):
+        if not rest or rest[0] not in ("serve", "explain", "env"):
+            say("Usage: tokenomics router serve [--port N] | explain \"prompt\" | env [--port N]")
+            return 2
+        return script("pennywise.py", *rest)
+    if cmd == "doggybag":
+        return script("doggybag.py", "write", *rest)
     say(f"Unknown command: {cmd}. Run 'tokenomics help'.")
     return 2
 

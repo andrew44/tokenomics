@@ -48,7 +48,7 @@ In the **Code** tab, start a **local** (or SSH) session, click **+** next to the
 ### What you get
 
 - **Skills:** `/tokenomics:coach`, `/tokenomics:spend-report`, `/tokenomics:dashboard`, `/tokenomics:statusbar`. You don't need the slash: *"coach, review my prompts"* or *"open the tokenomics dashboard"* works too.
-- **Hooks:** `spendlens`, `pennywise`, `diet`, `budget` and `handoff`, running automatically. `/hooks` lists them.
+- **Hooks:** `spendlens`, `pennywise`, `diet`, `budget` and `doggybag`, running automatically. `/hooks` lists them.
 - **The status bar** switches itself on at the start of your next session, as long as you don't already have a status line, and updates itself with the plugin. Set `TOKENOMICS_STATUSBAR=ask` to be asked first, or `off` to leave it off. `/tokenomics:statusbar` installs, removes or changes it.
 
 **Check it worked:** type `/` and look for `/tokenomics:coach`.
@@ -143,14 +143,14 @@ Every helper works on its own. Pick what you want:
 
 ### Choosing which hooks run
 
-The hooks (`spendlens`, `pennywise`, `diet`, `budget`, `handoff`) ship together in the plugin and share one engine. To keep only the ones you want, switch the others off with a setting, in your shell profile or in Claude Code's `settings.json` under `"env"`:
+The hooks (`spendlens`, `pennywise`, `diet`, `budget`, `doggybag`) ship together in the plugin and share one engine. To keep only the ones you want, switch the others off with a setting, in your shell profile or in Claude Code's `settings.json` under `"env"`:
 
 | Hook | Switch it off | Or soften it |
 |---|---|---|
 | **pennywise** | `TOKENOMICS_PENNYWISE=off` | `block` asks you to switch with `/model` instead of routing; `warn` only shows a notice |
 | **diet** | `TOKENOMICS_DIET=off` | `warn` shows a notice but never blocks |
 | **budget** | `TOKENOMICS_BUDGET_MODE=off` (or just don't set a limit) | `warn` |
-| **handoff** | `TOKENOMICS_HANDOFF=off` | |
+| **doggybag** | `TOKENOMICS_DOGGYBAG=off` | `TOKENOMICS_DOGGYBAG_COLD=off` keeps it packing but stops the cold-prompt notice |
 | **spendlens** | Always on with the plugin: it's the data source for everything else. It never blocks or prints anything. | |
 
 Example `~/.claude/settings.json`:
@@ -235,7 +235,7 @@ What works on Copilot:
 |---|---|
 | spendlens | ✅ (labels from prompts and tool calls; no token counts) |
 | diet | ✅ |
-| handoff | ✅ best effort |
+| doggybag | ✅ best effort |
 | statusbar | ✅ (countdown is approximate) |
 | dashboard | ✅ |
 | pennywise, budget | ❌ Copilot ignores prompt-hook output |

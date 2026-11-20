@@ -1,28 +1,37 @@
 #!/usr/bin/env python3
-"""tokenomics / handoff: write a compact handoff file just before the prompt cache expires.
+"""tokenomics / doggybag: pack up the session's leftovers before the prompt cache goes cold.
 
 When the cache goes cold, resuming the full session re-writes the whole context to the cache at a
-premium (1.25x input price). A handoff file is a small, deterministic digest (recent prompts, last
-reply, files touched, tasks, git state) so a NEW session can pick up from it for a fraction of the
-tokens. No model is called to write it.
+premium (1.25x input price). A doggybag is a small, deterministic digest (recent prompts, last
+reply, files touched, tasks, git state) so you can carry on from it for a fraction of the tokens.
+No model is called to write it.
 
-Hook commands (all read the hook JSON on stdin, print nothing, exit 0):
-  handoff.py arm   [source]   Stop (Claude Code) / userPromptSubmitted (Copilot): start a background
-                              watcher that writes the handoff LEAD seconds before the cache expires.
-  handoff.py end   [source]   SessionEnd: stop the watcher and write a handoff if none is current.
-  handoff.py write [source]   Write a handoff now (manual use).
-  handoff.py start [source]   SessionStart: tell the user a recent handoff exists for this folder.
-Internal: handoff.py watch <jobfile> <token>
+Doggybags live with the project: <cwd>/.doggybag/<session>.md, plus latest.md (the newest one).
+The folder carries its own .gitignore ("*"), so it is never committed, whatever the repo's rules.
 
-Env:
-  TOKENOMICS_HANDOFF         on (default) | off
-  TOKENOMICS_HANDOFF_LEAD    seconds before expiry to write (default 60)
-  TOKENOMICS_HANDOFF_DIR     where files go (default ~/.tokenomics/handoffs)
-  TOKENOMICS_HANDOFF_INJECT  1 = on session start also inject the handoff as context (default: notice only)
-  TOKENOMICS_HANDOFF_MAX_AGE_H  hours a handoff is offered for (default 24)
-  TOKENOMICS_HANDOFF_KEEP    handoff files kept (default 30)
-  TOKENOMICS_CACHE_TTL       cache lifetime in seconds (default: detected, 300 or 3600)
-  TOKENOMICS_DB              SQLite path shared with spendlens (default ~/.tokenomics/spendlens.db)
+Hook commands (all read the hook JSON on stdin, exit 0):
+  doggybag.py arm    [source]  Stop (Claude Code) / userPromptSubmitted (Copilot): start a background
+                               watcher that packs the doggybag LEAD seconds before the cache expires.
+  doggybag.py prompt [source]  UserPromptSubmit: if this session's cache already went cold, make sure
+                               a doggybag is packed and say how to carry on cheaply.
+  doggybag.py end    [source]  SessionEnd: stop the watcher and pack a doggybag if none is current.
+  doggybag.py start  [source]  SessionStart (startup, /clear): load the folder's latest doggybag.
+  doggybag.py write  [source]  Pack one now (manual use; prints its path).
+Internal: doggybag.py watch <jobfile> <token>
+
+Env (the older TOKENOMICS_HANDOFF_* names still work):
+  TOKENOMICS_DOGGYBAG          on (default) | off
+  TOKENOMICS_DOGGYBAG_LEAD     seconds before expiry to pack (default 60)
+  TOKENOMICS_DOGGYBAG_DIR      folder name inside the project (default .doggybag); an absolute path
+                               puts every project's doggybags there instead
+  TOKENOMICS_DOGGYBAG_INJECT   1 (default) = a new session or /clear loads the latest doggybag as
+                               context; 0 = only say it exists
+  TOKENOMICS_DOGGYBAG_COLD     warn (default) | block (pause the first cold prompt once) | off
+  TOKENOMICS_DOGGYBAG_COLD_MIN_TOKENS  only speak up on a cold prompt above this context (default 20000)
+  TOKENOMICS_DOGGYBAG_MAX_AGE_H  hours a doggybag is offered for (default 24)
+  TOKENOMICS_DOGGYBAG_KEEP     doggybags kept per folder (default 10)
+  TOKENOMICS_CACHE_TTL         cache lifetime in seconds (default: detected, 300 or 3600)
+  TOKENOMICS_DB                SQLite path shared with spendlens (default ~/.tokenomics/spendlens.db)
 
 Stdlib only. Errors go to <db>.err, never on screen.
 """
@@ -30,6 +39,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -40,22 +50,37 @@ from pathlib import Path
 
 HOME = Path.home()
 DB_PATH = os.environ.get("TOKENOMICS_DB", str(HOME / ".tokenomics" / "spendlens.db"))
-OUT_DIR = Path(os.environ.get("TOKENOMICS_HANDOFF_DIR", str(HOME / ".tokenomics" / "handoffs")))
-ENABLED = os.environ.get("TOKENOMICS_HANDOFF", "on").strip().lower() != "off"
+FALLBACK_DIR = HOME / ".tokenomics" / "doggybags"     # when the project folder is unknown or read-only
+LATEST = "latest.md"
 
 
-def _int_env(name, default):
+def _env(name, default=None):
+    """TOKENOMICS_DOGGYBAG_<name>, falling back to the old TOKENOMICS_HANDOFF_<name>."""
+    for key in ("TOKENOMICS_DOGGYBAG" + name, "TOKENOMICS_HANDOFF" + name):
+        v = os.environ.get(key)
+        if v not in (None, ""):
+            return v
+    return default
+
+
+DIR_SETTING = _env("_DIR", ".doggybag")
+ENABLED = str(_env("", "on")).strip().lower() != "off"
+
+
+def _int(v, default):
     try:
-        return int(os.environ.get(name) or default)
-    except ValueError:
+        return int(v)
+    except (TypeError, ValueError):
         return default
 
 
-LEAD = _int_env("TOKENOMICS_HANDOFF_LEAD", 60)
-KEEP = _int_env("TOKENOMICS_HANDOFF_KEEP", 30)
-MAX_AGE_H = _int_env("TOKENOMICS_HANDOFF_MAX_AGE_H", 24)
-TTL_OVERRIDE = _int_env("TOKENOMICS_CACHE_TTL", 0)
-INJECT = os.environ.get("TOKENOMICS_HANDOFF_INJECT") == "1"
+LEAD = _int(_env("_LEAD"), 60)
+KEEP = _int(_env("_KEEP"), 10)
+MAX_AGE_H = _int(_env("_MAX_AGE_H"), 24)
+TTL_OVERRIDE = _int(os.environ.get("TOKENOMICS_CACHE_TTL"), 0)
+INJECT = str(_env("_INJECT", "1")).strip().lower() not in ("0", "off", "no", "false")
+COLD_MODE = str(_env("_COLD", "warn")).strip().lower()
+COLD_MIN_TOKENS = _int(_env("_COLD_MIN_TOKENS"), 20000)
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 TAIL_BYTES = 1_000_000
 
@@ -78,7 +103,7 @@ def parse_ts(s):
 def log_err(tag):
     try:
         with open(DB_PATH + ".err", "a") as f:
-            f.write(now_iso() + " handoff " + tag + "\n" + traceback.format_exc() + "\n")
+            f.write(now_iso() + " doggybag " + tag + "\n" + traceback.format_exc() + "\n")
     except Exception:
         pass
 
@@ -92,6 +117,37 @@ def session_id(d):
 
 def safe(sid):
     return re.sub(r"[^A-Za-z0-9_.-]", "_", sid)[:80]
+
+
+def bag_dir(cwd, create=False):
+    """Where this folder's doggybags live: <cwd>/.doggybag (self-ignoring), or the fallback."""
+    setting = Path(os.path.expanduser(DIR_SETTING))
+    if setting.is_absolute():
+        d = setting
+    elif cwd and Path(cwd).is_dir():
+        d = Path(cwd) / setting
+    else:
+        d = FALLBACK_DIR
+    if create:
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            ign = d / ".gitignore"
+            if not ign.exists():
+                ign.write_text("# tokenomics doggybags: local session notes, never committed\n*\n",
+                               encoding="utf-8")
+        except OSError:
+            if d == FALLBACK_DIR:
+                raise
+            return bag_dir(None, create=True) if not setting.is_absolute() else d
+    return d
+
+
+def show(path, cwd):
+    """A short way to name `path` to the user: relative to the project when it is inside it."""
+    try:
+        return str(Path(path).relative_to(cwd)) if cwd else str(path)
+    except ValueError:
+        return str(path)
 
 
 # ------------------------------------------------------------------ transcript location ----
@@ -277,7 +333,7 @@ def build(d, path, sid, reason, last_ts, ttl):
     r = digest(path)
     cwd = d.get("cwd") or ""
     usd, amount, symbol = cold_cost(r["ctx"], r["model"])
-    lines = [f"# Handoff: session {sid}",
+    lines = [f"# Doggybag: session {sid}",
              f"Written {time.strftime('%Y-%m-%d %H:%M')} ({reason}). Folder: {cwd or 'unknown'}. "
              f"Model: {r['model'] or 'unknown'}.", ""]
     body = []
@@ -308,29 +364,36 @@ def build(d, path, sid, reason, last_ts, ttl):
     lines += [f"Rebuilding this session's full context on resume = about {r['ctx']:,} tokens{cost}. "
               f"This file is about {text_est:,} tokens.", ""]
     lines += body
-    lines += ["## How to resume",
-              f"- Cheap: start a NEW session in this folder and say: Continue from @{OUT_DIR / (safe(sid) + '.md')}",
+    lines += ["## How to carry on",
+              "- Cheap: `/clear` (or start a new session) in this folder; tokenomics loads this doggybag for you. "
+              f"Or say: Continue from @{show(bag_dir(cwd) / LATEST, cwd)}",
               f"- Full: `claude --resume {sid}` (re-reads the whole context; the cache is cold or about to be)", ""]
     return "\n".join(lines), r, text_est
 
 
-def write_handoff(d, source, reason):
+def pack(d, source, reason):
+    """Write the doggybag for this session; returns its metadata (or None without a transcript)."""
     path = resolve_transcript(d, source)
     if not path:
         return None
     sid = session_id(d)
+    cwd = d.get("cwd") or ""
     last_ts, ttl = cache_clock(path)
     text, r, est = build(d, path, sid, reason, last_ts, ttl)
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    out = OUT_DIR / (safe(sid) + ".md")
+    out_dir = bag_dir(cwd, create=True)
+    out = out_dir / (safe(sid) + ".md")
     tmp = out.with_suffix(".tmp")
     tmp.write_text(text, encoding="utf-8")
     os.replace(tmp, out)
-    meta = {"session_id": sid, "cwd": d.get("cwd") or "", "source": source, "reason": reason, "written": time.time(),
-            "cache_ts": last_ts, "ttl": ttl, "ctx_tokens": r["ctx"], "handoff_tokens": est, "path": str(out)}
-    (OUT_DIR / (safe(sid) + ".json")).write_text(json.dumps(meta), encoding="utf-8")
+    try:
+        shutil.copyfile(out, out_dir / LATEST)
+    except OSError:
+        pass
+    meta = {"session_id": sid, "cwd": cwd, "source": source, "reason": reason, "written": time.time(),
+            "cache_ts": last_ts, "ttl": ttl, "ctx_tokens": r["ctx"], "handoff_tokens": est, "model": r["model"], "path": str(out)}
+    (out_dir / (safe(sid) + ".json")).write_text(json.dumps(meta), encoding="utf-8")
     log_db(meta)
-    prune()
+    prune(out_dir)
     return meta
 
 
@@ -351,9 +414,10 @@ def log_db(m):
         pass
 
 
-def prune():
+def prune(out_dir):
     try:
-        files = sorted(OUT_DIR.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+        files = sorted((p for p in out_dir.glob("*.md") if p.name != LATEST),
+                       key=lambda p: p.stat().st_mtime, reverse=True)
         for p in files[KEEP:]:
             for q in (p, p.with_suffix(".json"), p.with_suffix(".job")):
                 try:
@@ -366,9 +430,9 @@ def prune():
 
 # ------------------------------------------------------------------ watcher ----------------
 
-def current_meta(sid):
+def current_meta(sid, cwd):
     try:
-        return json.loads((OUT_DIR / (safe(sid) + ".json")).read_text(encoding="utf-8"))
+        return json.loads((bag_dir(cwd) / (safe(sid) + ".json")).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
 
@@ -378,9 +442,8 @@ def arm(d, source):
     if not path:
         return
     sid = session_id(d)
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
     token = uuid.uuid4().hex
-    job = OUT_DIR / (safe(sid) + ".job")
+    job = bag_dir(d.get("cwd") or "", create=True) / (safe(sid) + ".job")
     job.write_text(json.dumps({"token": token, "d": {"session_id": sid, "cwd": d.get("cwd"),
                                                        "transcript_path": str(path)},
                                "source": source, "started": time.time()}), encoding="utf-8")
@@ -412,7 +475,7 @@ def watch(jobfile, token):
         due = last + ttl - LEAD
         if time.time() >= due:
             late = time.time() >= last + ttl
-            write_handoff(d, source, "cache-expired" if late else "cache-expiring")
+            pack(d, source, "cache-expired" if late else "cache-expiring")
             return
         if time.time() - started > 3600 + 900:  # never linger
             return
@@ -421,7 +484,7 @@ def watch(jobfile, token):
 
 def end(d, source):
     sid = session_id(d)
-    job = OUT_DIR / (safe(sid) + ".job")
+    job = bag_dir(d.get("cwd") or "") / (safe(sid) + ".job")
     try:
         job.unlink()                            # invalidates the watcher's token
     except OSError:
@@ -430,20 +493,21 @@ def end(d, source):
     if not path:
         return
     last, _ = cache_clock(path)
-    meta = current_meta(sid)
+    meta = current_meta(sid, d.get("cwd") or "")
     if meta and last and meta.get("cache_ts") == last:
-        return                                  # already have a handoff for the latest activity
-    write_handoff(d, source, "session-end")
+        return                                  # already packed for the latest activity
+    pack(d, source, "session-end")
 
 
 # ------------------------------------------------------------------ session start ----------
 
-def start(d):
-    cwd = d.get("cwd") or ""
-    if not cwd or (d.get("source") or "startup") not in ("startup", "clear"):
-        return None
-    me, best = session_id(d), None
-    for p in OUT_DIR.glob("*.json"):
+def _n(v):
+    return f"{v:,}" if isinstance(v, (int, float)) else "?"
+
+
+def newest_other(cwd, me):
+    best = None
+    for p in bag_dir(cwd).glob("*.json"):
         try:
             m = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -454,18 +518,77 @@ def start(d):
             continue
         if not best or m.get("written", 0) > best.get("written", 0):
             best = m
-    if not best or not Path(best.get("path") or "").is_file():
+    return best if best and Path(best.get("path") or "").is_file() else None
+
+
+def start(d):
+    """SessionStart: a new session or /clear in a folder with a recent doggybag picks it up."""
+    cwd = d.get("cwd") or ""
+    if not cwd or (d.get("source") or "startup") not in ("startup", "clear"):
         return None
-    def n(v):
-        return f"{v:,}" if isinstance(v, (int, float)) else "?"
-    note = (f"tokenomics handoff: a recent session in this folder left a handoff "
-            f"(about {n(best.get('handoff_tokens'))} tokens vs {n(best.get('ctx_tokens'))} to resume it in full). "
-            f"Say 'Continue from @{best['path']}' to pick it up cheaply.")
-    out = {"systemMessage": note}
+    best = newest_other(cwd, session_id(d))
+    if not best:
+        return None
+    where = show(best["path"], cwd)
+    sizes = f"about {_n(best.get('handoff_tokens'))} tokens vs {_n(best.get('ctx_tokens'))} to resume it in full"
     if INJECT:
-        out["hookSpecificOutput"] = {"hookEventName": "SessionStart",
-                                     "additionalContext": Path(best["path"]).read_text(encoding="utf-8")}
-    return out
+        note = f"doggybag: carried on from {where} ({sizes})."
+        ctx = ("[tokenomics doggybag] The previous session in this folder left this note of where it got to. "
+               "Use it to carry on; don't repeat finished work, and re-read files before editing them.\n\n"
+               + Path(best["path"]).read_text(encoding="utf-8"))
+        return {"systemMessage": note,
+                "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ctx}}
+    return {"systemMessage": f"doggybag: a recent session in this folder left {where} ({sizes}). "
+                             f"Say 'Continue from @{where}' to pick it up cheaply."}
+
+
+# ------------------------------------------------------------------ cold prompt ------------
+
+def _cold_state(cwd):
+    return bag_dir(cwd) / ".cold-state.json"
+
+
+def prompt(d, source):
+    """UserPromptSubmit: the user came back after the cache expired. Make sure the doggybag is packed
+    (the watcher may have died with a sleeping laptop) and say how to carry on cheaply."""
+    if COLD_MODE == "off":
+        return None
+    text = (d.get("prompt") or "").strip()
+    if not text or text.startswith("/"):
+        return None
+    path = resolve_transcript(d, source)
+    if not path:
+        return None
+    last, ttl = cache_clock(path)
+    if last is None or time.time() < last + ttl:
+        return None                              # cache still warm: nothing to say
+    sid, cwd = session_id(d), d.get("cwd") or ""
+    meta = current_meta(sid, cwd)
+    if not (meta and meta.get("cache_ts") == last and Path(meta.get("path") or "").is_file()):
+        meta = pack(d, source, "cache-expired")
+    if not meta or (meta.get("ctx_tokens") or 0) < COLD_MIN_TOKENS:
+        return None
+    usd, amount, symbol = cold_cost(meta["ctx_tokens"], meta.get("model"))
+    cost = f" (about {symbol}{amount:,.2f})" if amount is not None else ""
+    where = show(bag_dir(cwd) / LATEST, cwd)
+    mins = int((time.time() - last) // 60)
+    msg = (f"doggybag: the prompt cache went cold {mins} min ago, so this prompt re-writes about "
+           f"{_n(meta['ctx_tokens'])} tokens{cost}. Cheaper: /clear and your doggybag "
+           f"({_n(meta.get('handoff_tokens'))} tokens, {where}) loads automatically.")
+    if COLD_MODE == "block":
+        digest_ = hashlib.sha1(f"{sid}:{last}".encode()).hexdigest()
+        st = _cold_state(cwd)
+        try:
+            seen = json.loads(st.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            seen = []
+        if digest_ not in seen:
+            try:
+                st.write_text(json.dumps((seen + [digest_])[-50:]), encoding="utf-8")
+            except OSError:
+                pass
+            return {"decision": "block", "reason": msg + " Send your prompt again to carry on here anyway."}
+    return {"systemMessage": msg}
 
 
 def main():
@@ -477,23 +600,35 @@ def main():
         if not ENABLED:
             return
         source = sys.argv[2] if len(sys.argv) > 2 else "claude-code"
-        raw = sys.stdin.read()
+        raw = "" if (mode == "write" and sys.stdin.isatty()) else sys.stdin.read()
         d = json.loads(raw) if raw.strip() else {}
+        if mode == "write" and not d:
+            t = guess_transcript(os.getcwd())
+            d = {"cwd": os.getcwd(), "transcript_path": str(t or ""), "session_id": t.stem if t else None}
+        out = None
         if mode == "arm":
             arm(d, source)
         elif mode == "end":
             end(d, source)
         elif mode == "write":
-            m = write_handoff(d, source, "manual")
-            if m:
-                print(m["path"])
+            m = pack(d, source, "manual")
+            print(m["path"] if m else "doggybag: no transcript found for this folder")
         elif mode == "start":
             out = start(d)
-            if out:
-                print(json.dumps(out))
+        elif mode == "prompt":
+            out = prompt(d, source)
+        if out:
+            print(json.dumps(out))
     except Exception:
         log_err(mode)
     sys.exit(0)
+
+
+def guess_transcript(cwd):
+    """Newest Claude Code transcript for `cwd` (for a manual `write` run from a terminal)."""
+    base = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(HOME / ".claude"))) / "projects"
+    folder = base / re.sub(r"[^A-Za-z0-9]", "-", str(Path(cwd).resolve()))
+    return newest_jsonl(folder) if folder.is_dir() else None
 
 
 if __name__ == "__main__":

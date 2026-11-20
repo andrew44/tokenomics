@@ -65,7 +65,7 @@ flowchart LR
     C["You reply after<br/>a long break"] --> D["Cache has gone cold<br/>Old conversation is paid<br/>for again in full"]
 ```
 
-That is what the egg timer in the **statusbar** shows you, and why **handoff** writes you a short note just before the cache runs out: starting fresh from a short note is cheaper than reloading a long, cold conversation.
+That is what the egg timer in the **statusbar** shows you, and why **doggybag** packs you a short note just before the cache runs out: starting fresh from a short note is cheaper than reloading a long, cold conversation.
 
 ### What is a tokeniser?
 
@@ -76,7 +76,7 @@ The **tokeniser** is the tool that does the chopping. Different AI models use di
 1. **Start a new conversation for a new task.** A long chat drags all its history along with every message.
 2. **Don't paste huge files "just in case".** Point the AI at the part that matters.
 3. **Ask for short answers when short will do.** Output is the expensive kind.
-4. **Keep working while the cache is warm**, or let **handoff** write a note and start fresh later.
+4. **Keep working while the cache is warm**, or let **doggybag** pack a note and `/clear` later.
 5. **Use a smaller model for simple jobs.** That's what **pennywise** does for you, routing simple prompts to a cheaper model.
 
 For more on each of these, with worked examples, see [Saving tokens](saving-tokens.md).
@@ -215,7 +215,7 @@ The break-even is quick: with the 5-minute TTL, a prefix used twice already cost
 
 #### The cold-cache penalty
 
-The expensive moment is when a large conversation's cache **expires**. The next message pays the 1.25x write price on the *entire* history: for a 300,000-token session that is like paying for 375,000 fresh input tokens just to say "carry on". A small handoff note (a few thousand tokens) in a new session avoids most of that, which is exactly the trade **handoff** makes for you.
+The expensive moment is when a large conversation's cache **expires**. The next message pays the 1.25x write price on the *entire* history: for a 300,000-token session that is like paying for 375,000 fresh input tokens just to say "carry on". A small doggybag (a few thousand tokens) in a new session avoids most of that, which is exactly the trade **doggybag** makes for you.
 
 #### Reading the usage fields
 
@@ -252,9 +252,9 @@ A worked example on a hypothetical model priced at **£4 per million input token
 |----------|------:|------------:|-----------:|-------:|-------------:|
 | Warm cache, short reply | 500 | 1,500 | 200,000 | 400 | 0.2p + 0.75p + 8p + 0.8p = **~10p** |
 | Cold cache (after a break), same reply | 500 | 201,500 | 0 | 400 | 0.2p + 100.75p + 0p + 0.8p = **~£1.02** |
-| Fresh session from a 3,000-token handoff | 500 | 3,000 + system | 0 | 400 | **a few pence** |
+| Fresh session from a 3,000-token doggybag | 500 | 3,000 + system | 0 | 400 | **a few pence** |
 
-The same "short reply" costs roughly ten times more after the cache has gone cold, and a fresh session from a handoff note costs a fraction of either.
+The same "short reply" costs roughly ten times more after the cache has gone cold, and a fresh session from a doggybag costs a fraction of either.
 
 ### 2.7 Quick reference
 
