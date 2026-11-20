@@ -903,7 +903,9 @@ def sync():
             import io
             with contextlib.redirect_stdout(io.StringIO()):
                 install("claude")
-            msg = "tokenomics: status bar installed. Restart Claude Code to see it."
+            msg = ("tokenomics: status bar installed; restart Claude Code to see it. Tip: to get "
+                   "tokenomics updates automatically, open /plugin > Marketplaces > tokenomics "
+                   "and turn on auto-update.")
         else:
             if HINT_FILE.exists():
                 return 0

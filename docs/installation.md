@@ -6,7 +6,8 @@ Everything you need to get tokenomics running, from the one-minute install to te
 
 **On this page**
 
-- [Install the whole toolkit](#install-the-whole-toolkit) (recommended, one line)
+- [Claude Code: install the plugin](#claude-code-install-the-plugin) (recommended)
+- [The one-line installer](#the-one-line-installer) (Copilot CLI, no Python, or the `tokenomics` command)
 - [Install pieces individually](#install-pieces-individually)
 - [Where do you use Claude Code?](#where-do-you-use-claude-code): terminal, desktop app, web
 - [GitHub Copilot CLI](#github-copilot-cli)
@@ -17,9 +18,70 @@ Everything you need to get tokenomics running, from the one-minute install to te
 
 ---
 
-## Install the whole toolkit
+## Claude Code: install the plugin
 
-One line. No git, no `pip`, nothing to clone.
+**This is the recommended way.** tokenomics is a [Claude Code plugin](https://code.claude.com/docs/en/plugins): one install gives you every skill and hook, and Claude Code keeps it managed for you (switch it on or off, update or remove it from `/plugin`).
+
+### In the terminal
+
+Inside Claude Code (type `claude` in a terminal), paste:
+
+```text
+/plugin install tokenomics --marketplace andrew44/tokenomics
+```
+
+When the panel opens, choose **Install for you (user scope)** so it works in every project. If Claude says `Run /reload-plugins to apply`, closing the panel does that for you.
+
+On Claude Code older than v2.1.275, use two lines instead:
+
+```text
+/plugin marketplace add andrew44/tokenomics
+/plugin install tokenomics@tokenomics
+```
+
+From a plain shell instead: `claude plugin install tokenomics --marketplace andrew44/tokenomics` (v2.1.292+), or on older versions `claude plugin marketplace add andrew44/tokenomics && claude plugin install tokenomics@tokenomics`.
+
+### In the desktop app (no terminal needed)
+
+In the **Code** tab, start a **local** (or SSH) session, click **+** next to the prompt box → **Add plugins**, add the marketplace `andrew44/tokenomics` and install **tokenomics**. The desktop app and the terminal share the same settings, so it shows up in both.
+
+### What you get
+
+- **Skills:** `/tokenomics:coach`, `/tokenomics:spend-report`, `/tokenomics:dashboard`, `/tokenomics:statusbar`. You don't need the slash: *"coach, review my prompts"* or *"open the tokenomics dashboard"* works too.
+- **Hooks:** `spendlens`, `pennywise`, `diet`, `budget` and `handoff`, running automatically. `/hooks` lists them.
+- **The status bar** switches itself on at the start of your next session, as long as you don't already have a status line, and updates itself with the plugin. Set `TOKENOMICS_STATUSBAR=ask` to be asked first, or `off` to leave it off. `/tokenomics:statusbar` installs, removes or changes it.
+
+**Check it worked:** type `/` and look for `/tokenomics:coach`.
+
+**Needs Python 3.8+** on your computer (standard library only). The hooks find it whether it's called `python3`, `python` or `py`. No Python? Run the [one-line installer](#the-one-line-installer) once: it fetches a private copy that the plugin then uses.
+
+### Keep it up to date
+
+Claude Code auto-updates only its official marketplace. To get tokenomics updates automatically, open `/plugin` → **Marketplaces** → **tokenomics** and switch on **auto-update**. To update by hand: `/plugin` → **Installed** → **tokenomics** → **Update now**, or `claude plugin update tokenomics@tokenomics` in a shell.
+
+### For a team
+
+Commit this to the repo's `.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "tokenomics": {
+      "source": { "source": "github", "repo": "andrew44/tokenomics" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": { "tokenomics@tokenomics": true }
+}
+```
+
+When a teammate trusts the folder, Claude Code adds the marketplace for them. Each teammate still installs the plugin once, with `/plugin install tokenomics@tokenomics` (choose **project scope**) or `claude plugin install tokenomics@tokenomics --scope project`.
+
+---
+
+## The one-line installer
+
+For **GitHub Copilot CLI**, for computers **without Python**, or if you want the `tokenomics` terminal command. One line, no git, no `pip`. If it finds Claude Code it installs the same plugin as above.
 
 **macOS / Linux** (in Terminal):
 
@@ -33,13 +95,13 @@ curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh
 irm https://raw.githubusercontent.com/andrew44/tokenomics/main/install.ps1 | iex
 ```
 
-Then **restart Claude Code** (or Copilot CLI). That's it.
+Then restart Claude Code or Copilot CLI. That's it.
 
 How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press Enter. On **Windows** click Start, type `PowerShell`, press Enter.
 
-### What the installer does
+#### What the installer does
 
-1. **Checks for Python 3.8+.** It only uses Python's standard library. On Windows, if Python is missing, it installs it for you with `winget`. On a Mac without Python it tells you the one command to get it (`xcode-select --install`).
+1. **Checks for Python 3.8+.** It only uses Python's standard library. If there's no Python (or only the Mac placeholder that asks you to install developer tools), it downloads a private copy into `~/.tokenomics/runtime`: no admin rights, no pop-ups.
 2. **Downloads tokenomics** to `~/.tokenomics/app` (a plain download, not a git clone).
 3. **Adds the plugin** to every assistant it finds: Claude Code (`claude plugin install`, user scope) and/or GitHub Copilot CLI (`copilot plugin install`).
 4. **Switches on the status bar** for those assistants. If you already have a status line, it's left alone (replace it later with `tokenomics statusbar --install claude`).
@@ -51,7 +113,7 @@ It's safe to run again: it repairs and updates what's there. Want to look before
 
 **Check it worked:** run `tokenomics`. It shows which assistants it found and where the status bar is installed. In Claude Code, type `/` and look for `/tokenomics:coach`; `/hooks` lists the hooks.
 
-### The `tokenomics` command
+#### The `tokenomics` command
 
 | Command | What it does |
 |---|---|
@@ -62,23 +124,7 @@ It's safe to run again: it repairs and updates what's there. Want to look before
 | `tokenomics update` | Downloads the latest version and updates the plugins and status bar |
 | `tokenomics uninstall` | Removes the plugins, status bar and command (keeps your data; `--purge` deletes it too) |
 
-### Already inside Claude Code?
-
-You can install the plugin from there instead:
-
-```text
-/plugin marketplace add andrew44/tokenomics
-/plugin install tokenomics@tokenomics
-```
-
-Choose **Install for you (user scope)**. You get every skill and hook, plus:
-
-- **The status bar switches itself on** at the next session start, as long as no other status line is set. It keeps itself up to date whenever the plugin updates. Set `TOKENOMICS_STATUSBAR=ask` to be asked first instead, or `off` to leave it off. `/tokenomics:statusbar` installs, removes or changes it.
-- **The dashboard** is `/tokenomics:dashboard` (or just ask: *"open the tokenomics dashboard"*).
-
-You won't get the `tokenomics` terminal command this way; run the one-liner if you want it.
-
-> **Windows:** the hooks find Python by themselves, whether it's called `python3`, `python` or `py`. Where a command below says `python3`, type `python`.
+> **Windows:** where a command below says `python3`, type `python`.
 
 ---
 
@@ -135,23 +181,23 @@ How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press
 
 ```mermaid
 flowchart TD
-    Start{"Where do you use<br/>Claude Code?"} -->|"Terminal<br/>(the 'claude' command)"| T["Follow Install the whole toolkit"]
-    Start -->|"Claude desktop app<br/>(the Code tab)"| D["Do the terminal install once,<br/>then follow Desktop app"]
+    Start{"Where do you use<br/>Claude Code?"} -->|"Terminal<br/>(the 'claude' command)"| T["/plugin install tokenomics<br/>--marketplace andrew44/tokenomics"]
+    Start -->|"Claude desktop app<br/>(the Code tab)"| D["+ → Add plugins<br/>(no terminal needed)"]
     Start -->|"In the browser<br/>(claude.ai/code)"| W["Plugins can't be installed here.<br/>See Web"]
     Start -->|"GitHub Copilot CLI"| G["Run the one-line installer"]
 ```
 
 ### Terminal
 
-Run the [one-line installer](#install-the-whole-toolkit). That's it.
+[Install the plugin](#in-the-terminal) from inside Claude Code. That's it.
 
 ### Desktop app
 
 Works in **local** and **SSH** sessions (not cloud sessions).
 
-1. Run the [one-line installer](#install-the-whole-toolkit) once. The terminal and the desktop app share the same settings on your computer, so the plugin shows up in both.
-2. Open the desktop app, go to the **Code** tab and start a local session.
-3. Click **+** next to the prompt box, then **Add plugins** (or **Plugins**, then **Manage plugins**) to see **tokenomics** and switch it on or off.
+1. Open the desktop app, go to the **Code** tab and start a local session.
+2. Click **+** next to the prompt box, then **Add plugins**. Add the marketplace `andrew44/tokenomics` and install **tokenomics**.
+3. Use the same menu (**Plugins**, then **Manage plugins**) to switch it on or off later. Anything you install in the terminal shows up here too, and vice versa.
 
 Just want the coach in the desktop app? `npx skills@latest add andrew44/tokenomics --skill coach -g`.
 
@@ -174,7 +220,7 @@ Tracking on the web isn't useful: the data would be saved on a temporary cloud m
 
 ## GitHub Copilot CLI
 
-The [one-line installer](#install-the-whole-toolkit) sets up Copilot CLI too: the plugin and the status bar. To do it by hand instead:
+The [one-line installer](#the-one-line-installer) sets up Copilot CLI too: the plugin and the status bar. To do it by hand instead:
 
 ```bash
 copilot plugin install andrew44/tokenomics          # from GitHub
@@ -223,21 +269,15 @@ What works on Copilot:
 | I want to... | Do this |
 |---|---|
 | Check it's installed | In Claude Code, run `/plugin` and open the **Installed** tab, or run `claude plugin list` in a terminal. `/hooks` shows the hooks. |
-| Update it | `tokenomics update` (or re-run the one-liner). Installed from inside Claude Code? `/plugin marketplace update tokenomics`, then `claude plugin update tokenomics@tokenomics`. (Third-party marketplaces don't update on their own.) |
-| Remove it | `tokenomics uninstall` removes the plugins, status bar and command and keeps your data (`--purge` deletes `~/.tokenomics` too). Or `/plugin uninstall tokenomics@tokenomics`. |
+| Update it | Switch on auto-update: `/plugin` → **Marketplaces** → **tokenomics**. Or by hand: `/plugin` → **Installed** → **Update now**, or `claude plugin update tokenomics@tokenomics`. Used the one-liner? `tokenomics update` also works. |
+| Remove it | `/plugin uninstall tokenomics@tokenomics` (or `claude plugin uninstall tokenomics@tokenomics`). Used the one-liner? `tokenomics uninstall` removes the plugins, status bar and command and keeps your data (`--purge` deletes `~/.tokenomics` too). |
 | Update or remove the status bar | It updates itself with the plugin (or `tokenomics update`). `tokenomics statusbar --uninstall claude` or `/tokenomics:statusbar uninstall` removes it; `tokenomics statusbar --status` shows where it's installed. |
 | Update or remove skills installed with `npx` | `npx skills update` or `npx skills remove coach`. `npx skills list` shows what's installed. |
-| Install for a whole team | Choose **project scope** at the install panel, or run `claude plugin install tokenomics@tokenomics --scope project` and commit `.claude/settings.json`. Each teammate also runs that command once. |
+| Install for a whole team | See [For a team](#for-a-team). |
 
 ---
 
 ## Other ways to install (for developers)
-
-Add and install in one step (recent Claude Code; v2.1.275+ in a session, v2.1.292+ from a shell):
-
-```text
-/plugin install tokenomics --marketplace andrew44/tokenomics
-```
 
 From a local folder:
 

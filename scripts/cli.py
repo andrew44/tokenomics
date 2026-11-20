@@ -222,6 +222,10 @@ def setup(args):
         say(f"  1. Quit and reopen {names} (type /exit, then start it again).")
         say('  2. Ask it: "coach, review my prompts" or "spend report".')
         step = 3
+        if "claude" in found:
+            say("  3. Get updates automatically: in Claude Code open /plugin > Marketplaces > tokenomics")
+            say("     and turn on auto-update.")
+            step = 4
     else:
         say("Done (no assistant to connect yet). Next steps:")
         step = 1

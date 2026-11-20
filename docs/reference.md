@@ -268,7 +268,7 @@ A live line at the bottom of Claude Code or GitHub Copilot CLI.
 /tokenomics:statusbar uninstall       # to remove
 ```
 
-The [one-line installer](installation.md#install-the-whole-toolkit) switches it on for you, and so does the plugin at the first session start, as long as no other status line is set (`TOKENOMICS_STATUSBAR=ask` makes it ask first, `off` leaves it off). The plugin keeps the installed copy up to date at each session start. From a terminal:
+The plugin switches it on for you at the start of your next session (so does the [one-line installer](installation.md#the-one-line-installer)), as long as no other status line is set (`TOKENOMICS_STATUSBAR=ask` makes it ask first, `off` leaves it off). The plugin keeps the installed copy up to date at each session start. From a terminal:
 
 ```bash
 tokenomics statusbar --install claude     # or: copilot, both
