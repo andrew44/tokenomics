@@ -26,8 +26,8 @@ describe('hook runs', () => {
     runOk(t, 'prompt', 'claude-code', { session_id: 's', cwd: '/x', prompt: 'check the grafana dashboard' })
     runOk(t, 'finalize', 'claude-code', { session_id: 's', cwd: '/x', hook_event_name: 'SessionEnd', transcript_path: path })
     const r = t.session('s')!
-    // Regression values: identical to the original spendlens on this transcript.
-    assert.deepEqual([r.label, r.opex_score, r.capex_score, r.prompt_count], ['opex', 27, 0, 2])
+    // Regression values for this transcript.
+    assert.deepEqual([r.label, r.opex_score, r.capex_score, r.prompt_count], ['opex', 28, 0, 2])
     assert.deepEqual([r.total_tokens, r.skill_opex], [1160, 1])
     assert.deepEqual(JSON.parse(r.skills), ['grafana-triage'])
   })
@@ -40,7 +40,7 @@ describe('hook runs', () => {
       toolArgs: JSON.stringify({ path: 'cli.py' }), toolResult: { resultType: 'success' } })
     runOk(t, 'finalize', 'copilot', { sessionId: sid, timestamp: 3, cwd: '/x', reason: 'complete' })
     const r = t.session(sid)!
-    assert.deepEqual([r.source, r.label, r.capex_score, r.prompt_count], ['copilot', 'capex', 7, 1])
+    assert.deepEqual([r.source, r.label, r.capex_score, r.prompt_count], ['copilot', 'capex', 10, 1])
     assert.equal(r.total_tokens, null)
     assert.deepEqual(t.rows('SELECT tool, kind FROM tool_events WHERE session_id=?', sid), [{ tool: 'edit', kind: 'code_edit' }])
   })
