@@ -130,9 +130,7 @@ def install_launcher():
     cli = Path(__file__).resolve()
     if WINDOWS:
         path = d / "tokenomics.cmd"
-        # One line ending in `exit /b`: cmd.exe never re-reads the file after Python returns, so
-        # `tokenomics uninstall` can delete it. (`exit /b` alone keeps Python's exit code.)
-        path.write_text(f'@"{sys.executable}" "{cli}" %* & exit /b\r\n', encoding="utf-8")
+        path.write_text(f'@"{sys.executable}" "{cli}" %*\r\n', encoding="utf-8")
     else:
         path = d / "tokenomics"
         path.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{cli}" "$@"\n', encoding="utf-8")
@@ -157,11 +155,26 @@ def install_launcher():
     return path, True
 
 
+def delete_later(path):
+    """Windows: delete a file or folder a few seconds from now, from a detached process, for
+    things in use by this very command (its .cmd launcher, the Python running it)."""
+    rm = f'rmdir /s /q "{path}"' if Path(path).is_dir() else f'del /f /q "{path}"'
+    subprocess.Popen(f"cmd /c ping -n 3 127.0.0.1 >nul & {rm}", stdin=subprocess.DEVNULL,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     creationflags=0x00000008 | 0x00000200)  # DETACHED_PROCESS | NEW_PROCESS_GROUP
+
+
 def remove_launcher():
     for d in {HOME / ".local" / "bin", HOME / "bin", TK_HOME / "bin"}:
         for name in ("tokenomics", "tokenomics.cmd"):
             p = d / name
-            if p.is_file():
+            if not p.is_file():
+                continue
+            if WINDOWS and name.endswith(".cmd"):
+                # cmd.exe is still running this very file and re-reads it when Python exits, so
+                # deleting it now makes cmd fail with "The batch file cannot be found".
+                delete_later(p)
+            else:
                 p.unlink()
     for rc in [HOME / n for n in (".zshrc", ".bashrc", ".bash_profile", ".profile")]:
         try:
@@ -298,7 +311,11 @@ def uninstall(args):
         say(f"Deleted {TK_HOME} (all recorded data).")
     else:
         shutil.rmtree(APP_DIR, ignore_errors=True)
-        shutil.rmtree(TK_HOME / "runtime", ignore_errors=True)    # the private Python, if any
+        runtime = TK_HOME / "runtime"                             # the private Python, if any
+        if WINDOWS and runtime.is_dir():
+            delete_later(runtime)                                 # it may be running this command
+        else:
+            shutil.rmtree(runtime, ignore_errors=True)
         for name in ("statusbar.py", "model-prices.json", "python"):
             try:
                 (TK_HOME / name).unlink()

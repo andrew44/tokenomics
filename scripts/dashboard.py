@@ -201,6 +201,17 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, "not found", "text/plain")
 
 
+class LocalServer(ThreadingHTTPServer):
+    """Bind without HTTPServer's reverse-DNS lookup (socket.getfqdn), which can stall for many
+    seconds on some Macs. We only ever serve 127.0.0.1, so there's nothing to look up."""
+    daemon_threads = True
+
+    def server_bind(self):
+        import socketserver
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
+
+
 PID_FILE = Path(os.environ.get("TOKENOMICS_HOME", str(Path.home() / ".tokenomics"))) / "dashboard.pid"
 
 
@@ -290,9 +301,9 @@ def main(argv=None):
         db_path = str(Path(tempfile.mkdtemp(prefix="tokenomics-demo-")) / "spendlens.db")
         seed_demo(db_path)
     Handler.db_path = db_path
-    srv = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
+    srv = LocalServer(("127.0.0.1", a.port), Handler)
     url = f"http://127.0.0.1:{a.port}/"
-    print(f"tokenomics dashboard on {url}\n  db: {db_path}{'  (demo data)' if a.demo else ''}\n  Ctrl+C to stop")
+    print(f"tokenomics dashboard on {url}\n  db: {db_path}{'  (demo data)' if a.demo else ''}\n  Ctrl+C to stop", flush=True)
     _open(url, a.no_open)
     try:
         srv.serve_forever()
