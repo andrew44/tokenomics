@@ -109,6 +109,16 @@ def _rc_files():
     return [HOME / ".profile"]
 
 
+def remember_python():
+    """Record this Python for scripts/run.sh and the Copilot hooks, so they never have to guess
+    (on Windows `python3` is usually missing or the Microsoft Store stub)."""
+    try:
+        TK_HOME.mkdir(parents=True, exist_ok=True)
+        (TK_HOME / "python").write_text(sys.executable.replace("\\", "/") + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
 def install_launcher():
     """Write the `tokenomics` command; returns (path, needs_new_terminal)."""
     d = _bin_dir()
@@ -196,6 +206,7 @@ def setup(args):
                 say(f"  · {name}: kept your existing status line (replace it with: tokenomics statusbar --install {cli})")
             else:
                 say(f"  ✓ {name}: status bar installed")
+    remember_python()
     path, new_terminal = install_launcher()
     say(f"  ✓ 'tokenomics' command: {path}")
     say("")
@@ -270,7 +281,7 @@ def uninstall(args):
         say(f"Deleted {TK_HOME} (all recorded data).")
     else:
         shutil.rmtree(APP_DIR, ignore_errors=True)
-        for name in ("statusbar.py", "model-prices.json"):
+        for name in ("statusbar.py", "model-prices.json", "python"):
             try:
                 (TK_HOME / name).unlink()
             except OSError:

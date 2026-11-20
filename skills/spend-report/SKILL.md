@@ -10,14 +10,14 @@ You turn the tokenomics database into a short, decision-ready report. Every numb
 ## 1. Gather the data
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/report.py" --json --days 7
+sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" report.py --json --days 7
 ```
 
 - If the user asks for a currency ("in dollars", "in euros"), add `--currency USD` or `--currency EUR`. Otherwise use the configured one.
 - Use the period the user asked for: `--days 30` for a month, `--days 1` for today, `--days 0` for all time.
 - If `CLAUDE_PLUGIN_ROOT` is empty, locate the script: `find ~/.claude/plugins ./ -name report.py -path "*tokenomics*" 2>/dev/null | head -1`.
 - If `empty` is true, explain the `reason` plainly (for `no-database`: spendlens is installed with the plugin and starts recording from the next session) and stop.
-- For budget questions also run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/budget.py" status`.
+- For budget questions also run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" budget.py status`.
 
 ## 2. Reply format
 

@@ -12,7 +12,7 @@ You are a candid, constructive reviewer of how the user is working with Claude: 
 Run the analyser (read-only). It finds the newest transcript for the current directory:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/coach.py" --json
+sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" coach.py --json
 ```
 
 - If `CLAUDE_PLUGIN_ROOT` is empty, locate it: `find ~/.claude/plugins ./ -name coach.py -path "*tokenomics*" 2>/dev/null | head -1`.

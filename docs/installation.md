@@ -78,7 +78,7 @@ Choose **Install for you (user scope)**. You get every skill and hook, plus:
 
 You won't get the `tokenomics` terminal command this way; run the one-liner if you want it.
 
-> On Windows, use `python` in place of `python3` in any command below.
+> **Windows:** the hooks find Python by themselves, whether it's called `python3`, `python` or `py`. Where a command below says `python3`, type `python`.
 
 ---
 
@@ -202,7 +202,7 @@ What works on Copilot:
 - Copilot sends a session id with every hook, and spendlens logs each session under it. If one is ever missing, spendlens builds one from the working directory and date.
 - Copilot sessions are labelled from the words in each prompt **and** the tools Copilot used (file edits lean CAPEX, observability tools and commands like `kubectl logs` lean OPEX). Same scoring as Claude Code.
 - Copilot doesn't tell hooks how many tokens or premium requests a session used, so those columns stay empty (`usage_status = unavailable`). spendlens never guesses a number for them.
-- The hook commands use the relative path `scripts/spendlens.py`. If Copilot runs them from a different folder and you see "file not found" in `<db>.err`, change the path in `copilot-hooks.json` to an absolute one.
+- The hook commands use relative paths (`scripts/run.sh`, `scripts\\spendlens.py`). If Copilot runs them from a different folder and you see "file not found" in `<db>.err`, change the path in `copilot-hooks.json` to an absolute one.
 - Copilot's plugin format is still changing; check the current Copilot docs if the install fails.
 </details>
 
@@ -262,7 +262,7 @@ To host your own copy for a team, push the folder to your own Git repo and use `
 |---|---|
 | `tokenomics: command not found` | Open a new terminal (the installer added it to your PATH). Or run `~/.local/bin/tokenomics` directly. |
 | The installer says Python is missing | Mac: `xcode-select --install`. Linux: `sudo apt install python3` (or your distro's equivalent). Windows: [python.org/downloads](https://www.python.org/downloads/), ticking **Add python.exe to PATH**. Then run the installer again. |
-| No database file appears | Check Python is installed: run `python3 --version`. On Windows, change the hook to use `python`. |
+| No database file appears | Check Python is installed (`python3 --version`, or `python --version` on Windows), then run `tokenomics setup` once: it records which Python the hooks should use in `~/.tokenomics/python`. If that file points at a Python you've since removed, the hooks find another by themselves. |
 | Hooks don't seem to run (Claude Code) | Restart Claude Code, then run `/hooks`. Make sure the plugin is switched on in `/plugin`. |
 | Sessions are missing, or labelled `unknown` | Look for `spendlens.db.err` next to the database (`~/.tokenomics/`). Errors go there, never on screen. |
 | *Everything* is labelled `unknown` | Your prompts didn't match any keywords. Add terms to the pattern lists in `tokenomics/engine/classifier.py`, or switch on the [AI classifier](reference.md#optional-let-an-ai-model-decide). |

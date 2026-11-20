@@ -1,5 +1,6 @@
 """The standalone scripts: coach, dashboard, handoff, statusbar, pennywise."""
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -351,3 +352,67 @@ class InstallerScriptTests(unittest.TestCase):
 
     def test_install_ps1_runs_cli_setup(self):
         self.assertIn("scripts\\cli.py') setup", (ROOT / "install.ps1").read_text())
+
+
+@unittest.skipIf(sys.platform == "win32", "needs a POSIX sh; Windows CI would run it through Git Bash")
+class RunLauncherTests(unittest.TestCase):
+    """scripts/run.sh: how every hook and skill finds Python, on any OS."""
+
+    def setUp(self):
+        self.t = TempEnv()
+        h = self.t.home
+        self.bin = h / "bin"
+        self.bin.mkdir()
+        self.pybin = h / "pybin"                                  # Pythons live here, on PATH or not
+        self.pybin.mkdir()
+        self.cache = h / ".tokenomics" / "python"
+        self.probe = h / "probe.py"
+        self.probe.write_text("import sys\nprint(sys.stdin.read().upper(), sys.argv[1:])\nsys.exit(3)\n")
+        (SCRIPTS / "_run_probe.py").write_text(self.probe.read_text())
+        self.addCleanup((SCRIPTS / "_run_probe.py").unlink)
+        for tool in ("dirname", "head", "tr", "mkdir"):          # what run.sh itself needs
+            (self.bin / tool).symlink_to(shutil.which(tool))
+
+    def tearDown(self):
+        self.t.cleanup()
+
+    def link(self, name):
+        (self.pybin / name).symlink_to(sys.executable)
+
+    def run_sh(self, python_on_path=True):
+        # Only bin/ (and pybin/) on PATH, so the only Pythons are the ones a test links in.
+        env = self.t.env(PATH=f"{self.bin}:{self.pybin}" if python_on_path else str(self.bin))
+        return subprocess.run(["/bin/sh", str(SCRIPTS / "run.sh"), "_run_probe.py", "a", "b c"], input="hi",
+                              capture_output=True, text=True, env=env, timeout=30)
+
+    def test_passes_stdin_args_and_exit_code_and_caches(self):
+        self.link("python")                                   # Windows-style: no python3
+        r = self.run_sh()
+        self.assertEqual(r.returncode, 3, r.stderr + r.stdout)
+        self.assertIn("HI ['a', 'b c']", r.stdout)
+        self.assertEqual(Path(self.cache.read_text().strip()).resolve(), Path(sys.executable).resolve())
+        self.assertEqual(self.run_sh(python_on_path=False).returncode, 3)   # only the cache can work
+
+    def test_stale_cache_falls_back_and_missing_python_never_blocks(self):
+        self.cache.parent.mkdir(parents=True)
+        self.cache.write_text("/nowhere/python.exe\n")
+        r = self.run_sh()
+        self.assertEqual(r.returncode, 0)                     # no Python at all: warn, don't block
+        self.assertIn("Python 3.8+ not found", r.stderr)
+        self.link("python3")
+        self.assertEqual(self.run_sh().returncode, 3)
+
+
+class HookLauncherWiringTests(unittest.TestCase):
+    def test_every_hook_and_skill_goes_through_the_launcher(self):
+        cc = json.loads((ROOT / "hooks" / "hooks.json").read_text())
+        cmds = [h["command"] for arms in cc["hooks"].values() for g in arms for h in g["hooks"]]
+        cp = json.loads((ROOT / "copilot-hooks.json").read_text())
+        cmds += [h["bash"] for arms in cp["hooks"].values() for h in arms]
+        for c in cmds:
+            self.assertRegex(c, r"^sh \S*run\.sh\"? \w+\.py", c)
+            self.assertTrue((SCRIPTS / c.split("run.sh")[1].replace('"', "").split()[0]).is_file(), c)
+        for h in (h for arms in cp["hooks"].values() for h in arms):
+            self.assertIn(".tokenomics/python", h["powershell"])
+        for skill in (ROOT / "skills").glob("*/SKILL.md"):
+            self.assertNotIn('python3 "${CLAUDE_PLUGIN_ROOT}', skill.read_text(), skill)

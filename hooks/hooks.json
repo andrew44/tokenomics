@@ -1,24 +1,24 @@
 {
   "hooks": {
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/spendlens.py\" prompt claude-code", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/pennywise.py\"", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/budget.py\" claude-code", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" spendlens.py prompt claude-code", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" pennywise.py", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" budget.py claude-code", "timeout": 10 } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Read|Bash", "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/diet.py\" claude-code", "timeout": 10 } ] }
+      { "matcher": "Read|Bash", "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" diet.py claude-code", "timeout": 10 } ] }
     ],
     "Stop": [
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/spendlens.py\" finalize claude-code", "timeout": 20 } ] },
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/handoff.py\" arm claude-code", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" spendlens.py finalize claude-code", "timeout": 20 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" handoff.py arm claude-code", "timeout": 10 } ] }
     ],
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/handoff.py\" start claude-code", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/statusbar.py\" --sync", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" handoff.py start claude-code", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" statusbar.py --sync", "timeout": 10 } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/spendlens.py\" finalize claude-code", "timeout": 20 } ] },
-      { "hooks": [ { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/handoff.py\" end claude-code", "timeout": 20 } ] }
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" spendlens.py finalize claude-code", "timeout": 20 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" handoff.py end claude-code", "timeout": 20 } ] }
     ]
   }
 }

@@ -57,6 +57,7 @@ tokenomics/
 ├── install.sh / install.ps1        one-line installers (download, then run scripts/cli.py setup)
 ├── scripts/
 │   ├── cli.py                      the `tokenomics` command: setup, update, uninstall, dashboard, report
+│   ├── run.sh                      launcher every hook and skill uses: finds a real Python 3.8+ on any OS
 │   ├── spendlens.py                the OPEX/CAPEX hook runner (calls the engine)
 │   ├── pennywise.py                model router (cheaper-model subagent)
 │   ├── handoff.py                  writes a resume note before the cache expires
@@ -78,7 +79,7 @@ tokenomics/
 
 1. Put shared logic in `tokenomics/engine/` so both assistants use it.
 2. Add a thin script in `scripts/` that reads the hook payload through the adapter.
-3. Register the hook in `hooks/hooks.json` (Claude Code) and, if Copilot can support it, `copilot-hooks.json`.
+3. Register the hook in `hooks/hooks.json` (Claude Code) and, if Copilot can support it, `copilot-hooks.json`. Always call it through the launcher (`sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" <name>.py ...`), never `python3` directly, or it breaks on Windows.
 4. Add a settings switch (`TOKENOMICS_<NAME>=off`) so people can opt out.
 5. Log what it did to a `<name>_events` table so the spend report can show it.
 6. Add tests, and document it in [the reference](reference.md) and [Skills, tools and hooks](skills-tools-and-hooks.md).
