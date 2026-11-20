@@ -1,80 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="840" height="230" viewBox="0 0 840 230" role="img" aria-label="tokenomics statusline: model, context usage, tokens, cost and prompt-cache countdown">
-<rect x="0.5" y="0.5" width="839" height="229" rx="14" fill="#1e1e2e" stroke="#313244"/>
-<rect x="0.5" y="0.5" width="839" height="40" rx="14" fill="#181825"/>
-<rect x="0.5" y="26" width="839" height="15" fill="#181825"/>
-<circle cx="24" cy="21" r="6" fill="#f38ba8"/><circle cx="44" cy="21" r="6" fill="#f9e2af"/><circle cx="64" cy="21" r="6" fill="#a6e3a1"/>
-<text x="420" y="26" text-anchor="middle" fill="#7f849c" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13">statusline · fresh → busy → time to wrap up</text>
-<text x="40" y="96" fill="#afd7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">◆ Sonnet 5.5</text>
-<rect x="190" y="81" width="1.5" height="19" fill="#45475a"/>
-<rect x="470" y="81" width="1.5" height="19" fill="#45475a"/>
-<rect x="600" y="81" width="1.5" height="19" fill="#45475a"/>
-<rect x="700" y="81" width="1.5" height="19" fill="#45475a"/>
-<text x="210" y="96" fill="#87afaf" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17">ctx</text>
-<rect x="252.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="252.0" y="83" width="8.6" height="15" rx="2" fill="#5fd787"/>
-<rect x="263.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="274.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="285.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="296.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="307.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="318.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="329.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="340.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="351.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="362.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="373.0" y="83" width="9" height="15" rx="2" fill="#313244"/>
-<text x="392" y="96" fill="#5fd787" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">8%</text>
-<text x="490" y="96" fill="#87afaf" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17">Σ</text>
-<text x="510" y="96" fill="#d7d7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">12.3K</text>
-<text x="620" y="96" fill="#d7d7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">£0.03</text>
-<text x="720" y="96" fill="#5fd787" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">⧗ 04:50</text>
-<text x="40" y="136" fill="#afd7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">◆ Sonnet 5.5</text>
-<rect x="190" y="121" width="1.5" height="19" fill="#45475a"/>
-<rect x="470" y="121" width="1.5" height="19" fill="#45475a"/>
-<rect x="600" y="121" width="1.5" height="19" fill="#45475a"/>
-<rect x="700" y="121" width="1.5" height="19" fill="#45475a"/>
-<text x="210" y="136" fill="#87afaf" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17">ctx</text>
-<rect x="252.0" y="123" width="9" height="15" rx="2" fill="#ffd75f"/>
-<rect x="263.0" y="123" width="9" height="15" rx="2" fill="#ffd75f"/>
-<rect x="274.0" y="123" width="9" height="15" rx="2" fill="#ffd75f"/>
-<rect x="285.0" y="123" width="9" height="15" rx="2" fill="#ffd75f"/>
-<rect x="296.0" y="123" width="9" height="15" rx="2" fill="#ffd75f"/>
-<rect x="307.0" y="123" width="9" height="15" rx="2" fill="#ffd75f"/>
-<rect x="318.0" y="123" width="9" height="15" rx="2" fill="#ffd75f"/>
-<rect x="329.0" y="123" width="9" height="15" rx="2" fill="#ffd75f"/>
-<rect x="340.0" y="123" width="9" height="15" rx="2" fill="#ffd75f"/>
-<rect x="351.0" y="123" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="351.0" y="123" width="1.1" height="15" rx="2" fill="#ffd75f"/>
-<rect x="362.0" y="123" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="373.0" y="123" width="9" height="15" rx="2" fill="#313244"/>
-<text x="392" y="136" fill="#ffd75f" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">76%</text>
-<text x="490" y="136" fill="#87afaf" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17">Σ</text>
-<text x="510" y="136" fill="#d7d7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">2.1M</text>
-<text x="620" y="136" fill="#d7d7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">£1.04</text>
-<text x="720" y="136" fill="#ffd75f" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">⧗ 02:00</text>
-<text x="40" y="176" fill="#afd7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">◆ Sonnet 5.5</text>
-<rect x="190" y="161" width="1.5" height="19" fill="#45475a"/>
-<rect x="470" y="161" width="1.5" height="19" fill="#45475a"/>
-<rect x="600" y="161" width="1.5" height="19" fill="#45475a"/>
-<rect x="700" y="161" width="1.5" height="19" fill="#45475a"/>
-<text x="210" y="176" fill="#87afaf" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17">ctx</text>
-<rect x="252.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="263.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="274.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="285.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="296.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="307.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="318.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="329.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="340.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="351.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="362.0" y="163" width="9" height="15" rx="2" fill="#ff8787"/>
-<rect x="373.0" y="163" width="9" height="15" rx="2" fill="#313244"/>
-<rect x="373.0" y="163" width="0.4" height="15" rx="2" fill="#ff8787"/>
-<text x="392" y="176" fill="#ff8787" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">92% ▲</text>
-<text x="490" y="176" fill="#87afaf" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17">Σ</text>
-<text x="510" y="176" fill="#d7d7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">8.5M</text>
-<text x="620" y="176" fill="#d7d7ff" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">£4.72</text>
-<text x="720" y="176" fill="#ff8787" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">⧗ 00:12</text>
-<text x="40" y="212" fill="#7f849c" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13">context fill  ·  total tokens  ·  cost in £ / $ / €  ·  prompt-cache countdown</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="230" viewBox="0 0 900 230" role="img" aria-label="tokenomics statusline: model, context usage, tokens, cost and prompt-cache countdown">
+<rect x="0.5" y="0.5" width="899" height="229" rx="14" fill="#16161e" stroke="#2a2b3a"/>
+<rect x="0.5" y="0.5" width="899" height="40" rx="14" fill="#11111a"/>
+<rect x="0.5" y="26" width="899" height="15" fill="#11111a"/>
+<circle cx="24" cy="21" r="6" fill="#ff6378"/><circle cx="44" cy="21" r="6" fill="#fac448"/><circle cx="64" cy="21" r="6" fill="#40d68c"/>
+<text x="450" y="26" text-anchor="middle" fill="#7c8298" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13">statusline · fresh → busy → time to wrap up</text>
+<rect x="40" y="79" width="122" height="24" rx="12" fill="#b4a0ff"/><text x="101" y="96" text-anchor="middle" fill="#161422" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">Sonnet 5.5</text><text x="178" y="96" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" xml:space="preserve"><tspan fill="#40d68c">━</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan> <tspan fill="#40d68c" font-weight="700">8%</tspan><tspan fill="#7c8298"> ctx</tspan><tspan fill="#4e5266">  ·  </tspan><tspan fill="#e0e4f0" font-weight="700">12.3K</tspan><tspan fill="#7c8298"> tok</tspan><tspan fill="#4e5266">  ·  </tspan><tspan fill="#e0e4f0" font-weight="700">£0.03</tspan></text><circle cx="733.8" cy="90" r="7" fill="none" stroke="#4cd587" stroke-width="1.5"/><path d="M733.8 90 L733.8 83 A7 7 0 1 1 732.34 83.15 Z" fill="#4cd587"/><text x="860" y="96" text-anchor="end" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" xml:space="preserve"><tspan fill="#4cd587" font-weight="700">04:50</tspan><tspan fill="#7c8298"> cache</tspan></text>
+<rect x="40" y="129" width="122" height="24" rx="12" fill="#b4a0ff"/><text x="101" y="146" text-anchor="middle" fill="#161422" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">Sonnet 5.5</text><text x="178" y="146" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" xml:space="preserve"><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#5fd381">━</tspan><tspan fill="#9dcd6a">━</tspan><tspan fill="#dbc753">━</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan><tspan fill="#3a3d4e">─</tspan> <tspan fill="#fabe4b" font-weight="700">76%</tspan><tspan fill="#7c8298"> ctx</tspan><tspan fill="#4e5266">  ·  </tspan><tspan fill="#e0e4f0" font-weight="700">2.1M</tspan><tspan fill="#7c8298"> tok</tspan><tspan fill="#4e5266">  ·  </tspan><tspan fill="#e0e4f0" font-weight="700">£1.04</tspan></text><circle cx="733.8" cy="140" r="7" fill="none" stroke="#fbb152" stroke-width="1.5"/><path d="M733.8 140 L733.8 133 A7 7 0 0 1 737.91 145.66 Z" fill="#fbb152"/><text x="860" y="146" text-anchor="end" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" xml:space="preserve"><tspan fill="#fbb152" font-weight="700">02:00</tspan><tspan fill="#7c8298"> cache</tspan></text>
+<rect x="40" y="179" width="122" height="24" rx="12" fill="#b4a0ff"/><text x="101" y="196" text-anchor="middle" fill="#161422" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" font-weight="700">Sonnet 5.5</text><text x="178" y="196" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" xml:space="preserve"><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#40d68c">━</tspan><tspan fill="#5fd381">━</tspan><tspan fill="#9dcd6a">━</tspan><tspan fill="#dbc753">━</tspan><tspan fill="#fba955">━</tspan><tspan fill="#fe7370">━</tspan><tspan fill="#3a3d4e">─</tspan> <tspan fill="#ff6378" font-weight="700">92%</tspan><tspan fill="#ff6378"> ctx ▲</tspan><tspan fill="#4e5266">  ·  </tspan><tspan fill="#e0e4f0" font-weight="700">8.5M</tspan><tspan fill="#7c8298"> tok</tspan><tspan fill="#4e5266">  ·  </tspan><tspan fill="#e0e4f0" font-weight="700">£4.72</tspan></text><circle cx="733.8" cy="190" r="7" fill="none" stroke="#ff6b74" stroke-width="1.5"/><path d="M733.8 190 L733.8 183 A7 7 0 0 1 735.54 183.22 Z" fill="#ff6b74"/><text x="860" y="196" text-anchor="end" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="17" xml:space="preserve"><tspan fill="#ff6b74" font-weight="700">00:12</tspan><tspan fill="#7c8298"> cache</tspan></text>
 </svg>

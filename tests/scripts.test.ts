@@ -258,7 +258,7 @@ describe('statusline', () => {
   test('a plain render', () => {
     const info = { model: 'Sonnet', total: 12_300, cost: 1.5, symbol: '£', estimated: true, pct: 50, ttl: 300, remaining: 90 }
     const line = statusline.render(info, new statusline.Style('dark', false, true), { ...statusline.DEFAULT_CFG })
-    assert.equal(line, '* Sonnet | ctx ######------ 50% | tok 12.3K | ~£1.50 | [# ] 01:30')
+    assert.equal(line, '* Sonnet | ######------ 50% ctx | 12.3K tok | ~£1.50 | [# ] 01:30 cache')
   })
 })
 

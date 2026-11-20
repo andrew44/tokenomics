@@ -309,10 +309,11 @@ Both show the same line, worked out by the same script (`scripts/statusline.ts`)
 
 | Part | What it tells you |
 |---|---|
-| `ctx ████▒▒ 76%` | How full the conversation is. The bar goes **green**, turns **yellow at 75%** and **red at 90%**. A `▲` appears from 90%. When it is nearly full, start a fresh conversation. |
-| `Σ 8.5M` | Total tokens used so far, in short form (`950`, `12.3K`, `8.5M`). |
+| `Sonnet 5.5` | The model, in a coloured pill. |
+| `━━━━━━━━━╸── 76% ctx` | How full the conversation is. The bar warms along its length: **green**, **amber from 75%**, **red from 90%**, where `ctx ▲` turns red too. When it is nearly full, start a fresh conversation. |
+| `8.5M tok` | Total tokens used so far, in short form (`950`, `12.3K`, `8.5M`). |
 | `£1.37` | What the session has cost, in your currency. A `~` in front (`~£1.37`) means it is an estimate. |
-| `⧗ 04:12` | A countdown to when the prompt cache expires. While it runs, repeated context is cheap. The egg timer starts **full (green)**, is **half-empty (amber)** at about half time and **empty (red)** when it is running out. `00:00` means the cache has gone cold, and `--:--` means nothing has been cached yet. |
+| `◕ 04:12 cache` | A countdown to when the prompt cache expires. While it runs, repeated context is cheap. The pie clock empties as it runs down (`● ◕ ◑ ◔`), fading from **green** through **amber** to **red**. `○ cache cold` means the cache has gone cold, and `--:--` means nothing has been cached yet. |
 
 ### Install the statusline
 
@@ -346,12 +347,12 @@ tokenomics statusline --status             # where is it installed, and is the b
 
 ### band
 
-The same line in the **Claude desktop app** (and the mobile app), in the **band above the prompt box**, with the same colours. The app doesn't draw the CLI's status line, so the plugin draws this row itself (`hooks/band.tsx`, a [mod](https://code.claude.com/docs/en/plugins/mods/interface)).
+The same figures in the **Claude desktop app** (and the mobile app), in the **band above the prompt box**, laid out as a strip of stats: each figure large, with a small caption under it, the context as a rounded bar with the statusline's green-to-red colours, and the cache countdown as a ring that runs down. Captions turn amber or red when something needs you (`context · compact soon`, `cache going cold`), in the app's own theme colours. The app doesn't draw the CLI's status line, so the plugin draws this row itself (`hooks/band.tsx`, a [mod](https://code.claude.com/docs/en/plugins/mods/interface)).
 
 - **On with the plugin.** It doesn't depend on the statusline: the band shows even if your terminal has another status line, or none.
 - **Exact.** It uses the same figures Claude Code gives the terminal's status line, so the cost has no `~`. The countdown ticks every second, and the numbers update as replies and tool results land.
 - **VS Code** has no band, so the line shows there as the plugin's status line above the prompt box.
-- **Where mods can't run** (an older Claude Code, or mods turned off), the desktop app and VS Code get the line as a short message after each reply instead, e.g. `◆ claude-opus-5-5 │ ctx ███████▋▒▒▒▒ 64% │ Σ 1.7M │ ~£0.81 │ ⧗ 04:58 (cold at 12:37)`. It's a snapshot, so the countdown also tells you the clock time the cache goes cold.
+- **Where mods can't run** (an older Claude Code, or mods turned off), the desktop app and VS Code get the line as a short message after each reply instead, e.g. `✦ Opus 5.5  ·  ━━━━━━━╸──── 64% ctx  ·  1.7M tok  ·  ~£0.81  ·  ● 04:58 cache (cold at 12:37)`. It's a snapshot, so the countdown also tells you the clock time the cache goes cold.
 
 ```text
 /tokenomics:statusline band off       # hide it (or: tokenomics statusline --band-off)

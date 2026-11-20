@@ -65,7 +65,7 @@ flowchart LR
     C["You reply after<br/>a long break"] --> D["Cache has gone cold<br/>Old conversation is paid<br/>for again in full"]
 ```
 
-That is what the egg timer in the **statusline** shows you, and why **doggybag** packs you a short note just before the cache runs out: starting fresh from a short note is cheaper than reloading a long, cold conversation.
+That is what the cache clock in the **statusline** shows you, and why **doggybag** packs you a short note just before the cache runs out: starting fresh from a short note is cheaper than reloading a long, cold conversation.
 
 ### What is a tokeniser?
 
