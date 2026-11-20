@@ -342,6 +342,9 @@ Nothing is installed from npm to *use* tokenomics: the plugin, the hooks and the
 |---|---|---|
 | 🚀 | [**Installation**](docs/installation.md) | Whole toolkit, individual pieces, desktop, web, Copilot, teams, troubleshooting |
 | 🧭 | [**Skills, tools and hooks**](docs/skills-tools-and-hooks.md) | What each helper does and when to reach for it |
+| 🌱 | [**What is generative AI?**](docs/what-is-generative-ai.md) | AI that makes new things, in plain English then in depth |
+| 🤖 | [**What is an LLM?**](docs/what-is-an-llm.md) | The language models behind Claude and Copilot, and why size matters for cost |
+| 🦾 | [**What is agentic AI?**](docs/what-is-agentic-ai.md) | AI that takes actions in a loop, and why agents spend tokens so fast |
 | 🎓 | [**How tokens work**](docs/how-tokens-work.md) | Input, output, the prompt cache and tokenisers, in plain English then in depth |
 | 💡 | [**Saving tokens**](docs/saving-tokens.md) | Practical habits for spending less, with worked examples |
 | 🛠️ | [**Helper reference**](docs/reference.md) | Every helper in full detail, plus querying your data |

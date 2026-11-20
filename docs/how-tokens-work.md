@@ -7,7 +7,7 @@ Every number tokenomics shows you (tokens used, cache countdown, cost in pounds)
 1. **[The simple version](#part-1-the-simple-version)**: no technical background needed. Five minutes.
 2. **[The technical version](#part-2-the-technical-version)**: how tokenisers, input, output and the prompt cache actually work, and how they show up in your bill.
 
-Read Part 1 and stop there if that is all you need.
+Read Part 1 and stop there if that is all you need. New to AI altogether? Start with [What is an LLM?](what-is-an-llm.md) and [What is agentic AI?](what-is-agentic-ai.md).
 
 ---
 
@@ -278,4 +278,4 @@ The same "short reply" costs roughly ten times more after the cache has gone col
 
 ---
 
-<p align="center"><a href="README.md">All docs</a> · <a href="saving-tokens.md">Saving tokens →</a></p>
+<p align="center"><a href="what-is-agentic-ai.md">← What is agentic AI?</a> · <a href="README.md">All docs</a> · <a href="saving-tokens.md">Saving tokens →</a></p>
