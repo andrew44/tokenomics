@@ -221,3 +221,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# tokenomics doggybags (session notes written into the project folder)
+.doggybag/

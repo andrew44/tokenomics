@@ -9,7 +9,7 @@
 
 Covers: spend in your currency (GBP, USD or EUR; token-billed platforms only) and how it splits OPEX / CAPEX, by
 project and by model; cache efficiency; the costliest sessions; and what the other helpers
-did: pennywise routing and suggestions, handoffs written, diet blocks, budget pauses.
+did: pennywise routing and suggestions, doggybags packed, diet blocks, budget pauses.
 Read-only (the database is opened with mode=ro). Stdlib only, Python 3.8+.
 """
 import argparse
@@ -133,7 +133,7 @@ def build(db_path, days=7, money=None):
                           "spend": round(spend[r["session_id"]] * rate, 2)} for r in top],
         "helpers": {
             "pennywise": pennywise,
-            "handoff": {"written": handoffs[0], "context_tokens": handoffs[1], "handoff_tokens": handoffs[2],
+            "doggybag": {"written": handoffs[0], "context_tokens": handoffs[1], "handoff_tokens": handoffs[2],
                         "tokens_avoided_if_used": max(0, handoffs[1] - handoffs[2])},
             "diet": [{"rule": r, "denied": n, "est_tokens": t} for r, n, t in diet],
             "budget": budget,
@@ -183,11 +183,14 @@ def markdown(r):
     h = r["helpers"]
     L += ["## What the helpers did", ""]
     pw = h["pennywise"]
+    proxied = pw.get("proxy-routed", 0)
     L.append(f"- pennywise: {pw.get('routed', 0)} prompts routed to a cheaper model, "
-             f"{pw.get('blocked', 0) + pw.get('warned', 0)} cheaper-model suggestions, "
+             f"{pw.get('routed-up', 0)} routed up to a stronger one, "
+             + (f"{proxied} turns routed by the proxy ({pw.get('proxy-fallback', 0)} fallbacks), " if proxied else "")
+             + f"{pw.get('blocked', 0) + pw.get('warned', 0)} cheaper-model suggestions, "
              f"{pw.get('overridden', 0)} overridden.")
-    ho = h["handoff"]
-    L.append(f"- handoff: {ho['written']} handoffs written; resuming from them instead of the full context "
+    ho = h["doggybag"]
+    L.append(f"- doggybag: {ho['written']} doggybags packed; carrying on from them instead of the full context "
              f"avoids up to {ho['tokens_avoided_if_used']:,} tokens of cache writes.")
     if h["diet"]:
         known = sum(d["est_tokens"] for d in h["diet"])

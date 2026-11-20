@@ -12,7 +12,7 @@ The full detail on every tokenomics helper: what it does, how it decides, and wh
 | 🪙 | **pennywise** | hook | [pennywise](#pennywise) |
 | 🥗 | **diet** | hook | [diet](#diet) |
 | 💳 | **budget** | hook | [budget](#budget) |
-| 🔖 | **handoff** | hook | [handoff](#handoff) |
+| 🥡 | **doggybag** | hook | [doggybag](#doggybag) |
 | 📟 | **statusbar** | tool | [statusbar](#statusbar) |
 | 📈 | **dashboard** | tool | [dashboard](#dashboard) |
 | 🗄️ | **your data** | | [Looking at your data](#looking-at-your-data) |
@@ -63,7 +63,7 @@ Say **"spend report"** (or "where did my tokens go this week?") and the skill ru
 - money spent (in your currency) and the OPEX/CAPEX split of that spend
 - top projects and models
 - the costliest sessions
-- what pennywise, handoff, diet and budget did
+- what pennywise, doggybag, diet and budget did
 - three suggestions tied to your own numbers
 
 Ask for any period: "this month", "today", "all time".
@@ -172,25 +172,60 @@ Tokens are counted once per message. Work done by sub-agents in separate transcr
 
 ## pennywise
 
-*Penny wise, pound foolish.* A `UserPromptSubmit` hook (`scripts/pennywise.py`) that routes each prompt to the cheapest model that can handle it, so a hello-world never runs on the priciest model.
+*Penny wise, pound foolish.* A model router (`scripts/pennywise.py`): every prompt gets a complexity score and goes to the model that suits it, so a hello-world never runs on the priciest model and an architecture question never gets stuck on the cheapest.
 
-It rates the prompt (small and self-contained, short and routine, or complex/unclear) and finds the session's model (hook payload, then transcript, `ANTHROPIC_MODEL`, `settings.json`). If a cheaper tier would cope, it routes the prompt there automatically:
+**How it scores.** Weighted signals, in the style of auto-routers such as LiteLLM's complexity router: prompt length, code blocks, simple-task phrases (*typo*, *rename*, *commit message*, *convert JSON*), technical terms, complex work (*refactor*, *debug*, *across the codebase*), reasoning words (*architecture*, *trade-offs*, *root cause*, *prove*, *security*), multi-step structure and stacked questions. The total lands in one of four tiers, each mapped to a model:
+
+| Tier | Default model | Typical prompt |
+|---|---|---|
+| `SIMPLE` | Haiku | "create a hello world console app", "fix the typo in README" |
+| `MEDIUM` | Sonnet | "add a /health endpoint to the flask api" |
+| `COMPLEX` | Opus | "refactor the auth module across all services" |
+| `REASONING` | Opus | "design the architecture for a distributed queue and compare the trade-offs" |
+
+See exactly why a prompt landed where it did:
 
 ```text
-pennywise: routing this small, self-contained task to Haiku instead of Opus.
-Prefix a prompt with 'keep-model:' to keep it on Opus.
+$ tokenomics router explain "create a hello world console app"
+tier:    SIMPLE  (score -0.25)
+model:   claude-haiku-5-5
+signals: short -0.1, simple-task -0.35, build-verb +0.2
 ```
 
-**How the routing works.** Claude Code doesn't let a hook switch the session's model; only `/model` can. So pennywise routes through the Agent tool's `model` parameter instead: it tells your session model to hand the prompt, word for word, to a subagent on the cheaper tier (`haiku` or `sonnet`) and relay the answer. The tool calls, file reads and output, which are most of a task's tokens, are billed at the cheaper tier. Your session model still reads the prompt and writes a short reply, so the saving is large on real tasks and small on one-line questions.
+Change the map with `TOKENOMICS_ROUTER_TIERS="SIMPLE=haiku,MEDIUM=sonnet,COMPLEX=opus,REASONING=fable"` or `~/.tokenomics/router.json` (`{"tiers": {...}, "thresholds": {"MEDIUM": 0.15, "COMPLEX": 0.5, "REASONING": 0.95}}`). Aliases resolve to the newest listed model of that family in `data/model-prices.json`; full model ids work too.
 
-- Complex or ambiguous prompts are **never** routed: they stay on your model.
-- Prompts already on the cheapest suitable tier, and slash commands, are left alone.
-- To keep one prompt on your model, start it with `keep-model:`.
-- If the request depends on the conversation in a way that can't be handed over in a few lines, the session model does it itself.
-- `TOKENOMICS_PENNYWISE=block` pauses instead of routing and suggests `/model haiku` (send the same prompt again to run it anyway). `warn` shows that suggestion without pausing. `off` disables pennywise.
-- Each decision (`routed`, `blocked`, `warned`, `overridden`) is logged to the `pennywise_events` table.
-- The checks are keyword-based; tune `SIMPLE` / `HARD` in the script.
-- Claude Code only: Copilot CLI ignores hook output on prompt submit.
+### Two ways to route
+
+**1. Hook (default, nothing to set up).** Claude Code doesn't let a hook switch the session's model, so pennywise has your session hand the prompt, word for word, to a subagent on the tier's model (the Agent tool's `model` parameter) and relay the answer. The tool calls, file reads and output, most of a task's tokens, are billed at that model.
+
+```text
+pennywise: routing down to Haiku (SIMPLE, score -0.25) instead of Opus.
+Start a prompt with 'keep-model:' to keep it on Opus.
+```
+
+It routes **down** to save money and **up** when a prompt is harder than your session's model (`TOKENOMICS_PENNYWISE_UP=off` to only ever route down). Because a subagent starts with a blank slate, the hook only hands over prompts that stand on their own: follow-ups like "yes, do it" or "fix that error" stay with your session.
+
+**2. Proxy (a true per-request router).** Run a local Anthropic-API proxy and point Claude Code at it; every new turn is scored and the request goes upstream on the chosen model, with the whole conversation, no subagent needed:
+
+```bash
+tokenomics router serve                       # http://127.0.0.1:8787 -> https://api.anthropic.com
+ANTHROPIC_BASE_URL=http://127.0.0.1:8787 ANTHROPIC_MODEL=pennywise claude
+```
+
+- **Only `pennywise` (or `auto`) is routed.** Requests for any other model pass through untouched, including Claude Code's own small background calls. `TOKENOMICS_ROUTER_MODELS="*"` routes every main-model request instead.
+- **Cache-aware.** Inside a tool loop the model never changes. A new turn can always move **up**; it only moves **down** when the prompt cache has gone cold or the context is small (`TOKENOMICS_ROUTER_STICKY_TOKENS`, default 20,000), because switching models means re-writing the context into the new model's cache.
+- **Fallback.** If a routed request fails (overloaded, rate-limited, model not found), it is retried once on the fallback model (`TOKENOMICS_ROUTER_FALLBACK`, default the `COMPLEX` tier).
+- Your API key or login passes straight through; the proxy listens on `127.0.0.1` only. `TOKENOMICS_ROUTER_UPSTREAM` points it at another Anthropic-compatible endpoint (a gateway, Bedrock/Vertex proxy).
+- While `ANTHROPIC_BASE_URL` points at the proxy, the hook steps aside so prompts aren't routed twice.
+
+### Overrides and settings
+
+- Start a prompt with `keep-model:` to keep it on your model, or `haiku:`, `sonnet:`, `opus:`, `fable:` to force one. Works in both modes.
+- Slash commands are never routed.
+- `TOKENOMICS_PENNYWISE=block` pauses a down-route instead and suggests `/model haiku` (send the same prompt again to run it anyway). `warn` shows that suggestion without pausing. `proxy` turns the hook off in favour of the proxy. `off` disables pennywise.
+- Each decision is logged to the `pennywise_events` table (`routed`, `routed-up`, `proxy-routed`, `proxy-fallback`, `blocked`, `warned`, `overridden`), and shows up in the spend report.
+- Signals and weights live in `SIGNALS` at the top of the script.
+- The hook is Claude Code only (Copilot CLI ignores hook output on prompt submit).
 
 ---
 
@@ -232,18 +267,29 @@ Spend is worked out from the token counts spendlens records at the end of each t
 
 ---
 
-## handoff
+## doggybag
 
-When the prompt cache goes cold, resuming the old session means paying to re-write the whole conversation into the cache again. **handoff** (`scripts/handoff.py`) writes a small digest first, so a fresh session can carry on from that instead.
+*Pack up the leftovers.* When the prompt cache goes cold, carrying on in the old session means paying to re-write the whole conversation into the cache again. **doggybag** (`scripts/doggybag.py`) packs a small digest first, so you can carry on from that instead.
 
-**How it times it.** Hooks cannot run on a timer, so on every `Stop` (Claude Code) or `userPromptSubmitted` (Copilot) it starts a small background watcher. The watcher reads the cache clock from the transcript (5 minutes, or 1 hour if the session uses the 1-hour cache), and writes the file 60 seconds before expiry. If you carry on working, the clock moves and the watcher simply waits for the new deadline. `SessionEnd` stops the watcher and writes a handoff if there is not already a current one.
+**Where it goes.** Into the project: `<project>/.doggybag/<session id>.md`, plus `.doggybag/latest.md` (always the newest). The folder carries its own `.gitignore` (`*`), so it is never committed whatever your repo's rules are. The newest 10 per project are kept. Set `TOKENOMICS_DOGGYBAG_DIR` to an absolute path to keep them all in one place instead.
 
-**What's in the note.** The file lands in `~/.tokenomics/handoffs/<session id>.md`: git branch and changes, tasks, your last few requests, the last reply, files edited, recent commands, an estimate of what a full resume would cost against the size of the note, and how to resume. It is built from the transcript by plain code; **no model is called, so it costs no tokens**.
+**How it times it.** Hooks cannot run on a timer, so on every `Stop` (Claude Code) or `userPromptSubmitted` (Copilot) it starts a small background watcher. The watcher reads the cache clock from the transcript (5 minutes, or 1 hour if the session uses the 1-hour cache) and packs the doggybag 60 seconds before expiry. If you carry on working, the clock moves and the watcher waits for the new deadline. `SessionEnd` stops the watcher and packs one if there is not already a current one.
 
-**To resume cheaply**, start a new session in the same folder and say `Continue from @<that file>`. A `SessionStart` hook tells you when a handoff from the last 24 hours exists for the folder (set `TOKENOMICS_HANDOFF_INJECT=1` to load it automatically instead).
+**Ready on your next prompt.** Come back after the cache has expired and type your next prompt: the `UserPromptSubmit` hook makes sure the doggybag is packed (even if the watcher died with a sleeping laptop) and tells you what the cold prompt will cost:
 
-- `python3 scripts/handoff.py write` makes one on demand.
-- Each one is logged to the `handoff_events` table.
+```text
+doggybag: the prompt cache went cold 42 min ago, so this prompt re-writes about 180,000 tokens (about £0.71).
+Cheaper: /clear and your doggybag (1,450 tokens, .doggybag/latest.md) loads automatically.
+```
+
+Type `/clear` (or start a new session in the folder) and the `SessionStart` hook loads the latest doggybag into the conversation for you; nothing to paste. `TOKENOMICS_DOGGYBAG_COLD=block` pauses that first cold prompt once (send it again to carry on anyway); `off` stays quiet. Small sessions (under 20,000 tokens of context) are never interrupted.
+
+**What's in it.** Git branch and changes, tasks, your last few requests, the last reply, files edited, recent commands, an estimate of a full resume against the size of the note, and how to carry on. It is built from the transcript by plain code; **no model is called, so it costs no tokens**.
+
+- `tokenomics doggybag` (or `python3 scripts/doggybag.py write`) packs one on demand for the folder's latest session.
+- `TOKENOMICS_DOGGYBAG_INJECT=0` only tells you a doggybag exists instead of loading it.
+- Each one is logged to the `handoff_events` table (the old name, kept so your history carries over).
+- The old `TOKENOMICS_HANDOFF_*` settings still work.
 - Copilot CLI support is best effort: its hook payload and transcript format are less documented, so the digest may be thinner.
 
 ---

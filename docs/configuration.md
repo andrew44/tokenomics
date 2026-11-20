@@ -24,7 +24,8 @@ Settings are environment variables. Set them in your shell profile, or in Claude
 
 | Setting | Default | What it does |
 |---|---|---|
-| `TOKENOMICS_PENNYWISE` | `route` | `route` (hand simple prompts to a cheaper-model subagent), `block` (pause and suggest `/model`), `warn` (notice only) or `off`. |
+| `TOKENOMICS_PENNYWISE` | `route` | `route` (hand each prompt to a subagent on the model its tier needs), `block` (pause and suggest `/model`), `warn` (notice only), `proxy` (leave routing to `tokenomics router serve`) or `off`. |
+| `TOKENOMICS_PENNYWISE_UP` | `on` | `off` stops the hook routing prompts *up* to a stronger model; it then only routes down. |
 | `TOKENOMICS_DIET` | `block` | `block`, `warn` (notice only, never stops a call) or `off` for diet. |
 | `TOKENOMICS_DIET_MAX_KB` | `64` | diet never blocks a file smaller than this. |
 | `TOKENOMICS_BUDGET_DAILY` | none | Daily spending limit in your currency, e.g. `20`. No limit = budget does nothing. |
@@ -32,14 +33,31 @@ Settings are environment variables. Set them in your shell profile, or in Claude
 | `TOKENOMICS_BUDGET_WARN` | `80` | Percent of a limit at which budget shows a notice. |
 | `TOKENOMICS_BUDGET_MODE` | `block` | `block`, `warn` (notices only) or `off`. |
 
-### handoff
+### pennywise router
 
 | Setting | Default | What it does |
 |---|---|---|
-| `TOKENOMICS_HANDOFF` | `on` | `off` stops handoff from writing or watching. |
-| `TOKENOMICS_HANDOFF_LEAD` | `60` | Seconds before the cache expires to write the handoff. |
-| `TOKENOMICS_HANDOFF_DIR` | `~/.tokenomics/handoffs` | Where handoff files go. The newest 30 are kept (`TOKENOMICS_HANDOFF_KEEP`). |
-| `TOKENOMICS_HANDOFF_INJECT` | off | Set to `1` to load the latest handoff into a new session automatically. |
+| `TOKENOMICS_ROUTER_TIERS` | `SIMPLE=haiku,MEDIUM=sonnet,COMPLEX=opus,REASONING=opus` | Which model each tier goes to. Aliases or full model ids. Also `"tiers"` in `~/.tokenomics/router.json`. |
+| `TOKENOMICS_ROUTER_PORT` | `8787` | Port for `tokenomics router serve`. |
+| `TOKENOMICS_ROUTER_UPSTREAM` | `https://api.anthropic.com` | Where the proxy forwards requests. |
+| `TOKENOMICS_ROUTER_MODELS` | `pennywise,auto` | Request model names the proxy routes; `*` routes every main-model request. |
+| `TOKENOMICS_ROUTER_FALLBACK` | the `COMPLEX` model | Model a failed routed request is retried on. |
+| `TOKENOMICS_ROUTER_STICKY_TOKENS` | `20000` | Above this context, the proxy won't move down to a cheaper model while the cache is warm. |
+
+Score thresholds go in `~/.tokenomics/router.json` as `"thresholds": {"MEDIUM": 0.15, "COMPLEX": 0.5, "REASONING": 0.95}`.
+
+### doggybag
+
+| Setting | Default | What it does |
+|---|---|---|
+| `TOKENOMICS_DOGGYBAG` | `on` | `off` stops doggybag from packing or watching. |
+| `TOKENOMICS_DOGGYBAG_LEAD` | `60` | Seconds before the cache expires to pack the doggybag. |
+| `TOKENOMICS_DOGGYBAG_DIR` | `.doggybag` | Folder inside the project. An absolute path keeps every project's doggybags there instead. The newest 10 are kept (`TOKENOMICS_DOGGYBAG_KEEP`). |
+| `TOKENOMICS_DOGGYBAG_INJECT` | `1` | A new session or `/clear` loads the folder's latest doggybag. `0` only tells you it exists. |
+| `TOKENOMICS_DOGGYBAG_COLD` | `warn` | On the first prompt after the cache went cold: `warn`, `block` (pause once) or `off`. |
+| `TOKENOMICS_DOGGYBAG_COLD_MIN_TOKENS` | `20000` | Stay quiet about cold prompts in sessions smaller than this. |
+
+The older `TOKENOMICS_HANDOFF_*` names still work.
 
 ### spendlens and data
 
@@ -81,7 +99,7 @@ python3 ~/.tokenomics/statusbar.py --set-currency USD     # or EUR, or GBP
 export TOKENOMICS_CURRENCY=EUR                            # or set it per shell / in Claude Code's "env"
 ```
 
-The choice is saved as `"currency"` in `~/.tokenomics/statusbar.json`, and the status bar, budget, spend report and handoff notes all use it (`$`, `€` and `£` work too, e.g. `--set-currency €`). `TOKENOMICS_CURRENCY` wins over the saved choice, and `--currency USD` on a single status bar or report run wins over both.
+The choice is saved as `"currency"` in `~/.tokenomics/statusbar.json`, and the status bar, budget, spend report and doggybags all use it (`$`, `€` and `£` work too, e.g. `--set-currency €`). `TOKENOMICS_CURRENCY` wins over the saved choice, and `--currency USD` on a single status bar or report run wins over both.
 
 Prices are in dollars, so dollars need no conversion; pounds and euros are converted at 0.76 and 0.86 per dollar unless you set the rate. Run `python3 ~/.tokenomics/statusbar.py --update-rate` to fetch today's rates, or set `"usd_gbp"` / `"usd_eur"` in the same file (or `TOKENOMICS_USD_GBP` / `TOKENOMICS_USD_EUR`).
 

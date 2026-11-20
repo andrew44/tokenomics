@@ -40,7 +40,7 @@ The AI has no memory between messages: **the whole conversation is sent again ev
 
 - **Start a new conversation when you change task.** Fixing a bug and then "while you're here, can you also look at the login page" drags the whole bug-fix history into the login work. In Claude Code, `/clear` starts afresh.
 - **Avoid side quests.** A quick unrelated question mid-task ("what's the syntax for X again?") gets re-sent for the rest of the session. Ask it in a separate window.
-- **Summarise and restart long sessions.** If a session has grown huge but you're not finished, compact it (`/compact` in Claude Code) or let **handoff** write a short note and continue from that in a new session.
+- **Summarise and restart long sessions.** If a session has grown huge but you're not finished, compact it (`/compact` in Claude Code) or let **doggybag** pack a short note and `/clear` to continue from it.
 - **Watch the fuel gauge.** The tokenomics **statusbar** shows how full the conversation is. When it is past halfway, consider wrapping up or restarting.
 
 ---
@@ -105,7 +105,7 @@ The prompt cache lets the AI re-read recent conversation at roughly a tenth of t
 **Tips**
 
 - **Keep momentum on big sessions.** Each reply within the cache window keeps it warm. The **statusbar** egg timer shows how long you've got.
-- **Stop cleanly instead of drifting off.** Coming back to a large, cold session means paying to load the whole thing again. Let **handoff** write a short note before the cache runs out and start fresh from that.
+- **Stop cleanly instead of drifting off.** Coming back to a large, cold session means paying to load the whole thing again. Let **doggybag** pack a short note before the cache runs out, then `/clear` and carry on from it.
 - **Don't switch models mid-session.** Each model has its own cache, so switching starts cold. If you want a different model for a different job, do it in a new session.
 - **Don't change the start of the conversation.** Editing the instructions file (for example `CLAUDE.md`) or adding tools mid-session changes the beginning of the prompt, and everything after it misses the cache. Make those changes between sessions.
 
@@ -201,7 +201,7 @@ Habits are easier to change when you can see the effect.
 | Pasting a 5,000-line log | `grep` / `tail` first, or have a small model summarise it |
 | "Summarise this" | "Find X and quote it exactly" |
 | "Rewrite the file with the fix" | "Show only the changed lines" |
-| Coming back to a cold, huge session | Starting fresh from a handoff note |
+| Coming back to a cold, huge session | `/clear` and carry on from the doggybag |
 | Switching models halfway through | Switching between sessions |
 | Retrying a cheap model for the fourth time | A fresh session on a stronger model with a short summary |
 | "Fix the bug" | The exact error, the command, and what "done" looks like |

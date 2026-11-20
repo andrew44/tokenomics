@@ -25,9 +25,9 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 | See OPEX vs CAPEX and usage trends as charts | [dashboard](#dashboard) | Tool |
 | Check where I am against my spending limit | [budget status](#budget-1) | Tool |
 | Stop myself overspending | [budget](#budget) | Hook |
-| Stop using the priciest model for trivial prompts | [pennywise](#pennywise) | Hook |
+| Send each prompt to the right model (cheap for trivial, strong for hard) | [pennywise](#pennywise) | Hook (or the [router proxy](#tokenomics-router)) |
 | Stop the AI pulling huge files or logs into the conversation | [diet](#diet) | Hook |
-| Pick up tomorrow where I left off, cheaply | [handoff](#handoff) | Hook (plus `handoff.py write`) |
+| Pick up after a break where I left off, cheaply | [doggybag](#doggybag) | Hook (plus `tokenomics doggybag`) |
 | Know how much AI time went on building vs running things | [spendlens](#spendlens) + [dashboard](#dashboard) / [spend-report](#spend-report) | Hook + Tool / Skill |
 | Get raw numbers for a script or spreadsheet | [coach.py --json](#coachpy), [report.py --json](#reportpy), or [sqlite3](reference.md#looking-at-your-data) | Tool |
 | Refresh model prices | [update_prices.py](#update_pricespy) | Tool |
@@ -38,7 +38,7 @@ flowchart TD
     Q -->|"A summary of spend over time"| SR["spend-report<br/>(skill)"]
     Q -->|"A live view while I work"| SB["statusbar<br/>(tool)"]
     Q -->|"Charts"| DB["dashboard<br/>(tool)"]
-    Q -->|"Guard rails that act on their own"| H["Hooks:<br/>pennywise, diet, budget, handoff"]
+    Q -->|"Guard rails that act on their own"| H["Hooks:<br/>pennywise, diet, budget, doggybag"]
     Q -->|"Data collected in the background"| SL["spendlens<br/>(hook)"]
 ```
 
@@ -65,7 +65,7 @@ Skills are instructions the assistant follows when you ask. They only run when y
 
 ### spend-report
 
-**What it does.** Turns the spendlens database into a short report for a period (default the last 7 days): money spent in your currency, the OPEX/CAPEX split, top projects and models, the costliest sessions, what pennywise, handoff, diet and budget did, and three ways to spend less tied to your own numbers.
+**What it does.** Turns the spendlens database into a short report for a period (default the last 7 days): money spent in your currency, the OPEX/CAPEX split, top projects and models, the costliest sessions, what pennywise, doggybag, diet and budget did, and three ways to spend less tied to your own numbers.
 
 **Reach for it when:**
 
@@ -88,12 +88,12 @@ Where each hook fires:
 
 | Moment | Claude Code event | Copilot CLI event | Hooks |
 |--------|-------------------|-------------------|-------|
-| Session starts | `SessionStart` | (none) | handoff |
-| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, handoff (Copilot) |
+| Session starts (or `/clear`) | `SessionStart` | (none) | doggybag |
+| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, doggybag |
 | A tool is about to run | `PreToolUse` (`Read`, `Bash`) | `preToolUse` | diet |
 | A tool has run | (none) | `postToolUse` | spendlens |
-| The assistant finishes a turn | `Stop` | (none) | spendlens, handoff |
-| Session ends | `SessionEnd` | `sessionEnd` | spendlens, handoff |
+| The assistant finishes a turn | `Stop` | (none) | spendlens, doggybag |
+| Session ends | `SessionEnd` | `sessionEnd` | spendlens, doggybag |
 
 \* Claude Code only: Copilot ignores prompt-hook output, so it can't pause a prompt.
 
@@ -103,13 +103,13 @@ sequenceDiagram
     participant Hooks
     participant AI as Assistant
     You->>Hooks: send prompt
-    Note over Hooks: spendlens scores it<br/>pennywise: route to cheaper model?<br/>budget: over limit?
+    Note over Hooks: spendlens scores it<br/>pennywise: which model suits it?<br/>budget: over limit?
     Hooks->>AI: prompt (unless paused)
     AI->>Hooks: wants to Read / run Bash
     Note over Hooks: diet: will this flood the context?
     Hooks->>AI: allowed, or "ask for less"
     AI->>You: reply (turn ends)
-    Note over Hooks: spendlens records tokens<br/>handoff arms its watcher
+    Note over Hooks: spendlens records tokens<br/>doggybag arms its watcher
 ```
 
 ### spendlens
@@ -126,11 +126,11 @@ sequenceDiagram
 
 ### pennywise
 
-**What it does.** A model router. Rates each prompt (small and self-contained, short and routine, or complex/unclear) against the model you're on. If a cheaper tier would cope, it routes the prompt to a subagent on that tier (say, Haiku) automatically. Complex or ambiguous prompts stay on your model.
+**What it does.** A model router. Scores each prompt from weighted signals (length, code, simple-task phrases, technical terms, complex work, reasoning words, multi-step structure) into one of four tiers, `SIMPLE` → Haiku, `MEDIUM` → Sonnet, `COMPLEX` → Opus, `REASONING` → Opus (you choose the map). As a hook it hands the prompt to a subagent on that model, routing down to save money and up when your model is out of its depth. As a local proxy (`tokenomics router serve`) it rewrites the model of every request, cache-aware, with fallback.
 
-**Reach for it (keep it on) when:** you tend to leave a top-tier model selected all day, or a team is new to choosing models. Set it to `block` if you'd rather be asked to switch with `/model`, or `off` if you always pick models deliberately.
+**Reach for it (keep it on) when:** you tend to leave one model selected all day, or a team is new to choosing models. Run the proxy when you want every turn routed with full context rather than handed to a subagent. Set it to `block` if you'd rather be asked to switch with `/model`, or `off` if you always pick models deliberately.
 
-**To keep a prompt on your model:** start it with `keep-model:`. Claude Code only. Details: [Using pennywise](reference.md#pennywise).
+**To steer one prompt:** start it with `keep-model:`, or `haiku:` / `sonnet:` / `opus:` / `fable:` to force a model. Curious why a prompt went where it did? `tokenomics router explain "<prompt>"`. Claude Code only. Details: [Using pennywise](reference.md#pennywise).
 
 ### diet
 
@@ -148,13 +148,13 @@ sequenceDiagram
 
 **When it pauses you:** send the same prompt again, or start it with `over-budget:`; you won't be paused again for that limit that day. Use `TOKENOMICS_BUDGET_MODE=warn` for notices only. Claude Code only (Copilot bills premium requests, which hooks can't see). Details: [Using budget](reference.md#budget).
 
-### handoff
+### doggybag
 
-**What it does.** Just before the prompt cache expires, writes a short "where we got to" note to `~/.tokenomics/handoffs/<session id>.md`: branch and changes, tasks, your last requests, files edited, recent commands, and how to resume. No model is called, so it costs nothing. On the next session start in the same folder, it tells you a recent handoff exists.
+**What it does.** Just before the prompt cache expires, packs a short "where we got to" note into your project at `.doggybag/latest.md` (the folder ignores itself in git): branch and changes, tasks, your last requests, files edited, recent commands, and how to carry on. No model is called, so it costs nothing. If you come back after the cache went cold, your next prompt makes sure it's packed and tells you what carrying on cold would cost; `/clear` (or a new session in the folder) loads it automatically.
 
-**Reach for it when:** you step away from a session for more than a few minutes and plan to come back. Instead of resuming the old session (which re-writes the whole conversation into the cache), start fresh and say `Continue from @<that file>`. Set `TOKENOMICS_HANDOFF_INJECT=1` to have it loaded automatically. Need one now? `python3 scripts/handoff.py write`.
+**Reach for it when:** you step away from a session for more than a few minutes and plan to come back. Instead of carrying on in the cold session (which re-writes the whole conversation into the cache), type `/clear` and keep going. Need one now? `tokenomics doggybag`.
 
-**Turn it off** (`TOKENOMICS_HANDOFF=off`) if you never resume work across breaks. Copilot support is best effort. Details: [Using handoff](reference.md#handoff).
+**Turn it off** (`TOKENOMICS_DOGGYBAG=off`) if you never resume work across breaks. Copilot support is best effort. Details: [Using doggybag](reference.md#doggybag).
 
 ---
 
@@ -166,7 +166,7 @@ Scripts you run yourself. All need only Python 3.8+ and live in `scripts/`. Run 
 
 `scripts/statusbar.py`: a live line at the bottom of Claude Code or Copilot CLI showing model, context fill, total tokens, cost and the cache countdown.
 
-**Reach for it when:** you want to *see* cost as you go rather than find out afterwards. It's the best everyday early warning: start a fresh conversation when the context bar goes red, and finish your thought (or let handoff write a note) before the cache timer runs out.
+**Reach for it when:** you want to *see* cost as you go rather than find out afterwards. It's the best everyday early warning: start a fresh conversation when the context bar goes red, and finish your thought (or let doggybag pack a note) before the cache timer runs out.
 
 | Command | Use it to |
 |---------|-----------|
@@ -219,9 +219,13 @@ python3 scripts/coach.py --session <id> --json
 python3 scripts/coach.py --transcript path/to/file.jsonl
 ```
 
-### handoff.py write
+### tokenomics router
 
-`python3 scripts/handoff.py write` writes a handoff note on demand. **Reach for it** when you're about to stop and want the note now rather than waiting for the cache timer.
+`tokenomics router serve` runs pennywise as a local routing proxy; `tokenomics router explain "<prompt>"` shows the tier, score and signals for a prompt. **Reach for it** when you want every request routed with full context, or to tune the tiers.
+
+### tokenomics doggybag
+
+`tokenomics doggybag` (or `python3 scripts/doggybag.py write`) packs a doggybag on demand. **Reach for it** when you're about to stop and want the note now rather than waiting for the cache timer.
 
 ### spendlens.py capabilities
 
@@ -242,7 +246,7 @@ python3 scripts/update_prices.py --check    # exit 1 if out of date
 
 ## A sensible setup
 
-- **Everyone:** install the plugin (spendlens, diet, handoff and pennywise run by default) and the [statusbar](#statusbar).
+- **Everyone:** install the plugin (spendlens, diet, doggybag and pennywise run by default) and the [statusbar](#statusbar).
 - **Paying personally or on an allowance:** also set a [budget](#budget).
 - **Weekly:** ask for a [spend-report](#spend-report).
 - **After any session that surprised you:** ask the [coach](#coach).

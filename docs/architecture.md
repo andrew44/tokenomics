@@ -20,7 +20,7 @@ flowchart LR
 - **Billing stays separate**: Claude Code tokens are priced (`engine/pricing.py`); Copilot premium requests are never turned into tokens or money.
 - **Guards share the engine too**: diet's rules (`engine/diet.py`) and budget's limits (`engine/budget.py`) are written once; each adapter says how to deny a tool call, block a prompt or show a notice on its platform (or that it can't).
 
-The older tools (status bar, pennywise, handoff, coach) are still standalone scripts; the status bar must stay a single file because `--install` copies it to `~/.tokenomics/` (and the plugin's `statusbar.py --sync` SessionStart hook refreshes that copy after each plugin update).
+The older tools (status bar, pennywise, doggybag, coach) are still standalone scripts; the status bar must stay a single file because `--install` copies it to `~/.tokenomics/` (and the plugin's `statusbar.py --sync` SessionStart hook refreshes that copy after each plugin update).
 
 ## Handy commands
 
@@ -59,8 +59,8 @@ tokenomics/
 │   ├── cli.py                      the `tokenomics` command: setup, update, uninstall, dashboard, report
 │   ├── run.sh                      launcher every hook and skill uses: finds a real Python 3.8+ on any OS
 │   ├── spendlens.py                the OPEX/CAPEX hook runner (calls the engine)
-│   ├── pennywise.py                model router (cheaper-model subagent)
-│   ├── handoff.py                  writes a resume note before the cache expires
+│   ├── pennywise.py                model router: complexity tiers; hook (subagent) or local proxy
+│   ├── doggybag.py                 packs a resume note into <project>/.doggybag before the cache expires
 │   ├── diet.py                     stops tool calls that would flood the context
 │   ├── budget.py                   daily / per-session spending limits
 │   ├── report.py                   spend report (used by the spend-report skill)
