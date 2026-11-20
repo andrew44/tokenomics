@@ -279,6 +279,16 @@ What works on Copilot:
 | Update or remove skills installed with `npx` | `npx skills update` or `npx skills remove coach`. `npx skills list` shows what's installed. |
 | Install for a whole team | See [For a team](#for-a-team). |
 
+### Update isn't showing up
+
+Claude Code only offers an update when its copy of the marketplace listing is fresh, so after a release the **Update now** button can stay greyed out. To force an upgrade:
+
+1. **Refresh the marketplace.** `/plugin` → **Marketplaces** → **tokenomics** → update the marketplace. In a shell: `claude plugin marketplace update tokenomics`.
+2. **Update the plugin.** `/plugin` → **Installed** → **tokenomics** → **Update now**. In a shell: `claude plugin update tokenomics@tokenomics`. Used the one-liner? `tokenomics update` does both steps.
+3. **Restart Claude Code** (or start a new session) so the new version loads.
+
+Still on the old version? Check which version is installed in `/plugin` → **Installed**, or with `claude plugin list`, and compare it with the [latest release](https://github.com/andrew44/tokenomics/releases). If they still differ, [open an issue](https://github.com/andrew44/tokenomics/issues).
+
 ---
 
 ## Other ways to install (for developers)
