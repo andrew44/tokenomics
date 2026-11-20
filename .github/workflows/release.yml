@@ -1,0 +1,87 @@
+name: release
+
+# Every update to main becomes a GitHub release (vX.Y.Z), once the tests pass.
+#
+# Version: a patch bump from the last release, written into both plugin manifests and committed
+# to main, because Claude Code only sends plugin users an update when the version changes. For a
+# minor or major release, raise "version" in .claude-plugin/plugin.json and plugin.json yourself;
+# that version is released as it is. Logic: .github/scripts/next_version.py.
+
+on:
+  push:
+    branches: [main]
+  # Commits pushed by other workflows (the weekly price update) don't trigger `push`.
+  workflow_run:
+    workflows: ["Update model prices"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release                # one at a time, in order; never cancel a release half-way
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        working-directory: tests
+        run: python -m unittest
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0          # all tags and history, to find the last release
+
+      - name: Work out the version
+        id: v
+        run: python3 .github/scripts/next_version.py | tee -a "$GITHUB_OUTPUT"
+
+      - name: Nothing new since the last release
+        if: steps.v.outputs.release != 'true'
+        run: echo "main has no changes since ${{ steps.v.outputs.previous }}; no release."
+
+      - name: Bump the plugin version on main
+        if: steps.v.outputs.release == 'true' && steps.v.outputs.bump == 'true'
+        run: |
+          python3 .github/scripts/next_version.py --write "${{ steps.v.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Release ${{ steps.v.outputs.tag }}"
+          for i in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main     # someone merged meanwhile: go on top of it
+          done
+          echo "Couldn't push the version bump to main (is the branch protected?)."
+          exit 1
+
+      - name: Publish the release
+        if: steps.v.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prev="${{ steps.v.outputs.previous }}"
+          gh release create "${{ steps.v.outputs.tag }}" \
+            --target "$(git rev-parse HEAD)" \
+            --title "tokenomics ${{ steps.v.outputs.tag }}" \
+            --generate-notes ${prev:+--notes-start-tag "$prev"} \
+            install.sh install.ps1
+          {
+            echo "### Released ${{ steps.v.outputs.tag }}"
+            echo "Claude Code users get it from \`/plugin\` (or automatically, with auto-update on)."
+          } >> "$GITHUB_STEP_SUMMARY"
