@@ -15,7 +15,9 @@
  * below zero: a false economy.
  *
  *   tastetest.ts --a <session-id | transcript.jsonl> --b <...> [--a-dir PATH --b-dir PATH]
- *                [--check "npm test"]... [--tolerance 2] [--save LABEL] [--json]
+ *                [--check "npm test"]... [--tolerance 2] [--save LABEL] [--json] [--gate]
+ *   tastetest.ts ... --gate             quality gate: exit 1 when the optimised run lost quality
+ *                                       (false economy, cheaper but worse, worse): use it in CI
  *   tastetest.ts history [--json]       earlier taste tests saved with --save
  *
  * Typical A/B: two git worktrees, the same prompt, one run each way:
@@ -285,7 +287,14 @@ export function main(args: string[]): number {
   const label = argValue(args, '--save')
   if (label) save(label, r)
   process.stdout.write((args.includes('--json') ? JSON.stringify(r, null, 2) : markdown(r)) + '\n')
+  if (args.includes('--gate') && GATE_FAILS.has(r.verdict)) {
+    process.stderr.write(`tastetest quality gate: ${r.verdict}. The cheaper run lost quality; don't adopt it.\n`)
+    return 1
+  }
   return 0
 }
+
+/** Verdicts the quality gate (--gate) fails on: the saving cost quality. */
+export const GATE_FAILS = new Set(['false-economy', 'cheaper-but-worse', 'worse'])
 
 if (isMain(import.meta.url)) process.exitCode = main(process.argv.slice(2))

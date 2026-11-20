@@ -9,6 +9,10 @@ import { prompt, sessionEvidence, type SessionEvidence, type ToolCall } from '..
 import { anonSessionId, first, isObj, type Obj } from '../util.ts'
 import { ALL_CAPABILITIES, available, BILLING_UNKNOWN, Capability, Level, NONE, support, type Support } from './capabilities.ts'
 
+/** The shared lifecycle every platform's hook events are translated into (TelemetryEngine's event types). */
+export const LIFECYCLE = ['session_start', 'prompt', 'tool_call', 'tool_result', 'turn_end', 'session_end'] as const
+export type LifecycleEvent = typeof LIFECYCLE[number]
+
 export class PlatformAdapter {
   name = 'generic'
   billingModel: string = BILLING_UNKNOWN
@@ -37,6 +41,24 @@ export class PlatformAdapter {
   /** Normalised event: 'prompt', 'tool', 'turn_end' or 'session_end'. */
   event(_payload: Obj, mode: string): string {
     return mode === 'prompt' || mode === 'tool' ? mode : 'session_end'
+  }
+
+  /** Which shared lifecycle event this hook payload is. Platforms override this with their own event names;
+   *  the default goes by the hook runner's mode. */
+  lifecycle(_payload: Obj, mode: string): LifecycleEvent {
+    if (mode === 'prompt') return 'prompt'
+    if (mode === 'tool') return 'tool_result'
+    if (mode === 'pre-tool' || mode === 'guard') return 'tool_call'
+    if (mode === 'start') return 'session_start'
+    return 'session_end'
+  }
+
+  /** Did a finished tool call succeed? null when the platform doesn't say. */
+  toolOk(payload: Obj): boolean | null {
+    const r = payload.tool_response ?? payload.toolResponse
+    if (isObj(r) && typeof r.success === 'boolean') return r.success
+    if (isObj(r) && (r.is_error === true || r.isError === true)) return false
+    return null
   }
 
   baseEvidence(payload: Obj, mode: string): SessionEvidence {
@@ -68,6 +90,11 @@ export class PlatformAdapter {
   // ---- hook output (each platform has its own JSON shape; null = cannot express it) -----
   /** Pre-tool hook output that refuses the call and tells the model why. */
   denyTool(_reason: string): Obj | null {
+    return null
+  }
+
+  /** Pre-tool hook output that asks the user to confirm the call first (null: the platform can't ask). */
+  askTool(_reason: string): Obj | null {
     return null
   }
 

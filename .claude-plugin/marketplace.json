@@ -1,11 +1,13 @@
 {
   "name": "tokenomics",
-  "owner": { "name": "andrew44" },
+  "owner": {
+    "name": "andrew44"
+  },
   "plugins": [
     {
       "name": "tokenomics",
       "source": "./",
-      "description": "Cut and understand AI coding spend: OPEX/CAPEX tagging, cheaper-model nudges, context diet, budgets, spend reports, cost per outcome, task quotes, agent forensics, cost-regression checks, quality A/B tests, context audits and loop breaking."
+      "description": "Make every AI token earn its keep: OPEX/CAPEX tagging, model routing, context diet, budgets, cost per outcome, agent forensics, quality gates, cost attribution, provider arbitrage, scope guard, spend simulation, dead-work reports, task quotes, cost-regression checks and loop breaking."
     }
   ]
 }

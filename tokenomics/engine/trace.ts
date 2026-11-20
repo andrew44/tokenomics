@@ -25,6 +25,7 @@ export type Step = {
   isError: boolean | null      // null = no result seen (yet)
   sidechain: boolean           // made inside a subagent
   key: string                  // name + input, hashed: identical calls share a key
+  agent: string                // 'main', or the subagent type that made the call
 }
 
 export type Turn = {
@@ -35,6 +36,9 @@ export type Turn = {
   ctx: number                  // context size of this request: input + cache write + cache read
   costUsd: number
   text: string                 // the assistant's prose in this message
+  sidechain: boolean           // made inside a subagent
+  agent: string                // 'main', or the subagent type (Task/Agent subagent_type) it ran for
+  latency: number | null       // seconds from the request's input (prompt or tool result) to the first reply record
 }
 
 export type UserPrompt = { text: string, ts: number | null, turn: number }
@@ -47,6 +51,8 @@ export type Trace = {
   turns: Turn[]
   prompts: UserPrompt[]
   bytes: number                // offset just after the last complete line read (to resume from)
+  apiErrors: Record<string, number>   // API error messages (overloaded, rate limited ...) per model
+  interrupts: number[]         // turn index at each "[Request interrupted by user]"
 }
 
 const NOT_PROMPT = ['<command-', '<system-reminder', '<local-command', '<user-prompt-submit-hook', 'Caveat:', '[Request interrupted']
@@ -121,9 +127,16 @@ export function parse(path: string, opts: { from?: number, tail?: number, config
 }
 
 export function parseText(text: string, path = '', size = text.length, config?: Obj): Trace {
-  const trace: Trace = { path, sessionId: null, cwd: null, steps: [], turns: [], prompts: [], bytes: size }
+  const trace: Trace = { path, sessionId: null, cwd: null, steps: [], turns: [], prompts: [], bytes: size, apiErrors: {}, interrupts: [] }
   const turnIndex = new Map<string, number>()
   const byToolId = new Map<string, Step>()
+  const openAgents: Step[] = []           // Task/Agent calls still running: sidechain turns belong to the newest
+  let lastInput: number | null = null     // when the last prompt or tool result arrived
+  const agentOf = (sidechain: boolean) => {
+    if (!sidechain) return 'main'
+    const a = openAgents[openAgents.length - 1]
+    return a ? String(a.input.subagent_type || a.input.description || 'subagent').slice(0, 60) : 'subagent'
+  }
   for (const line of text.split('\n')) {
     if (!line.trim()) continue
     let ev: Obj
@@ -138,13 +151,19 @@ export function parseText(text: string, path = '', size = text.length, config?: 
     const msg: Obj = isObj(ev.message) ? ev.message : {}
     const ts = parseTs(ev.timestamp)
     const sidechain = Boolean(ev.isSidechain)
+    if (ev.type === 'assistant' && ev.isApiErrorMessage) {
+      const last = trace.turns.at(-1)?.model || 'unknown'
+      trace.apiErrors[last] = (trace.apiErrors[last] ?? 0) + 1
+      continue
+    }
     if (ev.type === 'assistant') {
       const id = String(msg.id || ev.uuid || `t${trace.turns.length}`)
       let ti = turnIndex.get(id)
       if (ti === undefined) {
         ti = trace.turns.length
         turnIndex.set(id, ti)
-        trace.turns.push({ id, ts, model: '', usage: tokenUsage(), ctx: 0, costUsd: 0, text: '' })
+        const latency = ts !== null && lastInput !== null && ts >= lastInput ? Math.round((ts - lastInput) * 10) / 10 : null
+        trace.turns.push({ id, ts, model: '', usage: tokenUsage(), ctx: 0, costUsd: 0, text: '', sidechain, agent: agentOf(sidechain), latency })
       }
       const turn = trace.turns[ti]
       if (msg.model && !String(msg.model).startsWith('<')) turn.model = String(msg.model)
@@ -158,9 +177,11 @@ export function parseText(text: string, path = '', size = text.length, config?: 
         if (part.type === 'tool_use') {
           const input: Obj = isObj(part.input) ? part.input : {}
           const step: Step = { id: String(part.id ?? `s${trace.steps.length}`), name: String(part.name ?? ''), input, ts,
-            turn: ti, resultText: '', resultChars: 0, isError: null, sidechain, key: callKey(String(part.name ?? ''), input) }
+            turn: ti, resultText: '', resultChars: 0, isError: null, sidechain, key: callKey(String(part.name ?? ''), input),
+            agent: turn.agent }
           trace.steps.push(step)
           byToolId.set(step.id, step)
+          if (AGENT_TOOLS.has(step.name) && !sidechain) openAgents.push(step)
         }
       }
     } else if (ev.type === 'user') {
@@ -173,10 +194,14 @@ export function parseText(text: string, path = '', size = text.length, config?: 
           step.resultText = resultText(part.content)
           step.resultChars = step.resultText.length
           step.isError = Boolean(part.is_error) || /^\s*<tool_use_error>/.test(step.resultText)
+          const at = openAgents.indexOf(step)
+          if (at >= 0) openAgents.splice(at, 1)
         }
       }
+      if (ts !== null) lastInput = ts
       if (ev.isMeta || sidechain) continue
       const txt = textOf(content).trim()
+      if (txt.startsWith('[Request interrupted')) trace.interrupts.push(Math.max(0, trace.turns.length - 1))
       if (txt && !NOT_PROMPT.some((p) => txt.startsWith(p))) trace.prompts.push({ text: txt, ts, turn: trace.turns.length })
     }
   }

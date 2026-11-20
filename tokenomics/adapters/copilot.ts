@@ -17,9 +17,9 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import { TOOL_CODE_EDIT, TOOL_OTHER, TOOL_READ, TOOL_SHELL, TOOL_SKILL, toolCall, type ToolCall } from '../engine/evidence.ts'
-import { PlatformAdapter } from '../platform/adapter.ts'
+import { PlatformAdapter, type LifecycleEvent } from '../platform/adapter.ts'
 import { BILLING_COPILOT_PREMIUM_REQUESTS, Capability, NATIVE, NONE, PARTIAL, support } from '../platform/capabilities.ts'
-import { asDict, first, frontmatterDescription, type Obj } from '../util.ts'
+import { asDict, first, frontmatterDescription, isObj, type Obj } from '../util.ts'
 import { isFile } from './fsutil.ts'
 
 const EDIT_TOOLS = new Set(['edit', 'create', 'write', 'str_replace', 'apply_patch', 'multi_edit',
@@ -58,12 +58,32 @@ export class CopilotAdapter extends PlatformAdapter {
     if (SKILL_TOOLS.has(key)) return toolCall(name, TOOL_SKILL, { skill: String(args.skill || args.name || '') })
     if (key === 'str_replace_editor') {
       const sub = String(args.command || '').toLowerCase()
-      return sub === 'view' ? CopilotAdapter.read(name, args) : toolCall(name, TOOL_CODE_EDIT)
+      return sub === 'view' ? CopilotAdapter.read(name, args) : CopilotAdapter.edit(name, args)
     }
     if (READ_TOOLS.has(key)) return CopilotAdapter.read(name, args)
-    if (EDIT_TOOLS.has(key)) return toolCall(name, TOOL_CODE_EDIT)
+    if (EDIT_TOOLS.has(key)) return CopilotAdapter.edit(name, args)
     if (SHELL_TOOLS.has(key)) return toolCall(name, TOOL_SHELL, { command: String(args.command || args.cmd || '') })
     return toolCall(name, TOOL_OTHER)
+  }
+
+  static edit(name: string, args: Obj): ToolCall {
+    return toolCall(name, TOOL_CODE_EDIT, { path: String(first(args, ['path', 'file_path', 'filePath'], '') || '') })
+  }
+
+  override lifecycle(payload: Obj, mode: string): LifecycleEvent {
+    const name = String(first(payload, ['hookEventName', 'hook_event_name'], '')).toLowerCase()
+    const map: Record<string, LifecycleEvent> = { userpromptsubmitted: 'prompt', userpromptsubmit: 'prompt', pretooluse: 'tool_call',
+      posttooluse: 'tool_result', sessionstart: 'session_start', sessionend: 'session_end', stop: 'turn_end' }
+    if (map[name]) return map[name]
+    if (mode === 'tool') return 'tool_result'                 // spendlens tool runs on postToolUse
+    return super.lifecycle(payload, mode)
+  }
+
+  /** postToolUse: did the call succeed? (toolResult.resultType 'success'); null when not reported. */
+  override toolOk(payload: Obj): boolean | null {
+    const r = first(payload, ['toolResult', 'tool_result', 'tool_response'])
+    const t = isObj(r) ? String(r.resultType ?? r.result_type ?? '') : ''
+    return t ? t.toLowerCase() === 'success' : null
   }
 
   static read(name: string, args: Obj): ToolCall {

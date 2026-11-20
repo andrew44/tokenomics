@@ -14,7 +14,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue" alt="Apache 2.0 licence"></a>
 </p>
 
-<h3 align="center">A cost-cutting toolkit for AI coding assistants.<br>Watch your spend live, get coached on wasted tokens, and let guard-rails stop the expensive mistakes before they happen.</h3>
+<h2 align="center">Make every AI token earn its keep.</h2>
+<h3 align="center">Not just cheaper AI. Better value from AI.<br>An intelligence engine for Claude Code and GitHub Copilot CLI: it observes what your AI spends, understands where it's wasted, optimises it, and proves the result held up.</h3>
 
 <p align="center">
   <a href="#-install"><b>Install</b></a> ·
@@ -37,7 +38,31 @@ Every message you send re-sends the **whole conversation**. Long chats, pasted l
 - 🛡️ **Stop waste automatically.** Guard-rails that catch context floods, over-specced models and runaway spend *before* they cost you.
 - 🧑‍🏫 **Get better at it.** A coach that reviews your prompts, and a weekly spend report with three fixes tied to your own numbers.
 - 💷 **Know what you're getting for it.** Cost per feature shipped and bug fixed, a price agreed before a task starts, a forensic audit of wasted steps, cost-regression checks (in CI too), and proof that a cheaper setup didn't cost you quality.
+- 🧾 **Explain it to finance.** Spend by project, developer, agent, model and provider; what produced nothing this month; the cheapest provider for the same work; and a forecast before you roll AI out to a team.
 - 🔒 **Stays on your machine.** One local SQLite file. No account, no telemetry, no packages to install: it's TypeScript that Node.js runs directly.
+
+---
+
+## 🧠 The tokenomics intelligence engine
+
+Token counts tell you what AI cost. They don't tell you whether it was worth it. tokenomics works in four stages, on five shared services that run the same way for Claude Code and Copilot:
+
+| | Stage | What it does | Helpers |
+|---|---|---|---|
+| 👁️ | **1. Observe** | Collect costs, tokens, tool calls, task outcomes and agent behaviour, from every assistant, in one event format. | spendlens · statusline · dashboard |
+| 🧠 | **2. Understand** | Find waste, inefficiency, quality problems and spending patterns. | **sherlock** · splitthebill · deadwood · waistline · springclean · coach |
+| ⚙️ | **3. Optimise** | Recommend, or apply automatically, the changes that improve value. | pennywise · bazaar · blinkers · diet · groundhog · budget · haggle · doggybag |
+| ✅ | **4. Prove** | Measure savings against task success and output quality. | **bangforbuck** · **tastetest** · crystalball |
+
+### ⭐ Signature features
+
+The three together are the point: what you spent, what it bought, what was wasted, and proof the saving didn't cost quality. A token-saving tip can't do that.
+
+- 💷 **Value meter: [bangforbuck](docs/reference.md#bangforbuck).** Cost per completed feature, bug fixed and passing test suite, and which model gives the cheapest *successful* result, not the cheapest request.
+- 🕵️ **Agent forensics: [sherlock](docs/reference.md#sherlock).** A step-by-step audit of what the agent did, with the cost of every step that bought nothing.
+- 👅 **Quality gate: [tastetest](docs/reference.md#tastetest).** Two runs of a task compared on cost *and* on your tests, linter and type checker. A cheaper setup that lost quality fails the gate (`--gate`, for CI).
+
+Success is always measured from something that happened (tests green, a commit, a PR, a change accepted, reverted or refused), never inferred from token counts.
 
 <sub>⚠️ Costs shown are estimates, not a bill. Always check your provider's billing page. See the <a href="#disclaimer">disclaimer</a>.</sub>
 
@@ -153,6 +178,11 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 | 👅 | **[tastetest](docs/reference.md#tastetest)** | *Did the optimisation damage quality?* Compares two runs of a task on cost, tests, lint and type checks, and gives a quality-adjusted saving. | skill + tool | ✅ | — |
 | 🧹 | **[springclean](docs/reference.md#springclean)** | Audits CLAUDE.md, AGENTS.md and friends for duplicated, outdated, bloated and contradictory instructions, with the saving from cleaning them up. | skill + tool | ✅ | ✅ |
 | 🦫 | **[groundhog](docs/reference.md#groundhog)** | Catches the AI going round in circles (the same call again, a command failing over and over, edits made and undone) and makes it change strategy. | hook + skill | ✅ | ✅ |
+| 🧾 | **[splitthebill](docs/reference.md#splitthebill)** | *Who or what is consuming the budget?* Spend by project, developer, agent and subagent, task category, model, provider and successful vs abandoned work, with a CSV for finance. | skill + tool | ✅ | counted |
+| 🏪 | **[bazaar](docs/reference.md#bazaar)** | *Where is the same capability cheapest?* Prices your actual workload (input, output and cached tokens) across providers, weighs quality, latency and availability, and recommends the best value per successful task. | skill + tool | ✅ | — |
+| 🐴 | **[blinkers](docs/reference.md#blinkers)** | *Is the AI doing more than I asked?* Spots unrequested docs, tests, dependency and config changes, unrelated refactors and stray files, and asks before expanding the scope. | hook + skill | ✅ | ✅ |
+| 🔮 | **[crystalball](docs/reference.md#crystalball)** | *What will this cost?* Simulates a team's monthly AI spend across every model and provider before you adopt an agentic workflow. | skill + tool | ✅ | ✅ |
+| 🪵 | **[deadwood](docs/reference.md#deadwood)** | *What did we pay for that produced nothing?* A monthly report of spend on failed, discarded and abandoned work, repeated debugging and unused files. | skill + tool | ✅ | counted |
 
 > **Skills** run when you ask. **Hooks** run automatically. **Tools** you run yourself. Not sure which you need? → [Skills, tools and hooks](docs/skills-tools-and-hooks.md)
 
@@ -222,6 +252,33 @@ not work, form a different hypothesis, or ask the user for help. That loop has c
 Cheapest per session is claude-haiku-5-5, but best value per result is claude-sonnet-5-5.
 ```
 
+### crystalball plans the budget before you roll out
+
+```text
+you:          what would 10 developers doing 20 tasks a day cost? 50k tokens in, 5k out per task.
+crystalball:  4,200 tasks a month. Sonnet 5.5 £290 a month (£29 per developer), Opus 5.5 £581, Haiku 5.5 £15.
+              Routing 60/35/5 Haiku/Sonnet/Opus: £140 a month (-52%). Without prompt caching: +£188 a month.
+```
+
+### deadwood finds the spend that bought nothing
+
+```text
+£41.20 of £172.80 (24%) bought nothing this month (-9% vs October).
+
+  Failed implementations       6   £21.40
+  Work discarded or rejected   4   £11.90
+  Repeated debugging           9    £5.10
+  Abandoned tasks              2    £2.80
+```
+
+### blinkers keeps the agent on the job
+
+```text
+blinkers: this looks like more than the task asked for (documentation nobody asked for): README.md is
+documentation, and the task didn't ask for documentation. If this really is needed, ask the user before
+expanding the scope.                                                      [Allow this edit?  Yes / No]
+```
+
 ### The dashboard shows where it all went
 
 <picture>
@@ -247,6 +304,8 @@ flowchart LR
     You -.->|on request| C["🧑‍🏫 coach"]
     You -->|every tool call| L["🦫 groundhog · 🤝 haggle<br/><i>going in circles? over the price?</i>"]
     DB --> V["💷 bangforbuck · 📏 waistline · 🕵️ sherlock<br/><i>value, creep, waste</i>"]
+    You -->|every edit| BL["🐴 blinkers<br/><i>did you ask for this?</i>"]
+    DB --> X["🧾 splitthebill · 🪵 deadwood · 🏪 bazaar · 🔮 crystalball<br/><i>who spent it, what was wasted,<br/>where it's cheaper, what's next</i>"]
 ```
 
 **OPEX or CAPEX?** spendlens answers the question finance teams keep asking: *how much of our AI spend goes on building things, and how much on keeping them running?* It scores the words in your prompts, the tools the AI used and the skills it ran. [How it decides →](docs/reference.md#how-it-decides)

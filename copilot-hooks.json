@@ -3,11 +3,13 @@
   "hooks": {
     "userPromptSubmitted": [
       {"type": "command", "bash": "sh scripts/run.sh spendlens.ts prompt copilot", "powershell": "$n = Get-Content \"$HOME/.tokenomics/node\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $n) { $n = \"node\" }; & $n --disable-warning=ExperimentalWarning scripts\\spendlens.ts prompt copilot", "timeoutSec": 10},
-      {"type": "command", "bash": "sh scripts/run.sh doggybag.ts arm copilot", "powershell": "$n = Get-Content \"$HOME/.tokenomics/node\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $n) { $n = \"node\" }; & $n --disable-warning=ExperimentalWarning scripts\\doggybag.ts arm copilot", "timeoutSec": 10}
+      {"type": "command", "bash": "sh scripts/run.sh doggybag.ts arm copilot", "powershell": "$n = Get-Content \"$HOME/.tokenomics/node\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $n) { $n = \"node\" }; & $n --disable-warning=ExperimentalWarning scripts\\doggybag.ts arm copilot", "timeoutSec": 10},
+      {"type": "command", "bash": "sh scripts/run.sh blinkers.ts prompt copilot", "powershell": "$n = Get-Content \"$HOME/.tokenomics/node\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $n) { $n = \"node\" }; & $n --disable-warning=ExperimentalWarning scripts\\blinkers.ts prompt copilot", "timeoutSec": 10}
     ],
     "preToolUse": [
       {"type": "command", "bash": "sh scripts/run.sh diet.ts copilot", "powershell": "$n = Get-Content \"$HOME/.tokenomics/node\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $n) { $n = \"node\" }; & $n --disable-warning=ExperimentalWarning scripts\\diet.ts copilot", "timeoutSec": 10},
-      {"type": "command", "bash": "sh scripts/run.sh groundhog.ts copilot", "powershell": "$n = Get-Content \"$HOME/.tokenomics/node\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $n) { $n = \"node\" }; & $n --disable-warning=ExperimentalWarning scripts\\groundhog.ts copilot", "timeoutSec": 10}
+      {"type": "command", "bash": "sh scripts/run.sh groundhog.ts copilot", "powershell": "$n = Get-Content \"$HOME/.tokenomics/node\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $n) { $n = \"node\" }; & $n --disable-warning=ExperimentalWarning scripts\\groundhog.ts copilot", "timeoutSec": 10},
+      {"type": "command", "bash": "sh scripts/run.sh blinkers.ts guard copilot", "powershell": "$n = Get-Content \"$HOME/.tokenomics/node\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $n) { $n = \"node\" }; & $n --disable-warning=ExperimentalWarning scripts\\blinkers.ts guard copilot", "timeoutSec": 10}
     ],
     "postToolUse": [
       {"type": "command", "bash": "sh scripts/run.sh spendlens.ts tool copilot", "powershell": "$n = Get-Content \"$HOME/.tokenomics/node\" -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $n) { $n = \"node\" }; & $n --disable-warning=ExperimentalWarning scripts\\spendlens.ts tool copilot", "timeoutSec": 10}
