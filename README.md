@@ -3,11 +3,12 @@
 </p>
 
 <p align="center">
-  <a href="#-install-the-whole-toolkit"><img src="https://img.shields.io/badge/Claude_Code-plugin-D97757?style=for-the-badge" alt="Claude Code plugin"></a>
+  <a href="#-install"><img src="https://img.shields.io/badge/Claude_Code-plugin-D97757?style=for-the-badge" alt="Claude Code plugin"></a>
   <a href="docs/installation.md#github-copilot-cli"><img src="https://img.shields.io/badge/Copilot_CLI-supported-24292F?style=for-the-badge&logo=githubcopilot&logoColor=white" alt="GitHub Copilot CLI supported"></a>
   <img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/dependencies-zero-2EA043?style=for-the-badge" alt="Zero dependencies">
   <br>
+  <a href="https://github.com/andrew44/tokenomics/releases/latest"><img src="https://img.shields.io/github/v/release/andrew44/tokenomics?label=release" alt="Latest release"></a>
   <a href="https://github.com/andrew44/tokenomics/actions/workflows/tests.yml"><img src="https://github.com/andrew44/tokenomics/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue" alt="Apache 2.0 licence"></a>
 </p>
@@ -15,7 +16,7 @@
 <h3 align="center">A cost-cutting toolkit for AI coding assistants.<br>Watch your spend live, get coached on wasted tokens, and let guard-rails stop the expensive mistakes before they happen.</h3>
 
 <p align="center">
-  <a href="#-install-the-whole-toolkit"><b>Install</b></a> ·
+  <a href="#-install"><b>Install</b></a> ·
   <a href="#-whats-in-the-box"><b>What you get</b></a> ·
   <a href="#-see-it-in-action"><b>See it in action</b></a> ·
   <a href="docs/README.md"><b>Docs</b></a>
@@ -40,50 +41,77 @@ Every message you send re-sends the **whole conversation**. Long chats, pasted l
 
 ---
 
-## ⚡ Install the whole toolkit
+## ⚡ Install
 
-> **Recommended.** About a minute. You need [Claude Code](https://claude.com/claude-code) and Python 3.8+.
+### Claude Code: install the plugin (recommended)
 
-**1. Add the plugin.** Inside Claude Code, paste these one at a time:
-
-```text
-/plugin marketplace add andrew44/tokenomics
-/plugin install tokenomics@tokenomics
-```
-
-Choose **Install for you (user scope)** when asked. You now have the skills and all five hooks.
-
-**2. Add the status bar.** Still in Claude Code:
+tokenomics is a [Claude Code plugin](https://code.claude.com/docs/en/plugins). Inside Claude Code, paste:
 
 ```text
-/tokenomics:statusbar
+/plugin install tokenomics --marketplace andrew44/tokenomics
 ```
 
-It asks before replacing a status line you already have, and keeps itself up to date whenever the plugin updates.
+<sub>On Claude Code older than v2.1.275, use two lines instead: <code>/plugin marketplace add andrew44/tokenomics</code> then <code>/plugin install tokenomics@tokenomics</code>.</sub>
 
-**3. Restart Claude Code.** That's it. 🎉 Now try:
+Choose **Install for you (user scope)** so it works in every project. That's it. 🎉 You get every skill, all five hooks and, from your next session, the live status bar. Now try:
 
-> 💬 *"coach, review my prompts"*  ·  💬 *"spend report"*  ·  🖥️ `python3 tokenomics/scripts/dashboard.py --demo`
+> 💬 *"coach, review my prompts"*  ·  💬 *"spend report"*  ·  💬 `/tokenomics:dashboard`
+
+**Stay up to date:** open `/plugin` → **Marketplaces** → **tokenomics** and switch on **auto-update**. (Claude Code only auto-updates its official marketplace unless you do.)
 
 <details>
-<summary><b>Rather do step 1 from a shell?</b></summary>
+<summary><b>Using the Claude desktop app? No terminal needed</b></summary>
+
+In the **Code** tab (a local session), click **+** next to the prompt box → **Add plugins** → add the marketplace `andrew44/tokenomics` → install **tokenomics**. Desktop and terminal share the same settings, so it works in both. The status bar shows in the terminal only.
+</details>
+
+<details>
+<summary><b>Rolling it out to a team?</b></summary>
+
+Commit this to your repo's `.claude/settings.json`. Teammates are offered the marketplace when they trust the folder, then install it once with `/plugin install tokenomics@tokenomics`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "tokenomics": { "source": { "source": "github", "repo": "andrew44/tokenomics" }, "autoUpdate": true }
+  },
+  "enabledPlugins": { "tokenomics@tokenomics": true }
+}
+```
+</details>
+
+<details>
+<summary><b>Prefer a shell?</b></summary>
 
 ```bash
-claude plugin marketplace add andrew44/tokenomics && claude plugin install tokenomics@tokenomics
+claude plugin install tokenomics --marketplace andrew44/tokenomics     # Claude Code v2.1.292+
+# older: claude plugin marketplace add andrew44/tokenomics && claude plugin install tokenomics@tokenomics
 ```
 </details>
 
+The plugin needs **Python 3.8+** on your computer (no packages). Don't have it? The one-liner below fetches a private copy for you.
+
+### GitHub Copilot CLI, or no Python: the one-line installer
+
+Sets up Copilot CLI and/or Claude Code (it installs the same plugin), gets Python if you need it, and adds a `tokenomics` terminal command (`tokenomics dashboard`, `report`, `update`, `uninstall`).
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh | sh      # macOS / Linux
+```
+
+```powershell
+irm https://raw.githubusercontent.com/andrew44/tokenomics/main/install.ps1 | iex           # Windows (PowerShell)
+```
+
+It never replaces a status line you already have, and running it again repairs the install. Read it first if you like: [install.sh](install.sh) · [install.ps1](install.ps1).
+
 <details>
-<summary><b>Using the desktop app, claude.ai/code or GitHub Copilot CLI?</b></summary>
+<summary><b>Using claude.ai/code (web)?</b></summary>
 
-| Where you work | What to do |
-|---|---|
-| **Claude desktop app** | Do the steps above once in a terminal; the desktop app shares the same settings. Toggle it under **+** → **Plugins**. The status bar is terminal-only. |
-| **claude.ai/code (web)** | Plugins can't be installed on the web. Commit the coach to your repo instead: `npx skills@latest add andrew44/tokenomics --skill coach --copy` |
-| **GitHub Copilot CLI** | `copilot plugin install andrew44/tokenomics`, then `git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install copilot` |
-
-Full details, team installs, updating and removing: **[Installation guide](docs/installation.md)**.
+Plugins can't be installed on the web. Commit the coach to your repo instead: `npx skills@latest add andrew44/tokenomics --skill coach --copy`
 </details>
+
+Full details, updating and removing: **[Installation guide](docs/installation.md)**.
 
 ---
 
@@ -95,8 +123,8 @@ Every piece works on its own. Grab just what you want:
 |---|---|
 | 🧑‍🏫 **coach** skill | `npx skills@latest add andrew44/tokenomics --skill coach` |
 | 📊 **spend-report** skill | `npx skills@latest add andrew44/tokenomics --skill spend-report` *(reads spendlens data, so pair it with the plugin)* |
-| 📟 **statusbar** | `/tokenomics:statusbar` with the plugin, or without it: `git clone --depth 1 https://github.com/andrew44/tokenomics && python3 tokenomics/scripts/statusbar.py --install claude` |
-| 📈 **dashboard** | `python3 tokenomics/scripts/dashboard.py` *(from a clone)* |
+| 📟 **statusbar** only | Install the plugin and switch the hooks off (below), or without the plugin: `curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh \| sh -s -- --no-plugin` |
+| 📈 **dashboard** | `/tokenomics:dashboard` with the plugin, or `tokenomics dashboard` after the one-liner |
 | 🛡️ **Some of the hooks** | Install the plugin, then switch off the ones you don't want, e.g. `TOKENOMICS_DIET=off` or `TOKENOMICS_PENNYWISE=block` |
 
 The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation → pick and choose](docs/installation.md#install-pieces-individually) for every option.
@@ -114,7 +142,7 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 | 🥗 | **[diet](docs/reference.md#diet)** | Stops tool calls that would flood the context (whole lockfiles, unbounded logs) and tells the AI to ask for less. | hook | ✅ | ✅ |
 | 💳 | **[budget](docs/reference.md#budget)** | Daily and per-session limits in your currency. Warns at 80%, pauses at 100%. | hook | ✅ | — |
 | 🔖 | **[handoff](docs/reference.md#handoff)** | Writes a free "where we got to" note just before the cache expires, so you can resume cheaply. | hook | ✅ | ✅ |
-| 📟 | **[statusbar](docs/reference.md#statusbar)** | Context fill, tokens, cost and a cache countdown, live at the bottom of your assistant. Switch it on with `/tokenomics:statusbar`. | tool | ✅ | ✅ |
+| 📟 | **[statusbar](docs/reference.md#statusbar)** | Context fill, tokens, cost and a cache countdown, live at the bottom of your assistant. On automatically; `/tokenomics:statusbar` to manage it. | tool | ✅ | ✅ |
 | 📈 | **[dashboard](docs/reference.md#dashboard)** | A local web view of where your tokens went, split by OPEX/CAPEX, project and day. | tool | ✅ | ✅ |
 
 > **Skills** run when you ask. **Hooks** run automatically. **Tools** you run yourself. Not sure which you need? → [Skills, tools and hooks](docs/skills-tools-and-hooks.md)
@@ -229,18 +257,13 @@ If tokenomics saves you more than the price of a coffee, consider buying me one:
 
 ## 🏁 Quick start
 
-Convinced? Here's the whole thing in three steps:
+Convinced? In Claude Code:
 
 ```text
-# 1. Add the plugin (skills + hooks)
-/plugin marketplace add andrew44/tokenomics
-/plugin install tokenomics@tokenomics
-
-# 2. Add the status bar
-/tokenomics:statusbar
+/plugin install tokenomics --marketplace andrew44/tokenomics
 ```
 
-**3.** Restart Claude Code and say *"coach, review my prompts"*.
+Then say *"coach, review my prompts"*. On Copilot CLI or without Python, use the [one-line installer](#github-copilot-cli-or-no-python-the-one-line-installer).
 
 Want only some of it? See [pick and choose](#-or-pick-and-choose). Anything else: [Installation guide](docs/installation.md).
 

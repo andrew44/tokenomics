@@ -4,6 +4,8 @@
   python3 scripts/dashboard.py                 # serve http://127.0.0.1:8765
   python3 scripts/dashboard.py --port 9000 --db /path/to/spendlens.db
   python3 scripts/dashboard.py --demo          # seeded fake data, to preview the UI
+  python3 scripts/dashboard.py --background    # start it in the background and return
+  python3 scripts/dashboard.py --stop          # stop a background dashboard
 
 Read-only: the DB is opened with mode=ro and never written to (except --demo, which uses a
 temp file). Binds to 127.0.0.1 only. Stdlib only.
@@ -12,7 +14,9 @@ import argparse
 import json
 import os
 import random
+import socket
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import time
@@ -197,27 +201,110 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, "not found", "text/plain")
 
 
-def main():
+class LocalServer(ThreadingHTTPServer):
+    """Bind without HTTPServer's reverse-DNS lookup (socket.getfqdn), which can stall for many
+    seconds on some Macs. We only ever serve 127.0.0.1, so there's nothing to look up."""
+    daemon_threads = True
+
+    def server_bind(self):
+        import socketserver
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
+
+
+PID_FILE = Path(os.environ.get("TOKENOMICS_HOME", str(Path.home() / ".tokenomics"))) / "dashboard.pid"
+
+
+def _port_busy(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.3)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _open(url, no_open):
+    if not no_open:
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+
+
+def background(a, argv):
+    """Start the server as a detached process, wait until it answers, open the browser, return."""
+    url = f"http://127.0.0.1:{a.port}/"
+    if _port_busy(a.port):
+        print(f"tokenomics dashboard is already running on {url}")
+        _open(url, a.no_open)
+        return 0
+    args = [x for x in argv if x != "--background"] + ["--no-open"]
+    PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    log = open(PID_FILE.with_name("dashboard.log"), "ab")
+    kw = {"stdin": subprocess.DEVNULL, "stdout": log, "stderr": log, "close_fds": True}
+    if os.name == "nt":
+        kw["creationflags"] = 0x00000008 | 0x00000200     # DETACHED_PROCESS | NEW_PROCESS_GROUP
+    else:
+        kw["start_new_session"] = True
+    proc = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), *args], **kw)
+    PID_FILE.write_text(str(proc.pid), encoding="utf-8")
+    deadline = time.time() + 20                           # a cold start on a busy Mac can be slow
+    while not _port_busy(a.port):
+        if proc.poll() is not None or time.time() > deadline:
+            log.flush()
+            try:
+                tail = Path(log.name).read_text(encoding="utf-8", errors="replace")[-2000:]
+            except OSError:
+                tail = ""
+            print(f"The dashboard didn't start (see {log.name}).\n{tail}", file=sys.stderr)
+            return 1
+        time.sleep(0.1)
+    print(f"tokenomics dashboard running on {url}{'  (demo data)' if a.demo else ''}\n"
+          f"  stop it with: tokenomics dashboard --stop")
+    _open(url, a.no_open)
+    return 0
+
+
+def stop():
+    try:
+        pid = int(PID_FILE.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        print("No background dashboard is running.")
+        return 0
+    try:
+        os.kill(pid, 15)
+        print(f"Stopped the dashboard (pid {pid}).")
+    except OSError:
+        print("No background dashboard is running.")
+    try:
+        PID_FILE.unlink()
+    except OSError:
+        pass
+    return 0
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", default=os.environ.get("TOKENOMICS_DB",
                     str(Path.home() / ".tokenomics" / "spendlens.db")))
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--demo", action="store_true", help="use seeded fake data in a temp DB")
     ap.add_argument("--no-open", action="store_true", help="do not open a browser tab")
-    a = ap.parse_args()
+    ap.add_argument("--background", action="store_true", help="run in the background and return")
+    ap.add_argument("--stop", action="store_true", help="stop a background dashboard")
+    a = ap.parse_args(argv)
+    if a.stop:
+        return stop()
+    if a.background:
+        return background(a, argv)
     db_path = a.db
     if a.demo:
         db_path = str(Path(tempfile.mkdtemp(prefix="tokenomics-demo-")) / "spendlens.db")
         seed_demo(db_path)
     Handler.db_path = db_path
-    srv = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
+    srv = LocalServer(("127.0.0.1", a.port), Handler)
     url = f"http://127.0.0.1:{a.port}/"
-    print(f"tokenomics dashboard on {url}\n  db: {db_path}{'  (demo data)' if a.demo else ''}\n  Ctrl+C to stop")
-    if not a.no_open:
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
+    print(f"tokenomics dashboard on {url}\n  db: {db_path}{'  (demo data)' if a.demo else ''}\n  Ctrl+C to stop", flush=True)
+    _open(url, a.no_open)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
@@ -225,4 +312,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

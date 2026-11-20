@@ -45,6 +45,7 @@ tokenomics/
 ├── skills/
 │   ├── coach/SKILL.md              prompt and cache review skill
 │   ├── spend-report/SKILL.md       weekly spend report skill
+│   ├── dashboard/SKILL.md          opens the dashboard (/tokenomics:dashboard)
 │   └── statusbar/SKILL.md          installs / removes the status bar (/tokenomics:statusbar)
 ├── tokenomics/
 │   ├── engine/                     shared logic: classifier.py, llm.py, store.py, session.py, evidence.py,
@@ -53,7 +54,10 @@ tokenomics/
 │   ├── adapters/                   claude_code.py, copilot.py (translation only)
 │   ├── config.py                   shared settings
 │   └── util.py                     shared helpers
+├── install.sh / install.ps1        one-line installers (download, then run scripts/cli.py setup)
 ├── scripts/
+│   ├── cli.py                      the `tokenomics` command: setup, update, uninstall, dashboard, report
+│   ├── run.sh                      launcher every hook and skill uses: finds a real Python 3.8+ on any OS
 │   ├── spendlens.py                the OPEX/CAPEX hook runner (calls the engine)
 │   ├── pennywise.py                model router (cheaper-model subagent)
 │   ├── handoff.py                  writes a resume note before the cache expires
@@ -62,23 +66,33 @@ tokenomics/
 │   ├── report.py                   spend report (used by the spend-report skill)
 │   ├── coach.py                    transcript analyser used by the coach skill
 │   ├── statusbar.py                status line for Claude Code and Copilot CLI
-│   ├── dashboard.py                local web server over the spendlens database
+│   ├── dashboard.py                local web server over the spendlens database (--background)
 │   └── update_prices.py            refreshes data/model-prices.json from Claude's pricing page
 ├── data/model-prices.json          Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly
 ├── dashboard/index.html            the dashboard page
 ├── tests/                          unittest suite
 ├── docs/                           guides (you are here)
-└── .github/workflows/              tests + weekly price refresh
+└── .github/workflows/              tests, installer checks (macOS/Windows/Linux), weekly price refresh, releases
 ```
 
 ## Adding a helper
 
 1. Put shared logic in `tokenomics/engine/` so both assistants use it.
 2. Add a thin script in `scripts/` that reads the hook payload through the adapter.
-3. Register the hook in `hooks/hooks.json` (Claude Code) and, if Copilot can support it, `copilot-hooks.json`.
+3. Register the hook in `hooks/hooks.json` (Claude Code) and, if Copilot can support it, `copilot-hooks.json`. Always call it through the launcher (`sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" <name>.py ...`), never `python3` directly, or it breaks on Windows.
 4. Add a settings switch (`TOKENOMICS_<NAME>=off`) so people can opt out.
 5. Log what it did to a `<name>_events` table so the spend report can show it.
 6. Add tests, and document it in [the reference](reference.md) and [Skills, tools and hooks](skills-tools-and-hooks.md).
+
+
+## Releasing
+
+There's nothing to do by hand: **every update to `main` becomes a GitHub release** once the tests pass ([release.yml](../.github/workflows/release.yml)).
+
+- **Patch releases are automatic.** The workflow bumps the patch number (1.3.0 → 1.3.1), writes it to both `.claude-plugin/plugin.json` and `plugin.json`, commits `Release v1.3.1` to `main`, then publishes the release with generated notes and the installers attached. The version bump matters: Claude Code only sends plugin users an update when the version changes.
+- **Minor or major release?** Raise `version` in both manifests in your pull request (e.g. to `1.4.0`). That version is released as it is.
+- **Price updates** from the weekly workflow are released too. If nothing changed since the last release, no release is made.
+- If `main` is protected, allow GitHub Actions to push to it (or the version-bump commit will be refused).
 
 ---
 

@@ -268,15 +268,15 @@ A live line at the bottom of Claude Code or GitHub Copilot CLI.
 /tokenomics:statusbar uninstall       # to remove
 ```
 
-The plugin keeps the installed copy up to date at each session start, and `TOKENOMICS_STATUSBAR=auto` installs it for you if no other status line is set. Without the plugin, from a clone:
+The plugin switches it on for you at the start of your next session (so does the [one-line installer](installation.md#the-one-line-installer)), as long as no other status line is set (`TOKENOMICS_STATUSBAR=ask` makes it ask first, `off` leaves it off). The plugin keeps the installed copy up to date at each session start. From a terminal:
 
 ```bash
-python3 scripts/statusbar.py --install claude     # or: copilot, both
-python3 scripts/statusbar.py --uninstall claude   # to remove
-python3 scripts/statusbar.py --status             # where is it installed?
+tokenomics statusbar --install claude     # or: copilot, both
+tokenomics statusbar --uninstall claude   # to remove
+tokenomics statusbar --status             # where is it installed?
 ```
 
-**Light or dark.** It follows your computer's setting by default. To force one, put `{"theme": "dark"}` (or `"light"`) in `~/.tokenomics/statusbar.json`. Preview every state with `python3 scripts/statusbar.py --demo --theme light`. For very plain terminals use `--ascii` or set `NO_COLOR=1`.
+**Light or dark.** It follows your computer's setting by default. To force one, put `{"theme": "dark"}` (or `"light"`) in `~/.tokenomics/statusbar.json`. Preview every state with `tokenomics statusbar --demo --theme light`. For very plain terminals use `--ascii` or set `NO_COLOR=1`.
 
 **Currency and prices:** see [Configuration](configuration.md#currency).
 
@@ -301,10 +301,13 @@ A local web UI over the spendlens database: a headline **% OPEX vs % CAPEX** spl
 </picture>
 
 ```bash
-python3 scripts/dashboard.py              # opens http://127.0.0.1:8765
-python3 scripts/dashboard.py --demo       # preview with seeded fake data
-python3 scripts/dashboard.py --db /path/to/spendlens.db --port 9000
+tokenomics dashboard                      # opens http://127.0.0.1:8765 (runs in the background)
+tokenomics dashboard --demo               # preview with seeded fake data
+tokenomics dashboard --stop               # stop it
+tokenomics dashboard --foreground --db /path/to/spendlens.db --port 9000
 ```
+
+Inside Claude Code, `/tokenomics:dashboard` (or *"open the dashboard"*) does the same.
 
 It reads the database read-only, listens on 127.0.0.1 only, and needs nothing beyond Python 3.8+. It uses `TOKENOMICS_DB` if set.
 
