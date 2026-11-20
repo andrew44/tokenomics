@@ -31,4 +31,4 @@ Run `--status` first. If it reports **another status line** for that CLI, tell t
 
 ## After installing
 
-Tell the user to restart Claude Code (or Copilot CLI) to see the bar. In the Claude desktop app it shows in the band above the prompt box; in VS Code or JetBrains, as a short message after each reply. Mention that it updates itself whenever the plugin updates, and that `/tokenomics:statusbar uninstall` removes it.
+Tell the user to restart Claude Code (or Copilot CLI) to see the bar. In the Claude desktop app it shows in the band above the prompt box; in VS Code, as the plugin's line above the prompt box. Mention that it updates itself whenever the plugin updates, and that `/tokenomics:statusbar uninstall` removes it.

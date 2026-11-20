@@ -298,11 +298,16 @@ Type `/clear` (or start a new session in the folder) and the `SessionStart` hook
 
 A live line at the bottom of Claude Code or GitHub Copilot CLI in a terminal.
 
-**In the Claude desktop app** (and the mobile app) the same bar sits in the **band above the prompt box**, with the same colours and a countdown that ticks every second. It updates as replies and tool results land (`hooks/band.tsx`, which reads its numbers from `statusbar.py --json`).
+The apps don't draw that status line, so the plugin brings the same bar to them (`hooks/band.tsx`, a [mod](https://code.claude.com/docs/en/plugins/mods/interface)):
 
-**In VS Code and JetBrains**, which have neither a status line nor the band, it appears as a short message after each reply instead, e.g. `◆ claude-opus-5-5 │ ctx ███████▋▒▒▒▒ 64% │ Σ 1.7M │ ~£0.81 │ ⧗ 04:58 (cold at 12:37)`. It's a snapshot, so the countdown also tells you the clock time the cache goes cold. (Older desktop app versions without the band get this message too.)
+- **Claude desktop app** (and the mobile app): in the **band above the prompt box**, with the same colours.
+- **VS Code**: as the plugin's status line above the prompt box.
 
-Both follow the installed bar: `/tokenomics:statusbar uninstall` removes them too, and `TOKENOMICS_STATUSBAR_MESSAGE=off` turns off just the band and the message (see [Configuration](configuration.md)).
+Both use the same figures the terminal's status line gets, so the cost is exact (no `~`). The countdown ticks every second, and the numbers update as replies and tool results land.
+
+Where mods can't run (an older Claude Code, or mods turned off), the bar comes as a short message after each reply instead, e.g. `◆ claude-opus-5-5 │ ctx ███████▋▒▒▒▒ 64% │ Σ 1.7M │ ~£0.81 │ ⧗ 04:58 (cold at 12:37)`. It's a snapshot, so the countdown also tells you the clock time the cache goes cold.
+
+All of these follow the installed bar: `/tokenomics:statusbar uninstall` removes them too, and `TOKENOMICS_STATUSBAR_MESSAGE=off` turns off just the app versions (see [Configuration](configuration.md)).
 
 <p align="center"><img src="assets/statusbar.svg" alt="The tokenomics status bar at 8%, 76% and 92% context" width="720"></p>
 

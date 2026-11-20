@@ -751,7 +751,7 @@ def band_wanted():
 
 
 def as_json(args):
-    """The bar's parts, already formatted, for the desktop band (hooks/band.tsx). The band draws
+    """The bar's parts, already formatted, for the apps (hooks/band.tsx). The band draws
     and ticks the countdown itself, from `cold_at` (epoch seconds; null: nothing cached yet).
     {"show": false} when the bar is off or not ours. `--band SESSION_ID`: the band is showing it
     in that session, so the after-reply message stays quiet there."""
@@ -784,10 +784,11 @@ def as_json(args):
 
 
 # ----------------------------------------------------------------------------- apps ------
-# Claude Code only draws `statusLine` in the terminal. The desktop app shows the bar in its band
-# above the prompt (hooks/band.tsx, from --json). VS Code and JetBrains have neither, but they
-# show a hook's "systemMessage", so there the Stop hook posts the bar once per reply instead (and
-# in a desktop app too old for the band). CLAUDE_CODE_ENTRYPOINT says where Claude Code runs.
+# Claude Code only draws `statusLine` in the terminal. In the apps, hooks/band.tsx (a mod) shows
+# the bar from --json: the desktop app's band above the prompt, VS Code's plugin status line.
+# Where mods can't run (older Claude Code, mods off), the apps still show a hook's
+# "systemMessage", so the Stop hook posts the bar once per reply instead.
+# CLAUDE_CODE_ENTRYPOINT says where Claude Code runs.
 
 APP_ENTRYPOINTS = ("desktop", "vscode", "jetbrains", "ide")
 

@@ -214,6 +214,16 @@ class CurrencyTests(unittest.TestCase):
             self.assertEqual(json.loads(run("--json", "--band", "s2", TOKENOMICS_STATUSBAR_MESSAGE="off").stdout),
                              {"show": False})
             self.assertEqual(json.loads(run("--json").stdout)["cost"], "~£2.28")
+            # the band passes the engine's own figures ($.session.usage): exact cost, its context %
+            exact = subprocess.run([sys.executable, str(SCRIPTS / "statusbar.py"), "--json"], capture_output=True,
+                                   text=True, timeout=30, input=json.dumps({
+                                       "transcript_path": tx, "model": {"id": "claude-opus-5-5"},
+                                       "cost": {"total_cost_usd": 2.0},
+                                       "context_window": {"used_percentage": 40, "context_window_size": 200000}}),
+                                   env=t.env(TOKENOMICS_HOME=str(t.home / ".tokenomics"),
+                                             CLAUDE_CONFIG_DIR=str(claude_dir)))
+            got = json.loads(exact.stdout)
+            self.assertEqual((got["cost"], got["pct"], got["level"]), ("£1.52", 40, "green"))
         finally:
             t.cleanup()
 

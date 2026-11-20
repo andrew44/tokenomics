@@ -1,56 +1,100 @@
-// tokenomics status bar as a band above the prompt, for the Claude desktop app (and mobile),
-// which don't draw `statusLine`. The terminal keeps its real status line, so the band stays out
-// of it. The numbers come from scripts/statusbar.py --json (one source of truth); the band only
-// ticks the cache countdown each second.
+// tokenomics status bar in the apps, which don't draw the `statusLine` setting (a mod: see
+// https://code.claude.com/docs/en/plugins/mods/interface):
+//   * Claude desktop app (and mobile): a row in the band above the prompt box (AbovePrompt).
+//   * VS Code: this plugin's status line above the prompt box ($.ui.status).
+//   * Terminal: nothing here; it keeps its real status line (scripts/statusbar.py).
+// The numbers come from scripts/statusbar.py --json, fed the same figures the terminal's status
+// line gets ($.session.usage), so every surface shows the same bar. A timer started at
+// session.start redraws the cache countdown each second and re-reads the numbers when the
+// transcript grows mid-turn.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Bar } from '../types'
 
 const bar = atom({ plugin: 'tokenomics', key: 'bar' } as const, null)
-const now = atom({ plugin: 'tokenomics', key: 'now' } as const, 0)
 
 const REFRESH_MS = 3000          // mid-turn: at most one statusbar.py run per 3s
+const DEFAULT_ICONS = ['⧗', '⏳︎', '⧖']
 
-const mmss = (s: number) => {
-  const t = Math.max(0, Math.floor(s))
+let lastRun = 0
+let seenMtime = 0
+let statusShown = false
+
+function mmss(seconds: number) {
+  const t = Math.max(0, Math.floor(seconds))
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
 }
 
-let lastRun = 0
-let ticking = false
-let seenMtime = 0
-let drawn = false                // the band has been drawn on a surface that shows it
+/** The cache countdown: icon, colour and text, at `nowSec`. */
+function timer(b: Bar, nowSec: number) {
+  const [full, half, empty] = (b.icons?.length === 3 ? b.icons : DEFAULT_ICONS) as [string, string, string]
+  if (b.cold_at == null) return { icon: empty, color: undefined, text: '--:--' }
+  const rem = Math.max(0, b.cold_at - nowSec)
+  const frac = b.ttl ? rem / b.ttl : 0
+  if (rem <= 0) return { icon: empty, color: 'red', text: mmss(rem) }
+  if (frac > 0.75) return { icon: full, color: 'green', text: mmss(rem) }
+  if (frac > 0.25) return { icon: half, color: 'yellow', text: mmss(rem) }
+  return { icon: empty, color: 'red', text: mmss(rem) }
+}
 
+/** The bar as one plain line (VS Code's status line has no colours). */
+function plainLine(b: Bar, nowSec: number) {
+  const t = timer(b, nowSec)
+  const flag = b.level === 'red' ? ' ▲' : ''
+  return [`◆ ${b.model ?? ''}`.trim(), `ctx ${b.gauge ?? ''} ${Math.round(b.pct ?? 0)}%${flag}`,
+    `Σ ${b.tokens ?? ''}`, b.cost ?? '', `${t.icon} ${t.text}`].join(' │ ')
+}
+
+/** Surfaces showing this session that don't draw the status line. */
+async function appSurfaces($: EngineInterface) {
+  return (await $.session.surfaces()).filter(s => s !== 'terminal')
+}
+
+/** Re-read the numbers from statusbar.py, with the figures the terminal's status line gets. */
 async function refresh($: EngineInterface) {
   lastRun = Date.now()
   try {
-    const [sid, info] = await Promise.all([$.session.id(), $.session.info()])
-    const env = await $.process.hookEnv()
-    // --band tells statusbar.py the band shows the bar here, so its after-reply message stays quiet
+    const apps = await appSurfaces($)
+    const [sid, info, model, usage] = await Promise.all(
+      [$.session.id(), $.session.info(), $.session.model(), $.session.usage()])
+    const payload = {
+      session_id: sid,
+      transcript_path: info.transcriptPath,
+      model: { id: model },
+      context_window: { used_percentage: usage.context.percent, context_window_size: usage.context.window,
+        current_context_tokens: usage.context.tokens },
+      cost: usage.cost ? { total_cost_usd: usage.cost.usd } : undefined,
+    }
+    // --band: an app shows the bar here, so statusbar.py's after-reply message stays quiet
     const argv = ['sh', `${$.plugin.root}/scripts/run.sh`, 'statusbar.py', '--json']
-    const { exitCode, stdout } = await $.process.run(drawn ? [...argv, '--band', sid] : argv,
-      { stdin: JSON.stringify({ session_id: sid, transcript_path: info.transcriptPath }),
-        env, timeoutMs: 10000 })
+    const { exitCode, stdout } = await $.process.run(apps.length ? [...argv, '--band', sid] : argv, {
+      stdin: JSON.stringify(payload), env: await $.process.hookEnv(), timeoutMs: 10000 })
     if (exitCode !== 0 || !stdout.trim()) return
     const data = JSON.parse(stdout) as Bar
     await update($, bar, () => data)
-    if (data.show && !ticking) {
-      ticking = true
-      $.clock.every(1000, () => tick($, info.transcriptPath))
-    }
   } catch {
-    // never get in the way: no Python, no transcript yet... the band just stays empty
+    // never get in the way: no Python, no transcript yet... the bar just stays as it was
   }
 }
 
-// Each second: redraw the countdown, and re-read the numbers when the transcript has grown
-// (a reply or tool result landed) mid-turn.
-async function tick($: EngineInterface, transcript: string) {
-  await update($, now, () => Date.now() / 1000)
-  if (!drawn || !transcript || Date.now() - lastRun < REFRESH_MS) return
+/** Each second: redraw the countdown, and re-read the numbers when the transcript grew. */
+async function tick($: EngineInterface) {
+  const apps = await appSurfaces($)
+  if (!apps.length) return                        // terminal only: its status line does this
+  $.ui.invalidate('ui.render')
+  const b = await read($, bar)
+  if (apps.includes('vscode') && b?.show) {
+    $.ui.status(plainLine(b, (await $.clock.now()) / 1000))
+    statusShown = true
+  } else if (statusShown) {
+    $.ui.status(undefined)
+    statusShown = false
+  }
+  if (Date.now() - lastRun < REFRESH_MS) return
   try {
-    const { mtimeMs } = await $.fs.stat(transcript)
+    const { transcriptPath } = await $.session.info()
+    const { mtimeMs } = await $.fs.stat(transcriptPath)
     if (mtimeMs !== seenMtime) {
       seenMtime = mtimeMs
       await refresh($)
@@ -62,13 +106,13 @@ async function tick($: EngineInterface, transcript: string) {
 
 export const register: Register = on => {
   lastRun = 0
-  ticking = false
   seenMtime = 0
-  drawn = false
+  statusShown = false
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     void refresh($)
+    $.clock.every(1000, () => tick($))            // stops on a reload; the new module starts its own
     return started
   })
 
@@ -82,37 +126,29 @@ export const register: Register = on => {
     if (e.surface === 'terminal' || e.props.hasSurvey) return next(e)
     const b = await read($, bar)
     if (!b || !b.show) return next(e)
-    drawn = true                 // the next tick re-reads with --band
-    seenMtime = 0
-    const t = (await read($, now)) || Date.now() / 1000
     const { Box, Text } = $.ui.resolve(e)
-
-    const [full, half, empty] = b.icons?.length === 3 ? b.icons : ['⧗', '⏳︎', '⧖']
-    let timer = <Text dimColor>{empty} --:--</Text>
-    if (b.cold_at != null) {
-      const rem = Math.max(0, b.cold_at - t)
-      const frac = b.ttl ? rem / b.ttl : 0
-      const [icon, color] = rem <= 0 ? [empty, 'red'] : frac > 0.75 ? [full, 'green']
-        : frac > 0.25 ? [half, 'yellow'] : [empty, 'red']
-      timer = <Text color={color} bold>{icon} {mmss(rem)}</Text>
-    }
+    const t = timer(b, (await $.clock.now()) / 1000)
     const sep = <Text dimColor> │ </Text>
 
+    // `await next(e)` among the children: before v2.1.323 the band was one shared drawing, and
+    // this keeps the rows of the mods after this one there.
     return (
-      <Box flexDirection="row">
+      <Box flexDirection="column">
         <Text>
-          <Text color="blue" bold>◆ {b.model || ''}</Text>
+          <Text color="blue" bold>◆ {b.model ?? ''}</Text>
           {sep}
           <Text dimColor>ctx </Text>
           <Text color={b.level}>{b.gauge}</Text>
-          <Text color={b.level} bold> {Math.round(b.pct ?? 0)}%{(b.level === 'red') ? ' ▲' : ''}</Text>
+          <Text color={b.level} bold> {Math.round(b.pct ?? 0)}%{b.level === 'red' ? ' ▲' : ''}</Text>
           {sep}
-          <Text dimColor>Σ </Text><Text bold>{b.tokens}</Text>
+          <Text dimColor>Σ </Text>
+          <Text bold>{b.tokens}</Text>
           {sep}
           <Text bold>{b.cost}</Text>
           {sep}
-          {timer}
+          {t.color ? <Text color={t.color} bold>{t.icon} {t.text}</Text> : <Text dimColor>{t.icon} {t.text}</Text>}
         </Text>
+        {await next(e)}
       </Box>
     )
   })

@@ -16,6 +16,6 @@ export type Bar = {
 
 declare module 'claude-code' {
   interface PluginState {
-    tokenomics: { bar: Bar | null; now: number }
+    tokenomics: { bar: Bar | null }
   }
 }
