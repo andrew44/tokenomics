@@ -1,6 +1,6 @@
 {
   "name": "tokenomics",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Cut and understand your AI coding spend. spendlens tags sessions OPEX (run) or CAPEX (build); pennywise routes each prompt to the right model (cheaper for simple, stronger for hard), as a hook or a local routing proxy; diet stops context-flooding tool calls; budget sets daily and per-session limits in pounds; doggybag packs a cheap resume note into the project before the cache goes cold; coach and spend-report skills review your prompts and spend; a live cost and cache statusline (/tokenomics:statusline) and dashboard (/tokenomics:dashboard).",
   "hooks": "copilot-hooks.json"
 }
