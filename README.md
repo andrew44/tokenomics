@@ -5,8 +5,9 @@
 <p align="center">
   <a href="#-install"><img src="https://img.shields.io/badge/Claude_Code-plugin-D97757?style=for-the-badge" alt="Claude Code plugin"></a>
   <a href="docs/installation.md#github-copilot-cli"><img src="https://img.shields.io/badge/Copilot_CLI-supported-24292F?style=for-the-badge&logo=githubcopilot&logoColor=white" alt="GitHub Copilot CLI supported"></a>
-  <img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+">
-  <img src="https://img.shields.io/badge/dependencies-zero-2EA043?style=for-the-badge" alt="Zero dependencies">
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="Written in TypeScript">
+  <img src="https://img.shields.io/badge/Node.js-22.18%2B-5FA04E?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js 22.18+">
+  <a href="#-dependencies"><img src="https://img.shields.io/badge/dependencies-TypeScript_(dev)-3178C6?style=for-the-badge" alt="Dependencies: TypeScript (dev only)"></a>
   <br>
   <a href="https://github.com/andrew44/tokenomics/releases/latest"><img src="https://img.shields.io/github/v/release/andrew44/tokenomics?label=release" alt="Latest release"></a>
   <a href="https://github.com/andrew44/tokenomics/actions/workflows/tests.yml"><img src="https://github.com/andrew44/tokenomics/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
@@ -35,7 +36,7 @@ Every message you send re-sends the **whole conversation**. Long chats, pasted l
 - 📟 **See it live.** A statusline in the terminal (and the same line in the desktop app's band) with context fill, tokens, cost in £/$/€ and a countdown to when the cache goes cold.
 - 🛡️ **Stop waste automatically.** Guard-rails that catch context floods, over-specced models and runaway spend *before* they cost you.
 - 🧑‍🏫 **Get better at it.** A coach that reviews your prompts, and a weekly spend report with three fixes tied to your own numbers.
-- 🔒 **Stays on your machine.** One local SQLite file. No account, no telemetry, no packages to install.
+- 🔒 **Stays on your machine.** One local SQLite file. No account, no telemetry, no packages to install: it's TypeScript that Node.js runs directly.
 
 <sub>⚠️ Costs shown are estimates, not a bill. Always check your provider's billing page. See the <a href="#disclaimer">disclaimer</a>.</sub>
 
@@ -89,11 +90,11 @@ claude plugin install tokenomics --marketplace andrew44/tokenomics     # Claude 
 ```
 </details>
 
-The plugin needs **Python 3.8+** on your computer (no packages). Don't have it? The one-liner below fetches a private copy for you.
+The plugin needs **Node.js 22.18+** on your computer (no packages, no build step; see [Dependencies](#-dependencies)). Don't have it? The one-liner below fetches a private copy for you.
 
-### GitHub Copilot CLI, or no Python: the one-line installer
+### GitHub Copilot CLI, or no Node.js: the one-line installer
 
-Sets up Copilot CLI and/or Claude Code (it installs the same plugin), gets Python if you need it, and adds a `tokenomics` terminal command (`tokenomics dashboard`, `report`, `update`, `uninstall`).
+Sets up Copilot CLI and/or Claude Code (it installs the same plugin), gets Node.js if you need it, and adds a `tokenomics` terminal command (`tokenomics dashboard`, `report`, `update`, `uninstall`).
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh | sh      # macOS / Linux
@@ -218,7 +219,21 @@ flowchart LR
 - **No prompt text stored** unless you opt in (`TOKENOMICS_STORE_PROMPT=1`).
 - **Nothing leaves your machine** unless you switch on the optional [AI classifier](docs/reference.md#optional-let-an-ai-model-decide), which redacts first and works with local models.
 - **Never in the way.** Hooks fail silently to a log file. Every guard-rail has a one-step override and a `warn` / `off` switch.
-- **Zero dependencies.** Python standard library only. Nothing to `pip install`, nothing to audit but this repo.
+- **No runtime dependencies.** Node.js built-ins only (SQLite included). Nothing to `npm install` to use it, nothing to audit but this repo. TypeScript is the one dependency, for development only ([Dependencies](#-dependencies)).
+
+---
+
+## 📦 Dependencies
+
+tokenomics is written in **TypeScript**. Node.js runs the `.ts` files directly (Node 22.18+ strips the types itself), so there is no build step and nothing is compiled or bundled.
+
+| | Dependency | Version | What it's for |
+|---|---|---|---|
+| Runtime | [**Node.js**](https://nodejs.org) | 22.18 or newer | Runs every hook, skill and tool. Its built-in `node:sqlite` holds your data. The [one-line installer](#github-copilot-cli-or-no-nodejs-the-one-line-installer) fetches a private copy if you don't have it. |
+| Development | [**TypeScript**](https://www.typescriptlang.org) (`typescript`) | ^5.9 | Type-checks the code: `npm run typecheck`. |
+| Development | `@types/node` | ^22.18 | Node.js type definitions for the type-check. |
+
+Nothing is installed from npm to *use* tokenomics: the plugin, the hooks and the installers only need Node.js. The dev dependencies in [`package.json`](package.json) are for working on it.
 
 ---
 
@@ -238,10 +253,11 @@ flowchart LR
 
 ## 🤝 Contributing
 
-Issues and pull requests are welcome. The tests need nothing installed:
+Issues and pull requests are welcome. The tests need nothing installed; the type-check needs TypeScript:
 
 ```bash
-cd tests && python3 -m unittest
+npm test                          # node:test, Node.js 22.18+
+npm install && npm run typecheck  # tsc --noEmit
 ```
 
 Start with [Architecture](docs/architecture.md). More hooks, tools and skills are on the way.
@@ -270,7 +286,7 @@ Convinced? In Claude Code:
 /plugin install tokenomics --marketplace andrew44/tokenomics
 ```
 
-Then say *"coach, review my prompts"*. On Copilot CLI or without Python, use the [one-line installer](#github-copilot-cli-or-no-python-the-one-line-installer).
+Then say *"coach, review my prompts"*. On Copilot CLI or without Node.js, use the [one-line installer](#github-copilot-cli-or-no-nodejs-the-one-line-installer).
 
 Want only some of it? See [pick and choose](#-or-pick-and-choose). Anything else: [Installation guide](docs/installation.md).
 

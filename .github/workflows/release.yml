@@ -5,7 +5,7 @@ name: release
 # Version: a patch bump from the last release, written into both plugin manifests and committed
 # to main, because Claude Code only sends plugin users an update when the version changes. For a
 # minor or major release, raise "version" in .claude-plugin/plugin.json and plugin.json yourself;
-# that version is released as it is. Logic: .github/scripts/next_version.py.
+# that version is released as it is. Logic: .github/scripts/next_version.ts.
 
 on:
   push:
@@ -32,12 +32,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: "24"
       - name: Unit tests
-        working-directory: tests
-        run: python -m unittest
+        run: npm test
 
   release:
     needs: test
@@ -47,10 +46,13 @@ jobs:
         with:
           ref: main
           fetch-depth: 0          # all tags and history, to find the last release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
       - name: Work out the version
         id: v
-        run: python3 .github/scripts/next_version.py | tee -a "$GITHUB_OUTPUT"
+        run: node .github/scripts/next_version.ts | tee -a "$GITHUB_OUTPUT"
 
       - name: Nothing new since the last release
         if: steps.v.outputs.release != 'true'
@@ -59,7 +61,7 @@ jobs:
       - name: Bump the plugin version on main
         if: steps.v.outputs.release == 'true' && steps.v.outputs.bump == 'true'
         run: |
-          python3 .github/scripts/next_version.py --write "${{ steps.v.outputs.version }}"
+          node .github/scripts/next_version.ts --write "${{ steps.v.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "Release ${{ steps.v.outputs.tag }}"

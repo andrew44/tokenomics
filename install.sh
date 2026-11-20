@@ -7,13 +7,14 @@
 # finds: the Claude Code / Copilot CLI plugin (skills + hooks), the statusline, and a `tokenomics`
 # command. It never replaces a status line you already have. Safe to run again to repair.
 #
-# No Python? It downloads a private copy into ~/.tokenomics/runtime (no admin rights, no pop-ups,
-# nothing else on your system changes).
+# tokenomics is TypeScript run directly by Node.js 22.18 or newer (no build step, no npm install).
+# No Node.js, or an older one? It downloads a private copy into ~/.tokenomics/runtime (no admin
+# rights, no pop-ups, nothing else on your system changes).
 #
 # Options (after `sh -s --`): --no-plugin  --no-statusline
 # Environment: TOKENOMICS_REPO (default andrew44/tokenomics), TOKENOMICS_REF (default main),
 #              TOKENOMICS_HOME (default ~/.tokenomics),
-#              TOKENOMICS_PYTHON (a python to use, or "standalone" to always use a private copy)
+#              TOKENOMICS_NODE (a node to use, or "standalone" to always use a private copy)
 
 # Everything is inside main() so a half-downloaded script never runs.
 main() {
@@ -22,6 +23,7 @@ main() {
     ref="${TOKENOMICS_REF:-main}"
     home="${TOKENOMICS_HOME:-$HOME/.tokenomics}"
     app="$home/app"
+    private="$home/runtime/node/bin/node"
 
     say() { printf '%s\n' "$*"; }
     fail() { printf '\ntokenomics: %s\n' "$*" >&2; exit 1; }
@@ -36,72 +38,63 @@ main() {
         fi
     }
 
-    usable() {  # usable PYTHON -> true if it is a real Python 3.8+
-        # On a Mac without the developer tools, /usr/bin/python3 is a placeholder that pops up an
-        # "install developer tools" dialog instead of running. Don't touch it.
-        if [ "$(uname -s)" = Darwin ] && [ "$(command -v "$1")" = /usr/bin/python3 ] \
-            && ! xcode-select -p >/dev/null 2>&1; then
-            return 1
-        fi
-        "$1" -c 'import sys; sys.exit(sys.version_info < (3, 8))' </dev/null >/dev/null 2>&1
+    usable() {  # usable NODE -> true if it is Node.js 22.18 or newer
+        "$1" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=18)?0:1)' \
+            </dev/null >/dev/null 2>&1
     }
 
-    standalone_python() {
-        # A self-contained CPython build (python-build-standalone, as used by uv), pinned and
-        # checked against its published SHA-256, unpacked into $home/runtime. No API calls, so no
-        # rate limits.
-        base="https://github.com/astral-sh/python-build-standalone/releases/download/20241016"
+    standalone_node() {
+        # The official Node.js 24 LTS build from nodejs.org, pinned and checked against its
+        # published SHA-256, unpacked into $home/runtime. No API calls, so no rate limits.
+        version=v24.22.2
         case "$(uname -s)-$(uname -m)" in
-            Darwin-arm64)              triple=aarch64-apple-darwin;      sum=4c18852bf9c1a11b56f21bcf0df1946f7e98ee43e9e4c0c5374b2b3765cf9508 ;;
-            Darwin-x86_64)             triple=x86_64-apple-darwin;       sum=60c5271e7edc3c2ab47440b7abf4ed50fbc693880b474f74f05768f5b657045a ;;
-            Linux-x86_64)              triple=x86_64-unknown-linux-gnu;  sum=43576f7db1033dd57b900307f09c2e86f371152ac8a2607133afa51cbfc36064 ;;
-            Linux-aarch64|Linux-arm64) triple=aarch64-unknown-linux-gnu; sum=bba3c6be6153f715f2941da34f3a6a69c2d0035c9c5396bc5bb68c6d2bd1065a ;;
+            Darwin-arm64)              plat=darwin-arm64; sum=aa9549349e47dffaa42dcf95d6e06ade8c4bdafc980979883b88767670df385a ;;
+            Darwin-x86_64)             plat=darwin-x64;   sum=d5e336d588c45be0c37dbd52cc29895593009ca4997a77a1fd02815131ed0e52 ;;
+            Linux-x86_64)              plat=linux-x64;    sum=361718c444e49af2ca5a110c83ba6a8901143f23ab285ebbef0341f391f482a9 ;;
+            Linux-aarch64|Linux-arm64) plat=linux-arm64;  sum=95c264150aceb7f3437a29fd6984924f5f8d1511ea3cbd6c508b83f6c555dae2 ;;
             *) return 1 ;;
         esac
-        say "Downloading a private Python for tokenomics (one time, about 20 MB)..."
-        fetch "$base/cpython-3.12.7%2B20241016-$triple-install_only.tar.gz" "$tmp/python.tar.gz" || return 1
+        say "Downloading a private Node.js for tokenomics (one time, about 50 MB)..."
+        fetch "https://nodejs.org/dist/$version/node-$version-$plat.tar.gz" "$tmp/node.tar.gz" || return 1
         if command -v sha256sum >/dev/null 2>&1; then
-            got="$(sha256sum "$tmp/python.tar.gz" | cut -d' ' -f1)"
+            got="$(sha256sum "$tmp/node.tar.gz" | cut -d' ' -f1)"
         else
-            got="$(shasum -a 256 "$tmp/python.tar.gz" | cut -d' ' -f1)"
+            got="$(shasum -a 256 "$tmp/node.tar.gz" | cut -d' ' -f1)"
         fi
-        [ "$got" = "$sum" ] || { say "The Python download didn't match its checksum; not using it."; return 1; }
+        [ "$got" = "$sum" ] || { say "The Node.js download didn't match its checksum; not using it."; return 1; }
         rm -rf "$home/runtime"
         mkdir -p "$home/runtime"
-        tar -xzf "$tmp/python.tar.gz" -C "$home/runtime" || return 1
-        [ -x "$home/runtime/python/bin/python3" ] && usable "$home/runtime/python/bin/python3"
+        tar -xzf "$tmp/node.tar.gz" -C "$home/runtime" || return 1
+        mv "$home/runtime/node-$version-$plat" "$home/runtime/node" || return 1
+        [ -x "$private" ] && usable "$private"
     }
 
     tmp="$(mktemp -d 2>/dev/null || mktemp -d -t tokenomics)"
     trap 'rm -rf "$tmp"' EXIT INT TERM
     mkdir -p "$home"
 
-    # 1. Python 3.8+ (standard library only; nothing gets pip-installed)
-    py=""
-    want="${TOKENOMICS_PYTHON:-}"
+    # 1. Node.js 22.18+ (built-in modules only; nothing gets npm-installed)
+    node=""
+    want="${TOKENOMICS_NODE:-}"
     if [ -n "$want" ] && [ "$want" != standalone ]; then
-        usable "$want" || fail "TOKENOMICS_PYTHON=$want isn't a working Python 3.8+."
-        py="$(command -v "$want")"
+        usable "$want" || fail "TOKENOMICS_NODE=$want isn't a working Node.js 22.18+."
+        node="$(command -v "$want")"
     elif [ -z "$want" ]; then
-        if [ -x "$home/runtime/python/bin/python3" ] && usable "$home/runtime/python/bin/python3"; then
-            py="$home/runtime/python/bin/python3"            # from an earlier install
+        if [ -x "$private" ] && usable "$private"; then
+            node="$private"                                  # from an earlier install
+        elif command -v node >/dev/null 2>&1 && usable node; then
+            node="$(command -v node)"
         fi
-        for c in python3 python; do
-            [ -z "$py" ] || break
-            if command -v "$c" >/dev/null 2>&1 && usable "$c"; then
-                py="$(command -v "$c")"
-            fi
-        done
     fi
-    if [ -z "$py" ]; then
-        if standalone_python; then
-            py="$home/runtime/python/bin/python3"
+    if [ -z "$node" ]; then
+        if standalone_node; then
+            node="$private"
         else
             case "$(uname -s)" in
-                Darwin) hint="install it from https://www.python.org/downloads/ (or: brew install python)" ;;
-                *)      hint="install it with your package manager, e.g.: sudo apt install python3" ;;
+                Darwin) hint="install it from https://nodejs.org (or: brew install node)" ;;
+                *)      hint="install it from https://nodejs.org or with your package manager" ;;
             esac
-            fail "tokenomics needs Python 3.8 or newer and couldn't download it. Please $hint, then run this installer again."
+            fail "tokenomics needs Node.js 22.18 or newer and couldn't download it. Please $hint, then run this installer again."
         fi
     fi
 
@@ -112,7 +105,7 @@ main() {
     mkdir -p "$tmp/src"
     tar -xzf "$tmp/src.tar.gz" -C "$tmp/src" || fail "couldn't unpack the download."
     src="$(find "$tmp/src" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
-    [ -f "$src/scripts/cli.py" ] || fail "the download doesn't look like tokenomics."
+    [ -f "$src/scripts/cli.ts" ] || fail "the download doesn't look like tokenomics."
     rm -rf "$app.new"
     mv "$src" "$app.new"
     rm -rf "$app"
@@ -120,7 +113,7 @@ main() {
 
     # 3. Set everything up (plugin, statusline, `tokenomics` command)
     say ""
-    "$py" "$app/scripts/cli.py" setup "$@" </dev/null
+    "$node" --disable-warning=ExperimentalWarning "$app/scripts/cli.ts" setup "$@" </dev/null
 }
 
 main "$@"

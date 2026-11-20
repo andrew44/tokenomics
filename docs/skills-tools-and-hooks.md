@@ -29,8 +29,8 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 | Stop the AI pulling huge files or logs into the conversation | [diet](#diet) | Hook |
 | Pick up after a break where I left off, cheaply | [doggybag](#doggybag) | Hook (plus `tokenomics doggybag`) |
 | Know how much AI time went on building vs running things | [spendlens](#spendlens) + [dashboard](#dashboard) / [spend-report](#spend-report) | Hook + Tool / Skill |
-| Get raw numbers for a script or spreadsheet | [coach.py --json](#coachpy), [report.py --json](#reportpy), or [sqlite3](reference.md#looking-at-your-data) | Tool |
-| Refresh model prices | [update_prices.py](#update_pricespy) | Tool |
+| Get raw numbers for a script or spreadsheet | [coach.ts --json](#coachts), [report.ts --json](#reportts), or [sqlite3](reference.md#looking-at-your-data) | Tool |
+| Refresh model prices | [update_prices.ts](#update_pricests) | Tool |
 
 ```mermaid
 flowchart TD
@@ -61,7 +61,7 @@ Skills are instructions the assistant follows when you ask. They only run when y
 
 **Don't reach for it when:** you want spend across many sessions (use [spend-report](#spend-report)), or you're on Copilot CLI (there is no transcript to read).
 
-**How:** say *"coach, review my prompts"*, *"why was that session expensive?"*, or type `/tokenomics:coach`. Script behind it: [`coach.py`](#coachpy).
+**How:** say *"coach, review my prompts"*, *"why was that session expensive?"*, or type `/tokenomics:coach`. Script behind it: [`coach.ts`](#coachts).
 
 ### spend-report
 
@@ -76,7 +76,7 @@ Skills are instructions the assistant follows when you ask. They only run when y
 
 **Don't reach for it when:** you want to look inside one session (use [coach](#coach)) or want charts (use the [dashboard](#dashboard)).
 
-**How:** say *"spend report"*, *"where did my tokens go this week?"*, or name a period: *"spend report for this month in dollars"*. Script behind it: [`report.py`](#reportpy). Needs the plugin installed so spendlens has been recording.
+**How:** say *"spend report"*, *"where did my tokens go this week?"*, or name a period: *"spend report for this month in dollars"*. Script behind it: [`report.ts`](#reportts). Needs the plugin installed so spendlens has been recording.
 
 ---
 
@@ -118,11 +118,11 @@ sequenceDiagram
 
 **Reach for it when:** you want any history at all. Keep it on; spend-report, the dashboard and budget rely on it. Reach for its settings when:
 
-- Labels look wrong: map your own skills with `TOKENOMICS_SKILL_MAP`, or edit the keyword lists in `tokenomics/engine/classifier.py`.
+- Labels look wrong: map your own skills with `TOKENOMICS_SKILL_MAP`, or edit the keyword lists in `tokenomics/engine/classifier.ts`.
 - Keywords keep missing: set `TOKENOMICS_LLM=1` to let a model decide once per session (prompts leave your machine, redacted; point it at a local model if sensitive).
 - A team wants one shared view: point `TOKENOMICS_DB` at a shared location.
 
-**Script:** `scripts/spendlens.py` (`prompt`, `tool`, `finalize`, and `capabilities` to see what each assistant supports). Details: [What spendlens saves](reference.md#spendlens).
+**Script:** `scripts/spendlens.ts` (`prompt`, `tool`, `finalize`, and `capabilities` to see what each assistant supports). Details: [What spendlens saves](reference.md#spendlens).
 
 ### pennywise
 
@@ -160,11 +160,11 @@ sequenceDiagram
 
 ## Tools
 
-Scripts you run yourself. All need only Python 3.8+ and live in `scripts/`. Run them from the repo (or plugin) folder.
+Scripts you run yourself. All need only Node.js 22.18+ (they're TypeScript, run directly) and live in `scripts/`. Run them from the repo (or plugin) folder.
 
 ### statusline
 
-`scripts/statusline.py`: a live line at the bottom of Claude Code or Copilot CLI in a terminal, showing model, context fill, total tokens, cost and the cache countdown. In the Claude desktop app the same line is the **band** above the prompt box (`hooks/band.tsx`).
+`scripts/statusline.ts`: a live line at the bottom of Claude Code or Copilot CLI in a terminal, showing model, context fill, total tokens, cost and the cache countdown. In the Claude desktop app the same line is the **band** above the prompt box (`hooks/band.tsx`).
 
 **Reach for it when:** you want to *see* cost as you go rather than find out afterwards. It's the best everyday early warning: start a fresh conversation when the context bar goes red, and finish your thought (or let doggybag pack a note) before the cache timer runs out.
 
@@ -181,7 +181,7 @@ Details: [statusline](reference.md#statusline) and [band](reference.md#band) ref
 
 ### dashboard
 
-`scripts/dashboard.py`: a local web page over the spendlens database with a % OPEX vs % CAPEX bar, daily trend, per-project split, skills used and recent sessions.
+`scripts/dashboard.ts`: a local web page over the spendlens database with a % OPEX vs % CAPEX bar, daily trend, per-project split, skills used and recent sessions.
 
 **Reach for it when:** you want trends or a picture to share (a team review, a finance question), rather than a written summary. `--demo` shows it with fake data before you have any of your own.
 
@@ -192,32 +192,32 @@ tokenomics dashboard --demo
 
 Read-only, local only. Details: [dashboard reference](reference.md#dashboard).
 
-### report.py
+### report.ts
 
-`scripts/report.py`: the engine behind [spend-report](#spend-report).
+`scripts/report.ts`: the engine behind [spend-report](#spend-report).
 
 **Reach for it directly when:** you want the report without asking the assistant (no tokens spent), or want JSON for a script or spreadsheet.
 
 ```
-python3 scripts/report.py                     # last 7 days, Markdown
-python3 scripts/report.py --days 30 --json    # --days 0 for all time
-python3 scripts/report.py --currency EUR
+node scripts/report.ts                     # last 7 days, Markdown
+node scripts/report.ts --days 30 --json    # --days 0 for all time
+node scripts/report.ts --currency EUR
 ```
 
 ### budget
 
-`python3 scripts/budget.py status` shows today's and this session's spend against your limits. **Reach for it** before a big piece of work, or after a budget notice, to see how much headroom is left.
+`node scripts/budget.ts status` shows today's and this session's spend against your limits. **Reach for it** before a big piece of work, or after a budget notice, to see how much headroom is left.
 
-### coach.py
+### coach.ts
 
-`scripts/coach.py`: the analyser behind the [coach](#coach) skill.
+`scripts/coach.ts`: the analyser behind the [coach](#coach) skill.
 
 **Reach for it directly when:** you want the raw flags and numbers without spending tokens on the assistant's write-up, or want to analyse an older session.
 
 ```
-python3 scripts/coach.py                     # newest transcript for this folder
-python3 scripts/coach.py --session <id> --json
-python3 scripts/coach.py --transcript path/to/file.jsonl
+node scripts/coach.ts                     # newest transcript for this folder
+node scripts/coach.ts --session <id> --json
+node scripts/coach.ts --transcript path/to/file.jsonl
 ```
 
 ### tokenomics router
@@ -226,21 +226,21 @@ python3 scripts/coach.py --transcript path/to/file.jsonl
 
 ### tokenomics doggybag
 
-`tokenomics doggybag` (or `python3 scripts/doggybag.py write`) packs a doggybag on demand. **Reach for it** when you're about to stop and want the note now rather than waiting for the cache timer.
+`tokenomics doggybag` (or `node scripts/doggybag.ts write`) packs a doggybag on demand. **Reach for it** when you're about to stop and want the note now rather than waiting for the cache timer.
 
-### spendlens.py capabilities
+### spendlens.ts capabilities
 
-`python3 scripts/spendlens.py capabilities` lists what each assistant can report (transcript, token counts, tool events, billing). **Reach for it** when a column is empty and you want to know whether that's expected for that assistant.
+`node scripts/spendlens.ts capabilities` lists what each assistant can report (transcript, token counts, tool events, billing). **Reach for it** when a column is empty and you want to know whether that's expected for that assistant.
 
-### update_prices.py
+### update_prices.ts
 
-`scripts/update_prices.py`: refreshes `data/model-prices.json` from Claude's pricing page. A GitHub Action already runs it every Monday.
+`scripts/update_prices.ts`: refreshes `data/model-prices.json` from Claude's pricing page. A GitHub Action already runs it every Monday.
 
 **Reach for it when:** a new model has launched or prices changed and you don't want to wait for Monday, or (`--check`) to confirm the file is current. To override a single price instead, use `"prices"` in `~/.tokenomics/statusline.json` (see [Prices](configuration.md#prices)).
 
 ```
-python3 scripts/update_prices.py            # fetch and update
-python3 scripts/update_prices.py --check    # exit 1 if out of date
+node scripts/update_prices.ts            # fetch and update
+node scripts/update_prices.ts --check    # exit 1 if out of date
 ```
 
 ---

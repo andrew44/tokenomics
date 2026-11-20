@@ -17,20 +17,23 @@ flowchart LR
 - **Shared engine** (`tokenomics/engine/`): the scoring rules, the optional AI-model check, and the database. Both assistants go through exactly the same code.
 - **Adapters** (`tokenomics/adapters/`): translation only, no scoring. Each one lists its capabilities (transcript, token counts, tool events, billing and so on) as `native`, `partial` or `none`.
 - **If something is missing**, the engine copes: no transcript means it uses the prompt and tool events it stored; an unknown assistant, or an adapter that fails to load, still gets its prompts logged by session id, and the other assistant is unaffected.
-- **Billing stays separate**: Claude Code tokens are priced (`engine/pricing.py`); Copilot premium requests are never turned into tokens or money.
-- **Guards share the engine too**: diet's rules (`engine/diet.py`) and budget's limits (`engine/budget.py`) are written once; each adapter says how to deny a tool call, block a prompt or show a notice on its platform (or that it can't).
+- **Billing stays separate**: Claude Code tokens are priced (`engine/pricing.ts`); Copilot premium requests are never turned into tokens or money.
+- **Guards share the engine too**: diet's rules (`engine/diet.ts`) and budget's limits (`engine/budget.ts`) are written once; each adapter says how to deny a tool call, block a prompt or show a notice on its platform (or that it can't).
 
-The older tools (statusline, pennywise, doggybag, coach) are still standalone scripts; the statusline must stay a single file because `--install` copies it to `~/.tokenomics/` (and the plugin's `statusline.py --sync` SessionStart hook refreshes that copy after each plugin update). The band (`hooks/band.tsx`) is the one TypeScript part: a [mod](https://code.claude.com/docs/en/plugins/mods/interface) that draws the statusline's numbers (`statusline.py --json`) above the prompt box in the desktop app, where there is no statusline. Its tests run with `claude plugin test .`.
+Everything is TypeScript. Node.js 22.18+ runs the `.ts` files directly (it strips the types itself), so there is no build step and nothing is compiled; SQLite comes from Node's built-in `node:sqlite`. There are no runtime packages at all: TypeScript and `@types/node` are dev dependencies, used only to type-check (`npm run typecheck`).
+
+The older tools (statusline, pennywise, doggybag, coach) are still standalone scripts; the statusline must stay a single file because `--install` copies it to `~/.tokenomics/statusline.mts` (and the plugin's `statusline.ts --sync` SessionStart hook refreshes that copy after each plugin update). The band (`hooks/band.tsx`) is a [mod](https://code.claude.com/docs/en/plugins/mods/interface) that draws the statusline's numbers (`statusline.ts --json`) above the prompt box in the desktop app, where there is no statusline. Its tests run with `claude plugin test .`.
 
 ## Handy commands
 
 ```bash
-python3 scripts/spendlens.py capabilities     # what each assistant supports
-cd tests && python3 -m unittest               # run the tests (no installs needed)
-python3 scripts/update_prices.py              # refresh data/model-prices.json
+node scripts/spendlens.ts capabilities     # what each assistant supports
+npm test                                   # run the tests (node:test; no installs needed)
+npm install && npm run typecheck           # type-check with TypeScript (the only dev dependencies)
+node scripts/update_prices.ts              # refresh data/model-prices.json
 ```
 
-Tests run on every push and pull request against Python 3.8 and 3.13 on Linux and macOS (`.github/workflows/tests.yml`).
+Tests run on every push and pull request against Node.js 22.18 (the oldest supported) and 24 on Linux and macOS, and every push is type-checked with `tsc` (`.github/workflows/tests.yml`).
 
 ## What's in the repo
 
@@ -49,29 +52,30 @@ tokenomics/
 │   ├── dashboard/SKILL.md          opens the dashboard (/tokenomics:dashboard)
 │   └── statusline/SKILL.md         installs / removes the statusline, band on/off (/tokenomics:statusline)
 ├── tokenomics/
-│   ├── engine/                     shared logic: classifier.py, llm.py, store.py, session.py, evidence.py,
-│   │                               pricing.py, currency.py, diet.py, budget.py, events.py
+│   ├── engine/                     shared logic: classifier.ts, llm.ts, store.ts, session.ts, evidence.ts,
+│   │                               pricing.ts, currency.ts, diet.ts, budget.ts, events.ts
 │   ├── platform/                   common adapter interface + capability registry
-│   ├── adapters/                   claude_code.py, copilot.py (translation only)
-│   ├── config.py                   shared settings
-│   └── util.py                     shared helpers
-├── install.sh / install.ps1        one-line installers (download, then run scripts/cli.py setup)
+│   ├── adapters/                   claude_code.ts, copilot.ts (translation only)
+│   ├── config.ts                   shared settings
+│   └── util.ts                     shared helpers
+├── install.sh / install.ps1        one-line installers (download, then run scripts/cli.ts setup)
 ├── scripts/
-│   ├── cli.py                      the `tokenomics` command: setup, update, uninstall, dashboard, report
-│   ├── run.sh                      launcher every hook and skill uses: finds a real Python 3.8+ on any OS
-│   ├── spendlens.py                the OPEX/CAPEX hook runner (calls the engine)
-│   ├── pennywise.py                model router: complexity tiers; hook (subagent) or local proxy
-│   ├── doggybag.py                 packs a resume note into <project>/.doggybag before the cache expires
-│   ├── diet.py                     stops tool calls that would flood the context
-│   ├── budget.py                   daily / per-session spending limits
-│   ├── report.py                   spend report (used by the spend-report skill)
-│   ├── coach.py                    transcript analyser used by the coach skill
-│   ├── statusline.py               the statusline for Claude Code and Copilot CLI (terminal); --json feeds the band
-│   ├── dashboard.py                local web server over the spendlens database (--background)
-│   └── update_prices.py            refreshes data/model-prices.json from Claude's pricing page
+│   ├── cli.ts                      the `tokenomics` command: setup, update, uninstall, dashboard, report
+│   ├── run.sh                      launcher every hook and skill uses: finds Node.js 22.18+ on any OS
+│   ├── spendlens.ts                the OPEX/CAPEX hook runner (calls the engine)
+│   ├── pennywise.ts                model router: complexity tiers; hook (subagent) or local proxy
+│   ├── doggybag.ts                 packs a resume note into <project>/.doggybag before the cache expires
+│   ├── diet.ts                     stops tool calls that would flood the context
+│   ├── budget.ts                   daily / per-session spending limits
+│   ├── report.ts                   spend report (used by the spend-report skill)
+│   ├── coach.ts                    transcript analyser used by the coach skill
+│   ├── statusline.ts               the statusline for Claude Code and Copilot CLI (terminal); --json feeds the band
+│   ├── dashboard.ts                local web server over the spendlens database (--background)
+│   └── update_prices.ts            refreshes data/model-prices.json from Claude's pricing page
 ├── data/model-prices.json          Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly
 ├── dashboard/index.html            the dashboard page
-├── tests/                          unittest suite
+├── tests/                          node:test suite (*.test.ts) and the installer check
+├── package.json / tsconfig.json    dev dependencies (TypeScript, @types/node) and type-check settings
 ├── docs/                           guides (you are here)
 └── .github/workflows/              tests, installer checks (macOS/Windows/Linux), weekly price refresh, releases
 ```
@@ -80,7 +84,7 @@ tokenomics/
 
 1. Put shared logic in `tokenomics/engine/` so both assistants use it.
 2. Add a thin script in `scripts/` that reads the hook payload through the adapter.
-3. Register the hook in `hooks/hooks.json` (Claude Code) and, if Copilot can support it, `copilot-hooks.json`. Always call it through the launcher (`sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" <name>.py ...`), never `python3` directly, or it breaks on Windows.
+3. Register the hook in `hooks/hooks.json` (Claude Code) and, if Copilot can support it, `copilot-hooks.json`. Always call it through the launcher (`sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" <name>.ts ...`), never `node` directly: the launcher finds the right Node.js on every OS, including Windows.
 4. Add a settings switch (`TOKENOMICS_<NAME>=off`) so people can opt out.
 5. Log what it did to a `<name>_events` table so the spend report can show it.
 6. Add tests, and document it in [the reference](reference.md) and [Skills, tools and hooks](skills-tools-and-hooks.md).

@@ -1,55 +1,46 @@
 #!/bin/sh
-# Run a tokenomics script with a working Python 3.8+, on macOS, Linux and Windows (Git Bash).
+# Run a tokenomics script with a working Node.js 22.18+, on macOS, Linux and Windows (Git Bash).
 #
-#   sh scripts/run.sh spendlens.py prompt claude-code
+#   sh scripts/run.sh spendlens.ts prompt claude-code
 #
-# Claude Code runs hooks through bash, including on Windows, where `python3` is usually missing or
-# is the Microsoft Store stub that can't run anything. So: use the interpreter cached in
-# ~/.tokenomics/python (written by the installer, or by the first successful probe here), else try
-# a private copy in ~/.tokenomics/runtime, then python3, python and `py -3`, keeping the first that really is Python 3.8+.
-# stdin, stdout and the exit code pass straight through (hooks depend on all three).
+# tokenomics is TypeScript that Node.js runs directly (22.18+ strips the types itself; no build
+# step, no packages). Claude Code runs hooks through bash, including on Windows. So: use the Node.js
+# cached in ~/.tokenomics/node (written by the installer, or by the first successful probe here),
+# else a private copy in ~/.tokenomics/runtime, then `node` on PATH, keeping the first that really
+# is 22.18 or newer. stdin, stdout and the exit code pass straight through (hooks depend on all three).
 
 here=$(cd "$(dirname "$0")" && pwd)
 script="$here/$1"
 shift
-cache="${TOKENOMICS_HOME:-$HOME/.tokenomics}/python"
+tk="${TOKENOMICS_HOME:-$HOME/.tokenomics}"
+cache="$tk/node"
+flags="--disable-warning=ExperimentalWarning"   # node:sqlite still says it is experimental on Node 22
+
+# 22.18+ (type stripping on by default, node:sqlite built in)
+ok='const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=18)?0:1)'
 
 if [ -f "$cache" ]; then
-    py=$(head -n 1 "$cache" | tr '\\' '/')   # C:\...\python.exe -> C:/.../python.exe
-    if [ -n "$py" ] && [ -x "$py" ]; then
-        exec "$py" "$script" "$@"
+    node=$(head -n 1 "$cache" | tr '\\' '/')       # C:\...\node.exe -> C:/.../node.exe
+    if [ -n "$node" ] && [ -x "$node" ]; then
+        exec "$node" $flags "$script" "$@"
     fi
 fi
 
-for private in "${TOKENOMICS_HOME:-$HOME/.tokenomics}/runtime/python/bin/python3" \
-               "${TOKENOMICS_HOME:-$HOME/.tokenomics}/runtime/python/python.exe"; do
+for private in "$tk/runtime/node/bin/node" "$tk/runtime/node/node.exe"; do
     if [ -x "$private" ]; then
         printf '%s\n' "$private" > "$cache" 2>/dev/null
-        exec "$private" "$script" "$@"
+        exec "$private" $flags "$script" "$@"
     fi
 done
 
-ok='import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)'
-for cand in python3 python "py -3"; do
-    bin=${cand%% *}
-    command -v "$bin" >/dev/null 2>&1 || continue
-    # On a Mac without the developer tools, /usr/bin/python3 is a placeholder that pops up an
-    # install dialog on every run. Skip it.
-    if [ "$(command -v "$bin")" = /usr/bin/python3 ] && [ "$(uname -s)" = Darwin ] \
-        && ! xcode-select -p >/dev/null 2>&1; then
-        continue
+if command -v node >/dev/null 2>&1 && node -e "$ok" </dev/null >/dev/null 2>&1; then
+    exe=$(node -p 'process.execPath' </dev/null 2>/dev/null)
+    if [ -n "$exe" ]; then
+        mkdir -p "$tk" 2>/dev/null && printf '%s\n' "$exe" | tr '\\' '/' > "$cache" 2>/dev/null
     fi
-    # shellcheck disable=SC2086  # "py -3" must split into command + flag
-    if $cand -c "$ok" </dev/null >/dev/null 2>&1; then
-        exe=$($cand -c 'import sys; print(sys.executable)' </dev/null 2>/dev/null)
-        if [ -n "$exe" ]; then
-            mkdir -p "$(dirname "$cache")" 2>/dev/null && printf '%s\n' "$exe" | tr '\\' '/' > "$cache" 2>/dev/null
-        fi
-        # shellcheck disable=SC2086
-        exec $cand "$script" "$@"
-    fi
-done
+    exec node $flags "$script" "$@"
+fi
 
-echo "tokenomics: Python 3.8+ not found. Run the installer to get a private copy:" \
+echo "tokenomics: Node.js 22.18+ not found. Run the installer to get a private copy:" \
      "curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh | sh" >&2
-exit 0   # never block the assistant because Python is missing
+exit 0   # never block the assistant because Node.js is missing

@@ -7,7 +7,7 @@ Everything you need to get tokenomics running, from the one-minute install to te
 **On this page**
 
 - [Claude Code: install the plugin](#claude-code-install-the-plugin) (recommended)
-- [The one-line installer](#the-one-line-installer) (Copilot CLI, no Python, or the `tokenomics` command)
+- [The one-line installer](#the-one-line-installer) (Copilot CLI, no Node.js, or the `tokenomics` command)
 - [Install pieces individually](#install-pieces-individually)
 - [Where do you use Claude Code?](#where-do-you-use-claude-code): terminal, desktop app, web
 - [GitHub Copilot CLI](#github-copilot-cli)
@@ -54,7 +54,7 @@ In the **Code** tab, start a **local** (or SSH) session, click **+** next to the
 
 **Check it worked:** type `/` and look for `/tokenomics:coach`.
 
-**Needs Python 3.8+** on your computer (standard library only). The hooks find it whether it's called `python3`, `python` or `py`. No Python? Run the [one-line installer](#the-one-line-installer) once: it fetches a private copy that the plugin then uses.
+**Needs Node.js 22.18+** on your computer (it runs tokenomics' TypeScript directly; no packages, no build). The hooks use the `node` on your PATH when it's new enough. No Node.js, or an older one? Run the [one-line installer](#the-one-line-installer) once: it fetches a private copy that the plugin then uses.
 
 ### Keep it up to date
 
@@ -82,7 +82,7 @@ When a teammate trusts the folder, Claude Code adds the marketplace for them. Ea
 
 ## The one-line installer
 
-For **GitHub Copilot CLI**, for computers **without Python**, or if you want the `tokenomics` terminal command. One line, no git, no `pip`. If it finds Claude Code it installs the same plugin as above.
+For **GitHub Copilot CLI**, for computers **without Node.js**, or if you want the `tokenomics` terminal command. One line, no git, no `npm install`. If it finds Claude Code it installs the same plugin as above.
 
 **macOS / Linux** (in Terminal):
 
@@ -104,7 +104,7 @@ How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press
 
 #### What the installer does
 
-1. **Checks for Python 3.8+.** It only uses Python's standard library. If there's no Python (or only the Mac placeholder that asks you to install developer tools), it downloads a private copy into `~/.tokenomics/runtime`: no admin rights, no pop-ups.
+1. **Checks for Node.js 22.18+.** tokenomics only uses Node's built-in modules. If there's no Node.js, or only an older one, it downloads a private copy of the official Node.js 24 LTS build (pinned, and checked against its SHA-256) into `~/.tokenomics/runtime`: no admin rights, no pop-ups.
 2. **Downloads tokenomics** to `~/.tokenomics/app` (a plain download, not a git clone).
 3. **Adds the plugin** to every assistant it finds: Claude Code (`claude plugin install`, user scope) and/or GitHub Copilot CLI (`copilot plugin install`).
 4. **Switches on the statusline** for those assistants. If you already have a status line, it's left alone (replace it later with `tokenomics statusline --install claude`).
@@ -127,7 +127,7 @@ It's safe to run again: it repairs and updates what's there. Want to look before
 | `tokenomics update` | Downloads the latest version and updates the plugins and statusline |
 | `tokenomics uninstall` | Removes the plugins, statusline and command (keeps your data; `--purge` deletes it too) |
 
-> **Windows:** where a command below says `python3`, type `python`.
+> **Windows:** the commands below work as they are in PowerShell, as long as `node` is on your PATH (the installer's private copy isn't; use the `tokenomics` command instead).
 
 ---
 
@@ -140,7 +140,7 @@ Every helper works on its own. Pick what you want:
 | **coach** (prompt review skill) | `npx skills@latest add andrew44/tokenomics --skill coach` | Needs Node.js. Works in Claude Code and other assistants the `skills` CLI supports. Without the plugin it reviews the prompts it can see; with the plugin it also gets exact token and cache numbers. |
 | **spend-report** (weekly spend skill) | `npx skills@latest add andrew44/tokenomics --skill spend-report` | Reports on what **spendlens** has recorded, so install the plugin too. |
 | **Both skills** | `npx skills@latest add andrew44/tokenomics` | Pick from the list (arrows to move, space to tick, Enter to confirm). Add `-g` to install globally, `--list` to preview. |
-| **statusline** only | `curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh \| sh -s -- --no-plugin` | Statusline and the `tokenomics` command, no hooks. Needs only Python. `tokenomics statusline --uninstall claude` removes it. |
+| **statusline** only | `curl -fsSL https://raw.githubusercontent.com/andrew44/tokenomics/main/install.sh \| sh -s -- --no-plugin` | Statusline and the `tokenomics` command, no hooks. Needs only Node.js. `tokenomics statusline --uninstall claude` removes it. |
 | **dashboard** | `tokenomics dashboard`, or `/tokenomics:dashboard` with the plugin | Read-only view of the spendlens database. |
 | **Just some of the hooks** | Install everything, then switch off the ones you don't want | See below. |
 
@@ -251,7 +251,7 @@ What works on Copilot:
 - Copilot sends a session id with every hook, and spendlens logs each session under it. If one is ever missing, spendlens builds one from the working directory and date.
 - Copilot sessions are labelled from the words in each prompt **and** the tools Copilot used (file edits lean CAPEX, observability tools and commands like `kubectl logs` lean OPEX). Same scoring as Claude Code.
 - Copilot doesn't tell hooks how many tokens or premium requests a session used, so those columns stay empty (`usage_status = unavailable`). spendlens never guesses a number for them.
-- The hook commands use relative paths (`scripts/run.sh`, `scripts\\spendlens.py`). If Copilot runs them from a different folder and you see "file not found" in `<db>.err`, change the path in `copilot-hooks.json` to an absolute one.
+- The hook commands use relative paths (`scripts/run.sh`, `scripts\\spendlens.ts`). If Copilot runs them from a different folder and you see "file not found" in `<db>.err`, change the path in `copilot-hooks.json` to an absolute one.
 - Copilot's plugin format is still changing; check the current Copilot docs if the install fails.
 </details>
 
@@ -261,7 +261,8 @@ What works on Copilot:
 
 | You want... | You need |
 |---|---|
-| The plugin, statusline or dashboard | **Python 3.8+** (`python3` on Mac/Linux, `python` on Windows). No extra packages, ever. The Windows installer gets it for you if it's missing. |
+| The plugin, statusline or dashboard | **Node.js 22.18+**. It runs the TypeScript directly, with built-in modules only: no packages, no build step, ever. The installers get it for you if it's missing. |
+| To work on tokenomics itself | **TypeScript** and `@types/node` (dev dependencies: `npm install`, then `npm run typecheck`). Not needed to use it. |
 | Skills via `npx skills` | Node.js |
 | Any of it | [Claude Code](https://code.claude.com/docs/en/setup) and/or [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli) |
 
@@ -304,11 +305,11 @@ To host your own copy for a team, push the folder to your own Git repo and use `
 | What you see | Try this |
 |---|---|
 | `tokenomics: command not found` | Open a new terminal (the installer added it to your PATH). Or run `~/.local/bin/tokenomics` directly. |
-| The installer says Python is missing | Mac: `xcode-select --install`. Linux: `sudo apt install python3` (or your distro's equivalent). Windows: [python.org/downloads](https://www.python.org/downloads/), ticking **Add python.exe to PATH**. Then run the installer again. |
-| No database file appears | Check Python is installed (`python3 --version`, or `python --version` on Windows), then run `tokenomics setup` once: it records which Python the hooks should use in `~/.tokenomics/python`. If that file points at a Python you've since removed, the hooks find another by themselves. |
+| The installer says Node.js is missing | It couldn't download its private copy. Install Node.js 22.18 or newer from [nodejs.org](https://nodejs.org) (Mac: or `brew install node`; Linux: your package manager, if it has 22.18+), then run the installer again. |
+| No database file appears | Check Node.js is installed and new enough (`node --version` says v22.18 or later), then run `tokenomics setup` once: it records which Node.js the hooks should use in `~/.tokenomics/node`. If that file points at a Node.js you've since removed, the hooks find another by themselves. |
 | Hooks don't seem to run (Claude Code) | Restart Claude Code, then run `/hooks`. Make sure the plugin is switched on in `/plugin`. |
 | Sessions are missing, or labelled `unknown` | Look for `spendlens.db.err` next to the database (`~/.tokenomics/`). Errors go there, never on screen. |
-| *Everything* is labelled `unknown` | Your prompts didn't match any keywords. Add terms to the pattern lists in `tokenomics/engine/classifier.py`, or switch on the [AI classifier](reference.md#optional-let-an-ai-model-decide). |
+| *Everything* is labelled `unknown` | Your prompts didn't match any keywords. Add terms to the pattern lists in `tokenomics/engine/classifier.ts`, or switch on the [AI classifier](reference.md#optional-let-an-ai-model-decide). |
 | The statusline doesn't show | The statusline is for the terminal: restart the assistant there. Run `tokenomics statusline --status` to see which settings file it's in (another status line wins until you replace it), or re-run `/tokenomics:statusline`. |
 | The band doesn't show in the desktop app | It sits above the prompt box (in VS Code: the plugin's line above the prompt box). Start a new session after installing or updating the plugin, check `tokenomics statusline --status` says the band is on, and that the band isn't collapsed (`[-]`). |
 | Odd characters in the statusline | Use `--ascii`, or set `NO_COLOR=1` for no colours. |

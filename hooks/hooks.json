@@ -2,26 +2,26 @@
   "modules": ["./band.tsx"],
   "hooks": {
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" spendlens.py prompt claude-code", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" pennywise.py", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" budget.py claude-code", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" doggybag.py prompt claude-code", "timeout": 15 } ] }
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" spendlens.ts prompt claude-code", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" pennywise.ts", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" budget.ts claude-code", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" doggybag.ts prompt claude-code", "timeout": 15 } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Read|Bash", "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" diet.py claude-code", "timeout": 10 } ] }
+      { "matcher": "Read|Bash", "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" diet.ts claude-code", "timeout": 10 } ] }
     ],
     "Stop": [
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" spendlens.py finalize claude-code", "timeout": 20 } ] },
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" doggybag.py arm claude-code", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" statusline.py --message", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" spendlens.ts finalize claude-code", "timeout": 20 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" doggybag.ts arm claude-code", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" statusline.ts --message", "timeout": 10 } ] }
     ],
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" doggybag.py start claude-code", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" statusline.py --sync", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" doggybag.ts start claude-code", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" statusline.ts --sync", "timeout": 10 } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" spendlens.py finalize claude-code", "timeout": 20 } ] },
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" doggybag.py end claude-code", "timeout": 20 } ] }
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" spendlens.ts finalize claude-code", "timeout": 20 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" doggybag.ts end claude-code", "timeout": 20 } ] }
     ]
   }
 }

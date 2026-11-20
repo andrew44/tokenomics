@@ -1,7 +1,7 @@
 name: installer
 
 # Runs the real one-line installers, exactly as a user would, on macOS, Windows and Linux, then
-# checks that every hook fires the way Claude Code runs it (tests/installer_check.py).
+# checks that every hook fires the way Claude Code runs it (tests/installer_check.ts).
 
 on:
   push:
@@ -10,14 +10,18 @@ on:
 
 jobs:
   unix:
-    name: ${{ matrix.os }} · ${{ matrix.python }}
+    name: ${{ matrix.os }} · ${{ matrix.node }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest]
-        python: [system, standalone]       # standalone = a machine with no usable Python
+        node: [system, standalone]         # standalone = a machine with no usable Node.js
     steps:
+      - uses: actions/setup-node@v4
+        if: matrix.node == 'system'
+        with:
+          node-version: "24"
       - name: Stand-in for the claude CLI (records what the installer asks it to do)
         run: |
           mkdir -p "$RUNNER_TEMP/fakebin"
@@ -28,14 +32,14 @@ jobs:
         env:
           TOKENOMICS_REPO: ${{ github.repository }}
           TOKENOMICS_REF: ${{ github.sha }}
-          TOKENOMICS_PYTHON: ${{ matrix.python == 'standalone' && 'standalone' || '' }}
+          TOKENOMICS_NODE: ${{ matrix.node == 'standalone' && 'standalone' || '' }}
         run: curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.sh" | sh
       - name: Check the install
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/tests/installer_check.py" -o "$RUNNER_TEMP/check.py"
-          "$(cat ~/.tokenomics/python)" "$RUNNER_TEMP/check.py" --expect-plugin-log "$RUNNER_TEMP/claude.log" \
-            ${{ matrix.python == 'standalone' && '--expect-private-python' || '' }}
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/tests/installer_check.ts" -o "$RUNNER_TEMP/check.mts"
+          "$(cat ~/.tokenomics/node)" "$RUNNER_TEMP/check.mts" --expect-plugin-log "$RUNNER_TEMP/claude.log" \
+            ${{ matrix.node == 'standalone' && '--expect-private-node' || '' }}
       - name: Running it again repairs, and doesn't duplicate anything
         env:
           TOKENOMICS_REPO: ${{ github.repository }}
@@ -50,17 +54,21 @@ jobs:
           done
 
   windows:
-    name: windows · ${{ matrix.shell }} · ${{ matrix.python }}
+    name: windows · ${{ matrix.shell }} · ${{ matrix.node }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         shell: [powershell, pwsh]          # Windows PowerShell 5.1 and PowerShell 7
-        python: [system, standalone]
+        node: [system, standalone]
     defaults:
       run:
         shell: ${{ matrix.shell }}
     steps:
+      - uses: actions/setup-node@v4
+        if: matrix.node == 'system'
+        with:
+          node-version: "24"
       - name: Stand-in for the claude CLI (a .cmd, like the npm install)
         run: |
           $fake = Join-Path $env:RUNNER_TEMP 'fakebin'
@@ -71,19 +79,19 @@ jobs:
         env:
           TOKENOMICS_REPO: ${{ github.repository }}
           TOKENOMICS_REF: ${{ github.sha }}
-          TOKENOMICS_PYTHON: ${{ matrix.python == 'standalone' && 'standalone' || '' }}
+          TOKENOMICS_NODE: ${{ matrix.node == 'standalone' && 'standalone' || '' }}
         run: |
           irm "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install.ps1" | iex
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Check the install
         run: |
           $env:Path = [Environment]::GetEnvironmentVariable('Path', 'User') + ';' + $env:Path   # as a new terminal would
-          $check = Join-Path $env:RUNNER_TEMP 'check.py'
-          Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/tests/installer_check.py" -OutFile $check
-          $py = (Get-Content "$HOME\.tokenomics\python" | Select-Object -First 1)
+          $check = Join-Path $env:RUNNER_TEMP 'check.mts'
+          Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/tests/installer_check.ts" -OutFile $check
+          $node = (Get-Content "$HOME\.tokenomics\node" | Select-Object -First 1)
           $extra = @()
-          if ('${{ matrix.python }}' -eq 'standalone') { $extra += '--expect-private-python' }
-          & $py $check --expect-plugin-log "$env:RUNNER_TEMP\claude.log" @extra
+          if ('${{ matrix.node }}' -eq 'standalone') { $extra += '--expect-private-node' }
+          & $node $check --expect-plugin-log "$env:RUNNER_TEMP\claude.log" @extra
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
   real-claude-code:

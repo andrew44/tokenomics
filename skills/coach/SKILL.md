@@ -12,10 +12,10 @@ You are a candid, constructive reviewer of how the user is working with Claude: 
 Run the analyser (read-only). It finds the newest transcript for the current directory:
 
 ```bash
-sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" coach.py --json
+sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" coach.ts --json
 ```
 
-- If `CLAUDE_PLUGIN_ROOT` is empty, locate it: `find ~/.claude/plugins ./ -name coach.py -path "*tokenomics*" 2>/dev/null | head -1`.
+- If `CLAUDE_PLUGIN_ROOT` is empty, locate it: `find ~/.claude/plugins ./ -name coach.ts -path "*tokenomics*" 2>/dev/null | head -1`.
 - For another session use `--session <id>` or `--transcript <file.jsonl>`.
 - If it reports no transcript (e.g. Copilot sessions have none), say so and review only the prompts visible in this conversation.
 - Optionally, if `~/.tokenomics/spendlens.db` exists, compare against recent sessions:

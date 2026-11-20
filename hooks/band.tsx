@@ -2,11 +2,11 @@
 // `statusLine` setting (a mod: see https://code.claude.com/docs/en/plugins/mods/interface).
 //   * Claude desktop app (and mobile): a row in the band above the prompt box (AbovePrompt).
 //   * VS Code, which has no band: the plugin's status line above the prompt box ($.ui.status).
-//   * Terminal: nothing here; the CLI statusline is scripts/statusline.py itself.
-// The numbers come from scripts/statusline.py --json, fed the same figures the CLI statusline
+//   * Terminal: nothing here; the CLI statusline is scripts/statusline.ts itself.
+// The numbers come from scripts/statusline.ts --json, fed the same figures the CLI statusline
 // gets ($.session.usage), so both show the same line. A timer started at session.start redraws
 // the cache countdown each second and re-reads the numbers when the transcript grows mid-turn.
-// Off with `tokenomics statusline --band-off` or TOKENOMICS_BAND=off (statusline.py decides).
+// Off with `tokenomics statusline --band-off` or TOKENOMICS_BAND=off (statusline.ts decides).
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
@@ -14,7 +14,7 @@ import type { Line } from '../types'
 
 const line = atom({ plugin: 'tokenomics', key: 'line' } as const, null)
 
-const REFRESH_MS = 3000          // mid-turn: at most one statusline.py run per 3s
+const REFRESH_MS = 3000          // mid-turn: at most one statusline.ts run per 3s
 const DEFAULT_ICONS = ['⧗', '⏳︎', '⧖']
 
 let lastRun = 0
@@ -51,7 +51,7 @@ async function appSurfaces($: EngineInterface) {
   return (await $.session.surfaces()).filter(s => s !== 'terminal')
 }
 
-/** Re-read the numbers from statusline.py, with the figures the CLI statusline gets. */
+/** Re-read the numbers from statusline.ts, with the figures the CLI statusline gets. */
 async function refresh($: EngineInterface) {
   lastRun = Date.now()
   try {
@@ -66,15 +66,15 @@ async function refresh($: EngineInterface) {
         current_context_tokens: usage.context.tokens },
       cost: usage.cost ? { total_cost_usd: usage.cost.usd } : undefined,
     }
-    // --band: an app shows the band here, so statusline.py's after-reply message stays quiet
-    const argv = ['sh', `${$.plugin.root}/scripts/run.sh`, 'statusline.py', '--json']
+    // --band: an app shows the band here, so statusline.ts's after-reply message stays quiet
+    const argv = ['sh', `${$.plugin.root}/scripts/run.sh`, 'statusline.ts', '--json']
     const { exitCode, stdout } = await $.process.run(apps.length ? [...argv, '--band', sid] : argv, {
       stdin: JSON.stringify(payload), env: await $.process.hookEnv(), timeoutMs: 10000 })
     if (exitCode !== 0 || !stdout.trim()) return
     const data = JSON.parse(stdout) as Line
     await update($, line, () => data)
   } catch {
-    // never get in the way: no Python, no transcript yet... the band just stays as it was
+    // never get in the way: no Node.js, no transcript yet... the band just stays as it was
   }
 }
 
