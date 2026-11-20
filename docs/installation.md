@@ -98,6 +98,8 @@ irm https://raw.githubusercontent.com/andrew44/tokenomics/main/install.ps1 | iex
 
 Then restart Claude Code or Copilot CLI. That's it.
 
+**No Claude Code or Copilot CLI yet?** The installer adds tokenomics to the assistants it finds, so install at least one first: [Claude Code](https://code.claude.com/docs/en/setup) or [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli). Then run the line above again.
+
 How to open a terminal: on a **Mac** press `Cmd + Space`, type `Terminal`, press Enter. On **Windows** click Start, type `PowerShell`, press Enter.
 
 #### What the installer does
@@ -262,7 +264,7 @@ What works on Copilot:
 | The plugin, statusline or dashboard | **Node.js 22.18+**. It runs the TypeScript directly, with built-in modules only: no packages, no build step, ever. The installers get it for you if it's missing. |
 | To work on tokenomics itself | **TypeScript** and `@types/node` (dev dependencies: `npm install`, then `npm run typecheck`). Not needed to use it. |
 | Skills via `npx skills` | Node.js |
-| Any of it | Claude Code and/or GitHub Copilot CLI |
+| Any of it | [Claude Code](https://code.claude.com/docs/en/setup) and/or [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli) |
 
 ---
 
