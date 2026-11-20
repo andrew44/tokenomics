@@ -7,7 +7,7 @@
  *   * context gauge   (smooth green -> yellow at 75% -> red at 90%, with the percentage)
  *   * total tokens    (compact: 950, 12.3K, 8.5M)
  *   * session cost    (in GBP, USD or EUR, e.g. £1.37)
- *   * prompt-cache expiry countdown (MM:ss) with an egg-timer that empties as the cache goes cold
+ *   * prompt-cache expiry countdown (MM:ss) with a pie clock that empties as the cache goes cold
  *
  * Two places show it:
  *   * the statusline: the CLIs' own status line (settings.json "statusLine"), in the terminal. Both
@@ -44,7 +44,7 @@
  *   (statusbar.json, its name before v1.4, is still read and is renamed at the next session start.)
  * Env overrides: TOKENOMICS_THEME, TOKENOMICS_CURRENCY, TOKENOMICS_USD_GBP, TOKENOMICS_USD_EUR,
  *   TOKENOMICS_CACHE_TTL (seconds), TOKENOMICS_STATUSLINE (auto|ask|off), TOKENOMICS_BAND (on|off),
- *   TOKENOMICS_ASCII=1, TOKENOMICS_TIMER_ICONS="full,half,empty", NO_COLOR.
+ *   TOKENOMICS_ASCII=1, TOKENOMICS_TIMER_ICONS="full,half,empty" (replaces the pie clock), NO_COLOR.
  *   (TOKENOMICS_STATUSBAR, the old name of TOKENOMICS_STATUSLINE, still works.)
  */
 import { spawnSync } from 'node:child_process'
@@ -253,12 +253,12 @@ export function systemTheme(state: Obj): string {
 }
 
 const PALETTE: Record<string, Record<string, RGB>> = {
-  dark: { text: [205, 214, 244], dim: [127, 132, 156], track: [69, 71, 90],
-    accent: [137, 180, 250], sep: [88, 91, 112],
-    green: [46, 204, 113], yellow: [249, 205, 52], red: [240, 82, 82] },
-  light: { text: [36, 41, 47], dim: [101, 109, 118], track: [208, 215, 222],
-    accent: [9, 105, 218], sep: [175, 184, 193],
-    green: [26, 150, 70], yellow: [190, 130, 0], red: [207, 34, 46] },
+  dark: { text: [224, 228, 240], dim: [124, 130, 152], track: [58, 61, 78],
+    accent: [180, 160, 255], base: [22, 20, 34], sep: [78, 82, 102],
+    green: [64, 214, 140], yellow: [250, 196, 72], red: [255, 99, 120] },
+  light: { text: [30, 34, 44], dim: [110, 116, 130], track: [214, 218, 228],
+    accent: [104, 72, 214], base: [255, 255, 255], sep: [190, 196, 208],
+    green: [22, 150, 90], yellow: [196, 122, 0], red: [214, 40, 70] },
 }
 
 export class Style {
@@ -281,6 +281,19 @@ export class Style {
     if (!this.color) return ''
     const [r, g, b] = rgb.map(roundHalfEven)
     return this.truecolor ? `\x1b[38;2;${r};${g};${b}m` : `\x1b[38;5;${rgbTo256(r, g, b)}m`
+  }
+
+  bg(rgb: RGB): string {
+    if (!this.color) return ''
+    const [r, g, b] = rgb.map(roundHalfEven)
+    return this.truecolor ? `\x1b[48;2;${r};${g};${b}m` : `\x1b[48;5;${rgbTo256(r, g, b)}m`
+  }
+
+  /** `text` as a solid pill: half-block caps round off a filled run in `key`'s colour. */
+  pill(text: string, key = 'accent'): string {
+    if (!this.color || this.ascii) return text
+    const c = this.p[key]
+    return `${this.fg(c)}▐\x1b[0m${this.bg(c)}${this.fg(this.p.base)}\x1b[1m${text}\x1b[0m${this.fg(c)}▌\x1b[0m`
   }
 
   paint(text: string, keyOrRgb: string | RGB, bold = false): string {
@@ -663,31 +676,51 @@ export function gather(payload: Obj, cfg: Obj, state: Obj): Info {
 
 // ----------------------------------------------------------------------------- render ----
 
-const PARTIALS = ' ▏▎▍▌▋▊▉'
-
+/** The context gauge: a slim bar (a heavy rule on a light one, with a half step) that warms
+ *  from green to red along its length; `#` and `-` with --ascii. Always `width` cells. */
 export function gauge(style: Style, pct: number, width: number, warn: number, crit: number): string {
   if (style.ascii) {
     const filled = roundHalfEven(pct / 100 * width)
     return style.paint('#'.repeat(filled) + '-'.repeat(Math.max(0, width - filled)), levelColor(style, pct, warn, crit))
   }
-  const exact = pct / 100 * width
-  let full = Math.trunc(exact)
-  let part = roundHalfEven((exact - full) * 8)
-  if (part === 8) [full, part] = [full + 1, 0]
+  const halves = roundHalfEven(pct / 100 * width * 2)
+  const full = Math.floor(halves / 2)
+  const half = halves % 2 === 1
   const out: string[] = []
   for (let i = 0; i < width; i++) {
     const col = levelColor(style, (i + 0.5) / width * 100, warn, crit)
-    if (i < full) out.push(style.paint('█', col))
-    else if (i === full && part) out.push(style.paint(PARTIALS[part], col))
-    else out.push(style.paint('▒', 'track'))
+    if (i < full) out.push(style.paint('━', col))
+    else if (i === full && half) out.push(style.paint('╸', col))
+    else out.push(style.paint('─', 'track'))
   }
   return out.join('')
 }
 
+const PIE = ['●', '◕', '◑', '◔', '○']          // full ... empty
+
+/** The cache icons: full, half, empty (TOKENOMICS_TIMER_ICONS overrides them). */
 export function timerIcons(): string[] {
   const custom = process.env.TOKENOMICS_TIMER_ICONS
   if (custom && custom.split(',').length === 3) return custom.split(',')
-  return ['⧗', '⏳︎', '⧖']          // full, half (sand flowing), empty
+  return [PIE[0], PIE[2], PIE[4]]
+}
+
+/** The cache icon for `frac` of the TTL left: a five-step pie clock, or the custom three. */
+export function timerIcon(frac: number): string {
+  const custom = process.env.TOKENOMICS_TIMER_ICONS
+  if (custom && custom.split(',').length === 3) {
+    const [full, half, empty] = custom.split(',')
+    return frac <= 0 ? empty : frac > 0.75 ? full : frac > 0.25 ? half : empty
+  }
+  if (frac <= 0) return PIE[4]
+  return PIE[Math.min(3, Math.floor((1 - frac) * 4))]
+}
+
+/** Warm green -> amber halfway -> red as the cache runs down. */
+function cacheColor(style: Style, frac: number): RGB {
+  const { green: g, yellow: y, red: r } = style.p
+  if (frac <= 0) return r
+  return frac >= 0.5 ? lerp(y, g, (frac - 0.5) * 2) : lerp(r, y, frac * 2)
 }
 
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -697,38 +730,41 @@ const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.g
 export function render(info: Info, style: Style, cfg: Obj, isStatic = false): string {
   const warn = Number(cfg.warn)
   const crit = Number(cfg.crit)
-  const sep = style.paint(style.ascii ? ' | ' : ' │ ', 'sep')
+  const a = style.ascii
+  const sep = style.paint(a ? ' | ' : '  ·  ', 'sep')
+  const unit = (s: string) => style.paint(` ${s}`, 'dim')
   const parts: string[] = []
 
-  const brand = style.ascii ? '*' : '◆'
-  parts.push(style.paint(info.model ? `${brand} ${info.model}`.trim() : brand, 'accent', true))
+  // model: a pill in colour; a mark before the name without
+  const name = info.model || 'tokenomics'
+  if (a) parts.push(style.paint(info.model ? `* ${info.model}` : '*', 'accent', true))
+  else if (style.color) parts.push(style.pill(name))
+  else parts.push(`✦ ${name}`)
 
+  // context: gauge, then the percentage in the gauge's colour at that point
   const pct = info.pct
   const col = levelColor(style, pct, warn, crit)
-  const flag = pct >= crit && !style.ascii ? ' ▲' : pct >= crit ? ' !' : ''
-  parts.push(style.paint('ctx ', 'dim') + gauge(style, pct, Math.trunc(Number(cfg.width)), warn, crit) +
-    ' ' + style.paint(`${pct.toFixed(0)}%${flag}`, col, true))
+  const full = pct >= crit
+  parts.push(gauge(style, pct, Math.trunc(Number(cfg.width)), warn, crit) + ' ' +
+    style.paint(`${pct.toFixed(0)}%`, col, true) + (full ? style.paint(a ? ' ctx!' : ' ctx ▲', col) : unit('ctx')))
 
-  parts.push(style.paint(style.ascii ? 'tok ' : 'Σ ', 'dim') + style.paint(human(info.total), 'text', true))
+  parts.push(style.paint(human(info.total), 'text', true) + unit('tok'))
 
-  parts.push(style.paint((info.estimated ? '~' : '') + money(info.cost, info.symbol ?? '£'), 'text', true))
+  parts.push((info.estimated ? style.paint('~', 'dim') : '') + style.paint(money(info.cost, info.symbol ?? '£'), 'text', true))
 
+  // the cache countdown
   const rem = info.remaining
   const ttl = info.ttl
-  let [full, half, empty] = timerIcons()
-  if (style.ascii) [full, half, empty] = ['[##]', '[# ]', '[  ]']
   if (rem === null) {
-    parts.push(style.paint(`${empty} --:--`, 'dim'))
+    parts.push(style.paint(a ? '[  ] --:--' : `${PIE[4]} --:--`, 'dim') + unit('cache'))
   } else {
     const frac = ttl ? rem / ttl : 0
-    let icon: string
-    let key: string
-    if (rem <= 0) [icon, key] = [empty, 'red']
-    else if (frac > 0.75) [icon, key] = [full, 'green']
-    else if (frac > 0.25) [icon, key] = [half, 'yellow']
-    else [icon, key] = [empty, 'red']
+    let icon = timerIcon(frac)
+    if (a) icon = rem <= 0 ? '[  ]' : frac > 0.75 ? '[##]' : frac > 0.25 ? '[# ]' : '[  ]'
+    const c = cacheColor(style, frac)
     const when = isStatic && rem > 0 ? ` (cold at ${hhmm(new Date(Date.now() + rem * 1000))})` : ''
-    parts.push(style.paint(`${icon} ${mmss(rem)}${when}`, key, true))
+    if (rem <= 0) parts.push(style.paint(icon, c, true) + style.paint(' cache cold', 'red', true))
+    else parts.push(style.paint(`${icon} ${mmss(rem)}`, c, true) + unit('cache') + (when ? style.paint(when, 'dim') : ''))
   }
   return parts.join(sep)
 }

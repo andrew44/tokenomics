@@ -104,7 +104,7 @@ The prompt cache lets the AI re-read recent conversation at roughly a tenth of t
 
 **Tips**
 
-- **Keep momentum on big sessions.** Each reply within the cache window keeps it warm. The **statusline** egg timer shows how long you've got.
+- **Keep momentum on big sessions.** Each reply within the cache window keeps it warm. The **statusline** cache clock shows how long you've got.
 - **Stop cleanly instead of drifting off.** Coming back to a large, cold session means paying to load the whole thing again. Let **doggybag** pack a short note before the cache runs out, then `/clear` and carry on from it.
 - **Don't switch models mid-session.** Each model has its own cache, so switching starts cold. If you want a different model for a different job, do it in a new session.
 - **Don't change the start of the conversation.** Editing the instructions file (for example `CLAUDE.md`) or adding tools mid-session changes the beginning of the prompt, and everything after it misses the cache. Make those changes between sessions.

@@ -17,7 +17,13 @@ import type { Line } from '../types'
 const line = atom({ plugin: 'tokenomics', key: 'line' } as const, null)
 
 const REFRESH_MS = 3000          // mid-turn: at most one statusline.ts run per 3s
-const DEFAULT_ICONS = ['⧗', '⏳︎', '⧖']
+const DEFAULT_ICONS = ['●', '◑', '○']
+
+type Level = 'green' | 'yellow' | 'red'
+// The band's colours: the app theme's own where it has one, so it sits right in light and dark.
+const THEME: Record<Level, 'success' | 'warning' | 'error'> = { green: 'success', yellow: 'warning', red: 'error' }
+// The cache ring is a picture, which can't read the theme: mid tones that hold on either ground.
+const RING: Record<Level, string> = { green: '#2FB673', yellow: '#E8A317', red: '#E5484D' }
 
 // $.process.run starts argv[0] itself (no shell), on the app's own PATH: on Windows that has no
 // `sh` (hooks.json's commands get Git Bash from Claude Code; this doesn't), so try these in turn.
@@ -46,7 +52,7 @@ function fallbackLine(model: string, usage: { context: { percent?: number | null
   return {
     show: true, model, pct,
     level: pct >= 90 ? 'red' : pct >= 75 ? 'yellow' : 'green',
-    gauge: '█'.repeat(filled) + '▒'.repeat(width - filled),
+    gauge: '━'.repeat(filled) + '─'.repeat(width - filled),
     tokens: human(usage.context.tokens ?? 0),
     cost: usage.cost ? `~$${usage.cost.usd.toFixed(2)}` : '',
     cold_at: null,
@@ -76,24 +82,53 @@ function mmss(seconds: number) {
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
 }
 
-/** The cache countdown: icon, colour and text, at `nowSec`. */
+/** The cache countdown at `nowSec`: how much is left (0-1), its colour, icon, text and caption. */
 function timer(b: Line, nowSec: number) {
   const [full, half, empty] = (b.icons?.length === 3 ? b.icons : DEFAULT_ICONS) as [string, string, string]
-  if (b.cold_at == null) return { icon: empty, color: undefined, text: '--:--' }
+  if (b.cold_at == null) {
+    return { frac: 0, level: undefined, icon: empty, text: '--:--', caption: 'no cache yet' }
+  }
   const rem = Math.max(0, b.cold_at - nowSec)
-  const frac = b.ttl ? rem / b.ttl : 0
-  if (rem <= 0) return { icon: empty, color: 'red', text: mmss(rem) }
-  if (frac > 0.75) return { icon: full, color: 'green', text: mmss(rem) }
-  if (frac > 0.25) return { icon: half, color: 'yellow', text: mmss(rem) }
-  return { icon: empty, color: 'red', text: mmss(rem) }
+  const frac = b.ttl ? Math.min(1, rem / b.ttl) : 0
+  if (rem <= 0) return { frac: 0, level: 'red' as Level, icon: empty, text: mmss(0), caption: 'cache cold' }
+  if (frac > 0.75) return { frac, level: 'green' as Level, icon: full, text: mmss(rem), caption: 'cache warm' }
+  if (frac > 0.25) return { frac, level: 'yellow' as Level, icon: half, text: mmss(rem), caption: 'cache cooling' }
+  return { frac, level: 'red' as Level, icon: empty, text: mmss(rem), caption: 'cache going cold' }
+}
+
+/** The countdown ring: an arc that runs down as the cache cools. */
+function ring(frac: number, level: Level | undefined) {
+  const r = 7
+  const c = 2 * Math.PI * r
+  const arc = frac > 0 && level
+    ? `<circle cx="10" cy="10" r="${r}" fill="none" stroke="${RING[level]}" stroke-width="3" stroke-linecap="round" ` +
+      `stroke-dasharray="${(frac * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 10 10)"/>`
+    : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">` +
+    `<circle cx="10" cy="10" r="${r}" fill="none" stroke="#8A8F98" stroke-opacity="0.3" stroke-width="3"/>${arc}</svg>`
+}
+
+/** The context bar: a rounded track filled to `pct` with the terminal gauge's green -> amber -> red. */
+function bar(pct: number) {
+  const w = 96
+  const h = 8
+  const fill = Math.max(0, Math.min(100, pct)) / 100 * w
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs>` +
+    `<linearGradient id="g" x1="0" x2="${w}" y1="0" y2="0" gradientUnits="userSpaceOnUse">` +
+    `<stop offset="0.5" stop-color="${RING.green}"/><stop offset="0.75" stop-color="${RING.yellow}"/>` +
+    `<stop offset="0.9" stop-color="${RING.red}"/></linearGradient></defs>` +
+    `<rect width="${w}" height="${h}" rx="${h / 2}" fill="#8A8F98" fill-opacity="0.25"/>` +
+    (fill > 0 ? `<rect width="${Math.max(h, fill).toFixed(1)}" height="${h}" rx="${h / 2}" fill="url(#g)"/>` : '') +
+    `</svg>`
 }
 
 /** The line as plain text (VS Code's status line has no colours). */
 function plainLine(b: Line, nowSec: number) {
   const t = timer(b, nowSec)
-  const flag = b.level === 'red' ? ' ▲' : ''
-  return [`◆ ${b.model ?? ''}`.trim(), `ctx ${b.gauge ?? ''} ${Math.round(b.pct ?? 0)}%${flag}`,
-    `Σ ${b.tokens ?? ''}`, b.cost ?? '', `${t.icon} ${t.text}`].join(' │ ')
+  const pct = `${Math.round(b.pct ?? 0)}%`
+  return [`✦ ${b.model ?? ''}`.trim(), `${b.gauge ?? ''} ${pct} ctx${b.level === 'red' ? ' ▲' : ''}`,
+    `${b.tokens ?? ''} tok`, b.cost ?? '', t.text === '--:--' || t.caption !== 'cache cold'
+      ? `${t.icon} ${t.text} cache` : `${t.icon} cache cold`].join('  ·  ')
 }
 
 /** Surfaces showing this session that don't draw the status line. */
@@ -194,28 +229,47 @@ export const register: Register = on => {
     if (e.surface === 'terminal' || e.props.hasSurvey) return next(e)
     const b = await read($, line)
     if (!b || !b.show) return next(e)
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Text, Svg } = $.ui.resolve(e)
     const t = timer(b, (await $.clock.now()) / 1000)
-    const sep = <Text dimColor> │ </Text>
+    const pct = Math.round(b.pct ?? 0)
+    const level: Level = b.level ?? 'green'
+    const estimated = (b.cost ?? '').startsWith('~')
+
+    // A stat: its figure, and a small caption under it.
+    const stat = (key: string, figure: JSX.Element, caption: string, color?: string) => (
+      <Box key={key} flexDirection="column">
+        {figure}
+        <Text size="caption" color={color} dimColor={!color}>{caption}</Text>
+      </Box>
+    )
 
     // `await next(e)` among the children: before v2.1.323 the band was one shared drawing, and
     // this keeps the rows of the mods after this one there.
     return (
       <Box flexDirection="column">
-        <Text>
-          <Text color="blue" bold>◆ {b.model ?? ''}</Text>
-          {sep}
-          <Text dimColor>ctx </Text>
-          <Text color={b.level}>{b.gauge}</Text>
-          <Text color={b.level} bold> {Math.round(b.pct ?? 0)}%{b.level === 'red' ? ' ▲' : ''}</Text>
-          {sep}
-          <Text dimColor>Σ </Text>
-          <Text bold>{b.tokens}</Text>
-          {sep}
-          <Text bold>{b.cost}</Text>
-          {sep}
-          {t.color ? <Text color={t.color} bold>{t.icon} {t.text}</Text> : <Text dimColor>{t.icon} {t.text}</Text>}
-        </Text>
+        <Box flexDirection="row" flexWrap="wrap" alignItems="center" columnGap="lg" rowGap="sm" paddingX="sm">
+          {stat('model',
+            <Text weight="semibold" wrap="end"><Text color="claude">✦ </Text>{b.model ?? ''}</Text>,
+            'model')}
+          {stat('context',
+            <Box flexDirection="row" alignItems="center" gap="sm">
+              <Svg source={bar(pct)} alt={`Context window ${pct}% full`} width={96} height={8} />
+              <Text weight="semibold" tabular color={level === 'green' ? undefined : THEME[level]}>{pct}%</Text>
+            </Box>,
+            level === 'red' ? 'context · compact soon' : level === 'yellow' ? 'context · filling up' : 'context',
+            level === 'green' ? undefined : THEME[level])}
+          {stat('tokens', <Text weight="semibold" tabular>{b.tokens ?? ''}</Text>, 'tokens')}
+          {stat('cost',
+            <Text weight="semibold" tabular>{estimated ? (b.cost ?? '').slice(1) : b.cost ?? ''}</Text>,
+            estimated ? 'spent · est.' : 'spent')}
+          {stat('cache',
+            <Box flexDirection="row" alignItems="center" gap="xs">
+              <Svg source={ring(t.frac, t.level)} alt={`Prompt cache: ${t.caption}, ${t.text} left`} width={14} height={14} />
+              <Text weight="semibold" tabular color={t.level ? THEME[t.level] : undefined} dimColor={!t.level}>{t.text}</Text>
+            </Box>,
+            t.caption,
+            t.level === 'red' ? THEME.red : undefined)}
+        </Box>
         {await next(e)}
       </Box>
     )
