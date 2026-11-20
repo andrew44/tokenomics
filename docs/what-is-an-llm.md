@@ -17,7 +17,7 @@ This is the second of three short guides: [What is generative AI?](what-is-gener
 
 ### The short answer
 
-**An LLM is a computer program that has read an enormous amount of text and learned to continue it.** Give it the start of something (a question, an instruction, half a sentence) and it writes what is most likely to come next.
+**An LLM is a computer program that has read an enormous amount of text and learnt to continue it.** Give it the start of something (a question, an instruction, half a sentence) and it writes what is most likely to come next.
 
 It is a kind of [generative AI](what-is-generative-ai.md): the kind that works with **language**, which for these purposes includes computer code.
 
@@ -33,7 +33,7 @@ It is a kind of [generative AI](what-is-generative-ai.md): the kind that works w
 
 You already know a tiny version of this: the keyboard on your phone that suggests the next word. Type "See you" and it offers "tomorrow" or "soon".
 
-An LLM is the same idea scaled up enormously. Instead of guessing one word from the last two, it looks at **everything** you have written in the conversation and writes a whole answer, one small piece at a time. Because it learned from so much text, "what usually comes next" turns out to include explaining, summarising, translating, arguing, and writing working code.
+An LLM is the same idea scaled up enormously. Instead of guessing one word from the last two, it looks at **everything** you have written in the conversation and writes a whole answer, one small piece at a time. Because it learnt from so much text, "what usually comes next" turns out to include explaining, summarising, translating, arguing, and writing working code.
 
 ```mermaid
 flowchart LR
@@ -46,7 +46,7 @@ flowchart LR
 ### Three things that surprise people
 
 1. **It doesn't remember you between messages.** Each time you reply, the app sends the **whole conversation** to the model again from the top. That is why long chats get slower and more expensive (see [How tokens work](how-tokens-work.md)).
-2. **It doesn't look things up** (unless it has been given a search tool). It answers from patterns it learned, which can be out of date or simply wrong. It sounds just as confident either way.
+2. **It doesn't look things up** (unless it has been given a search tool). It answers from patterns it learnt, which can be out of date or simply wrong. It sounds just as confident either way.
 3. **It writes in pieces called tokens.** A token is roughly three-quarters of a word. You pay for every token it reads and every token it writes.
 
 ### Bigger and smaller models
@@ -87,7 +87,7 @@ Almost every current LLM is a **decoder-only transformer**. In outline:
 1. **Embedding.** Each token ID is mapped to a vector (a list of a few thousand numbers). Position information is added so the model knows the order.
 2. **Transformer layers**, stacked dozens of times. Each has:
    - **Self-attention**: every token looks at every *earlier* token and decides how much each one matters to it. This is how "it" in a sentence gets linked to the right noun, or a function call to its definition 2,000 lines earlier.
-   - **Feed-forward network**: a per-token transformation where much of the model's learned "knowledge" is thought to be stored.
+   - **Feed-forward network**: a per-token transformation where much of the model's learnt "knowledge" is thought to be stored.
 3. **Output layer.** The final vector for the last position is turned into a score for every token in the vocabulary, then into probabilities.
 
 The model's **parameters** (weights) are the numbers in all of those layers: that is the "large" in LLM, from billions to well over a trillion in the biggest models. Some models use a **mixture-of-experts** design, where only a fraction of the parameters are used for each token, to keep running costs down.
@@ -167,7 +167,7 @@ So the things that make an LLM expensive are: a long conversation, big files or 
 | LLM | A large neural network trained to predict the next token of text. |
 | Token | The unit of text a model reads and writes; ~0.75 English words. |
 | Transformer | The architecture behind nearly all LLMs, built on self-attention. |
-| Parameters | The learned numbers inside the model; billions of them. |
+| Parameters | The learnt numbers inside the model; billions of them. |
 | Pre-training | Learning language by predicting the next token over a huge dataset. |
 | Context window | Max tokens (input + output) in one request. |
 | Stateless | The model keeps nothing between requests; history is re-sent. |

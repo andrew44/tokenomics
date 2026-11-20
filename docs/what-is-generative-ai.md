@@ -37,7 +37,7 @@ That is different from the AI most people used before, which mostly *sorted* or 
 
 Think of an apprentice who has spent years studying a huge library: millions of books, articles, websites, programs and pictures. They never memorised it word for word, but they soaked up the *patterns*: how sentences usually flow, how a recipe is laid out, how a function is normally written, what a sunset looks like.
 
-When you ask for something, the apprentice doesn't go and look it up. They produce something new that *fits the patterns* they learned. That is why generative AI can write a poem that has never existed before, and also why it can confidently say something that sounds right but isn't.
+When you ask for something, the apprentice doesn't go and look it up. They produce something new that *fits the patterns* they learnt. That is why generative AI can write a poem that has never existed before, and also why it can confidently say something that sounds right but isn't.
 
 ### The everyday kinds
 
@@ -85,7 +85,7 @@ Machine learning models are often split into two families:
 | **Output** | A label, score or number | A new sample: text, image, audio |
 | **Examples** | Spam filters, fraud scores, image classifiers | Language models, diffusion image models |
 
-A generative model has learned a **probability distribution** over its data. "Generating" means **sampling** from that distribution, usually conditioned on a prompt. Because it is sampling, the same prompt can give different outputs, and output that is *probable* is not guaranteed to be *true*.
+A generative model has learnt a **probability distribution** over its data. "Generating" means **sampling** from that distribution, usually conditioned on a prompt. Because it is sampling, the same prompt can give different outputs, and output that is *probable* is not guaranteed to be *true*.
 
 ### 2.2 How generative models learn
 
@@ -126,7 +126,7 @@ The output length is not known in advance, which is why output tokens are both t
 - **Hallucination.** The model is optimised to produce *plausible* continuations. When the training data doesn't pin down the answer, a plausible-but-wrong answer is a natural result.
 - **Knowledge cut-off.** Parameters are frozen at training time. Newer facts have to be supplied in the prompt (pasted in, or fetched by a tool: see **retrieval-augmented generation** in [What is an LLM?](what-is-an-llm.md#27-giving-a-model-knowledge-it-doesnt-have)).
 - **Sensitivity to the prompt.** Small wording changes can shift the output, because they shift the conditional distribution.
-- **Bias.** Patterns in the training data, including unwanted ones, are learned along with the useful ones.
+- **Bias.** Patterns in the training data, including unwanted ones, are learnt along with the useful ones.
 
 The practical answer is the same in each case: **measure the result, don't assume it.** That is the idea behind tokenomics' [tastetest](reference.md#tastetest), which compares two runs on your real tests, linter and type checker rather than on how the output looks.
 
@@ -147,7 +147,7 @@ For language models specifically, cost depends on:
 
 | Term | One-line summary |
 |---|---|
-| Generative AI | Models that produce new content by sampling from a learned distribution. |
+| Generative AI | Models that produce new content by sampling from a learnt distribution. |
 | Discriminative model | A model that classifies or scores rather than creates. |
 | Foundation model | A large model pre-trained broadly, then adapted to many tasks. |
 | Pre-training | Self-supervised learning on a huge general dataset. |
