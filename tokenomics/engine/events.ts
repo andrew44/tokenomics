@@ -8,6 +8,7 @@ export const TABLES: Record<string, string> = {
   groundhog_events: 'session_id TEXT, source TEXT, tool TEXT, rule TEXT, loop_key TEXT, action TEXT, detail TEXT',
   blinkers_events: 'session_id TEXT, source TEXT, tool TEXT, rule TEXT, path TEXT, action TEXT',
   ballast_events: 'session_id TEXT, source TEXT, rule TEXT, ctx_tokens INTEGER, step_usd REAL, band INTEGER, action TEXT',
+  parrot_events: 'session_id TEXT, source TEXT, project TEXT, key TEXT, kind TEXT, action TEXT',
 }
 
 export function log(dbPath: string, table: string, fields: Record<string, string | number | null>): void {

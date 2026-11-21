@@ -28,6 +28,9 @@ The full detail on every tokenomics helper: what it does, how it decides, and wh
 | 🧳 | **packlight** | skill + tool | [packlight](#packlight) |
 | ⚓ | **ballast** | hook + skill | [ballast](#ballast) |
 | 🧇 | **waffle** | skill + tool | [waffle](#waffle) |
+| 🥶 | **coldsnap** | skill + tool | [coldsnap](#coldsnap) |
+| 🦜 | **parrot** | hook + skill + tool | [parrot](#parrot) |
+| 🍽️ | **allyoucaneat** | skill + tool | [allyoucaneat](#allyoucaneat) |
 | 📟 | **statusline** and **band** | tool | [statusline](#statusline) · [band](#band) |
 | 📈 | **dashboard** | tool | [dashboard](#dashboard) |
 | 🗄️ | **your data** | | [Looking at your data](#looking-at-your-data) |
@@ -688,6 +691,69 @@ Each comes with its fix: a one-line brevity rule for CLAUDE.md or a terse output
 tokenomics waffle                      # the newest session in this folder
 tokenomics waffle --days 7             # every session this week, wordiest first
 ```
+
+---
+
+## coldsnap
+
+*Prompt-cache misses.* While the cache is warm, re-sending the conversation costs a tenth of the input price. Each time it goes cold, the whole context is written to the cache again at 1.25x the input price (2x for the 1-hour cache). **coldsnap** (`scripts/coldsnap.ts`, rules in `tokenomics/engine/coldcache.ts`) finds every rebuild in a session: a main-thread request, not the first, whose cache write is 10,000+ tokens and more than half its context. Each gets a cause:
+
+| Cause | When | The fix |
+|---|---|---|
+| break | the gap since the last request was longer than the cache lives (5 minutes; 1 hour when the session writes the 1-hour cache; or `TOKENOMICS_CACHE_TTL`) | `/clear` after a break and let the [doggybag](#doggybag) note bring you back, or wrap up before you step away |
+| model switch | the model changed mid-conversation (each model has its own cache) | pick the model when you start a task; the pennywise router keeps it while the cache is warm |
+| prefix change | none of the above: something early in the context changed (CLAUDE.md, an MCP server, plugin or skill, settings, an edited or rewound message) | make those changes between sessions |
+| compaction | the context shrank by more than 40% (`/compact` or auto-compact) | none: expected, and never counted as avoidable |
+
+A rebuild's cost is its premium over a warm read: tokens x (write price - read price). For sessions on the 5-minute cache, coldsnap also works out what the 1-hour cache would have done: the breaks of 5 to 60 minutes it would have kept warm, less the dearer writes on every cache write.
+
+```bash
+tokenomics coldsnap                    # the newest session in this folder
+tokenomics coldsnap --days 7           # every session this week, coldest first
+```
+
+Read-only. [coach](#coach) lists a session's rebuilds too; coldsnap costs them, groups them by cause and covers a whole period.
+
+---
+
+## parrot
+
+*What you keep repeating.* A rule typed in a prompt lasts one session; the same rule in CLAUDE.md lasts for all of them. **parrot** (`scripts/parrot.ts`, rules in `tokenomics/engine/parrot.ts`) looks for three kinds of repeat:
+
+| Kind | What counts | The fix |
+|---|---|---|
+| rule | a sentence that sets a standing rule: "always ...", "never ...", "don't ...", "make sure ...", "use X instead of Y" | one line in CLAUDE.md |
+| correction | a prompt that opens by correcting the agent: "no, ...", "that's wrong", "you forgot ...", "I said ..." | one line in CLAUDE.md, worded as the rule |
+| whole prompt | the same prompt (6+ words) sent again | a slash command in `.claude/commands/` |
+
+Phrases are compared after lower-casing and dropping punctuation and filler ("please", "ok"), so "Please, always use `pnpm`!" and "always use pnpm" are the same.
+
+**The hook** (`UserPromptSubmit`, Claude Code) records a 16-character hash of each phrase against the project (a hash of its folder), never the text, in `parrot_events`. When a phrase reaches `TOKENOMICS_PARROT_MIN` different sessions (3), it says so once, with the fix; if the rule is already in the project's CLAUDE.md or AGENTS.md, it says that instead (the file may not be loading, or the line is lost in a long file). `TOKENOMICS_PARROT=off` turns it off.
+
+**The report** reads your local transcripts (nothing is stored): every repeat across sessions with its fix, how many prompts were corrections, and what the corrected work had cost (the main-thread spend between the previous prompt and the correction).
+
+```bash
+tokenomics parrot                      # every project, the last 30 days
+tokenomics parrot report --here --min 2 --days 90
+```
+
+---
+
+## allyoucaneat
+
+*Plan fit.* The same Claude Code work can be paid for per token or by subscription. spendlens prices every session at API rates whichever you use, so your ledger already holds the pay-as-you-go price of your real work. **allyoucaneat** (`scripts/allyoucaneat.ts`) sets it against each plan in `data/plans.json` (pay-as-you-go, Pro, Max 5x, Max 20x):
+
+- **A typical month**: the average of your full months in the ledger (default the last 3, `--months N`), or this month projected to its end once 7 days are in.
+- **On pay-as-you-go** (`--plan api`, or no plan): which subscriptions cost less than your typical month, and the most you'd save.
+- **On a subscription** (`--plan pro|max5|max20`, or `TOKENOMICS_PLAN`): how many times over it paid for itself, or, if you used less than you pay for, what a lower plan or pay-as-you-go would have cost.
+- **Bursts**: your heaviest 5 hours and heaviest week of API-priced work, the shape that runs into a subscription's usage limits.
+
+```bash
+tokenomics allyoucaneat --plan pro
+tokenomics allyoucaneat --plan api --months 6 --json
+```
+
+Subscriptions have usage limits that reset every few hours and weekly, so a plan priced below your spend is a candidate, not a promise. Prices are list prices as last known: check claude.com/pricing, and add or override plans by id (a team seat, a negotiated price, `"disabled": true` to drop one) in `~/.tokenomics/plans.json`. Claude Code only: Copilot bills premium requests.
 
 ---
 

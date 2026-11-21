@@ -1,5 +1,5 @@
 /** Small command-line helpers shared by the intelligence-engine tools (splitthebill, bazaar, crystalball, deadwood, blinkers,
- *  packlight, ballast, waffle). */
+ *  packlight, ballast, waffle, coldsnap, parrot, allyoucaneat). */
 import { readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'

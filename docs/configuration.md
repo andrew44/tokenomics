@@ -52,6 +52,9 @@ Settings are environment variables. Set them in your shell profile, or in Claude
 | `TOKENOMICS_BALLAST` | `warn` | Context carried between tasks: `warn` (a notice), `block` (pause the prompt once; send it again to go ahead) or `off`. |
 | `TOKENOMICS_BALLAST_MIN_TOKENS` | `60000` | ballast stays quiet below this context size, and speaks again at each multiple of it. |
 | `TOKENOMICS_WAFFLE_LONG` | `500` | Reply length, in tokens, above which waffle counts the excess as avoidable. |
+| `TOKENOMICS_PARROT` | `warn` | Repeated instructions: `warn` (a notice once a rule, correction or prompt reaches a few sessions) or `off`. |
+| `TOKENOMICS_PARROT_MIN` | `3` | Different sessions a phrase must appear in before parrot mentions it (2 to 50). |
+| `TOKENOMICS_PLAN` | (none) | Your Claude plan for allyoucaneat: `api` (pay-as-you-go), `pro`, `max5`, `max20`, or an id you added in `~/.tokenomics/plans.json`. |
 
 ### Intelligence engine
 
@@ -63,7 +66,7 @@ Settings are environment variables. Set them in your shell profile, or in Claude
 | `TOKENOMICS_DEVELOPER` | your user name | Who the work is attributed to in splitthebill. Set a team handle to share reports; an email address is never used. |
 | `TOKENOMICS_PROJECT` | the repository's name | Attribute every session to this project instead. |
 
-Provider prices, benchmark scores, latency and availability for bazaar and crystalball go in `~/.tokenomics/providers.json` (see [bazaar](reference.md#bazaar)).
+Provider prices, benchmark scores, latency and availability for bazaar and crystalball go in `~/.tokenomics/providers.json` (see [bazaar](reference.md#bazaar)). Plan prices for allyoucaneat go in `~/.tokenomics/plans.json` (see [allyoucaneat](reference.md#allyoucaneat)).
 
 ### pennywise router
 

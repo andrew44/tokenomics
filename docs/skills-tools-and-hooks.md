@@ -46,6 +46,9 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 | Know what every request carries before I type, and which MCP servers and skills I never use | [packlight](#packlight) | Skill + Tool |
 | Know when to `/clear` or `/compact` instead of dragging the last task along | [ballast](#ballast) | Hook (plus a skill to replay a session) |
 | Stop paying for long replies, recaps and whole-file rewrites | [waffle](#waffle) | Skill + Tool |
+| Know why the prompt cache keeps going cold, and what each time cost | [coldsnap](#coldsnap) | Skill + Tool |
+| Stop telling the AI the same thing every session | [parrot](#parrot) | Hook (plus a skill to find every repeat) |
+| Know whether pay-as-you-go, Pro or Max suits how much I use | [allyoucaneat](#allyoucaneat) | Skill + Tool |
 
 ```mermaid
 flowchart TD
@@ -197,6 +200,28 @@ Skills are instructions the assistant follows when you ask. They only run when y
 
 **How:** *"are the replies too long?"*. Tool: `tokenomics waffle` (one session) or `tokenomics waffle --days 7`. Details: [waffle](reference.md#waffle).
 
+### coldsnap
+
+**What it does.** Answers *"why did the cache go cold?"*: finds every time a conversation's prompt cache had to be written again (a break longer than the cache lives, a model switch, a changed CLAUDE.md or MCP server, a compaction), costs each against a warm read, and says whether the 1-hour cache would have paid off.
+
+**Reach for it when:** the cache hit ratio in the spend report is low, or one turn cost far more than its neighbours.
+
+**How:** *"why is my cache hit rate low?"*. Tool: `tokenomics coldsnap` or `tokenomics coldsnap --days 7`. Details: [coldsnap](reference.md#coldsnap).
+
+### parrot (skill)
+
+**What it does.** Answers *"what do I keep telling it?"*: the rules, corrections and whole prompts you've repeated across sessions, what the corrected work cost, and the CLAUDE.md line or slash command that says each one once. The [parrot hook](#parrot) points them out as they happen.
+
+**How:** *"what should go in my CLAUDE.md?"*. Tool: `tokenomics parrot` (add `report --here` for this project only). Details: [parrot](reference.md#parrot).
+
+### allyoucaneat
+
+**What it does.** Answers *"am I on the right plan?"*: your typical month of Claude Code work priced at API rates, set against pay-as-you-go, Pro, Max 5x and Max 20x, with your heaviest 5 hours and week (where usage limits bite).
+
+**Reach for it when:** you're choosing a plan, wondering whether Max is worth it, or reviewing a subscription you rarely use.
+
+**How:** *"should I get Max?"*. Tool: `tokenomics allyoucaneat --plan pro`. Details: [allyoucaneat](reference.md#allyoucaneat).
+
 ### ballast (skill)
 
 **What it does.** Replays a session to find where you switched to a new task while carrying a heavy context, and what re-reading the old context cost. The [ballast hook](#ballast) warns as it happens.
@@ -221,7 +246,7 @@ Where each hook fires:
 | Moment | Claude Code event | Copilot CLI event | Hooks |
 |--------|-------------------|-------------------|-------|
 | Session starts (or `/clear`) | `SessionStart` | (none) | doggybag, waistline\* |
-| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, doggybag, haggle\*, blinkers, ballast\* |
+| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, doggybag, haggle\*, blinkers, ballast\*, parrot\* |
 | A tool is about to run | `PreToolUse` (diet: `Read`, `Bash`; blinkers: edits; the rest: every tool) | `preToolUse` | diet, groundhog, haggle\*, blinkers |
 | A tool has run | (none) | `postToolUse` | spendlens |
 | The assistant finishes a turn | `Stop` | (none) | spendlens, doggybag, bangforbuck, haggle |
@@ -315,6 +340,12 @@ sequenceDiagram
 **What it does.** When you send a prompt in a conversation over 60,000 tokens, checks whether it starts a different task (little in common with your recent prompts and the files touched, or "new task", "unrelated", "something else"). If so, it tells you once what the old context costs to re-read at every step and suggests `/clear` (doggybag keeps your notes) or `/compact`. It also notes each time the context grows past another 60,000. Claude Code only.
 
 **When it's wrong:** ignore it; it won't repeat itself. `TOKENOMICS_BALLAST=off` turns it off, `block` pauses the prompt once instead. Details: [ballast](reference.md#ballast).
+
+### parrot
+
+**What it does.** Notes a hash (never the text) of each standing rule ("always use pnpm"), correction ("no, use the v2 client") and whole prompt you send. When the same one turns up in a third session in a project, it tells you once and suggests the line for CLAUDE.md or a slash command, so you can say it once instead of every session. Claude Code only.
+
+**When it's wrong:** ignore it; it won't repeat itself. `TOKENOMICS_PARROT=off` turns it off; `TOKENOMICS_PARROT_MIN` changes how many sessions count. Details: [parrot](reference.md#parrot).
 
 ### bangforbuck, sherlock and waistline (hooks)
 
@@ -419,9 +450,15 @@ tokenomics bazaar --min-quality 70               # best-value provider for your 
 tokenomics blinkers diff --task "..." --base main --ci   # scope creep on a branch; blinkers: the latest session
 tokenomics crystalball --devs 10 --tasks 20 --input 50000 --output 5000   # monthly forecast; --from-history
 tokenomics deadwood --month 2026-11              # spend on work that produced nothing; session, mark <status>
+tokenomics packlight --days 30                   # fixed load per request; MCP servers and skills you never use
+tokenomics ballast                               # task switches that carried a heavy context
+tokenomics waffle --days 7                       # output spend: long replies, recaps, whole-file rewrites
+tokenomics coldsnap --days 7                     # every cache rebuild, its cause and cost
+tokenomics parrot                                # rules, corrections and prompts you keep repeating
+tokenomics allyoucaneat --plan pro               # pay-as-you-go or a subscription, from your own spend
 ```
 
-The signature features also answer to what they do: `tokenomics value-meter` (bangforbuck), `agent-forensics` (sherlock), `quality-gate` (tastetest), and the new tools to `cost-attribution`, `provider-arbitrage`, `scope-guard`, `spend-simulator` and `dead-work`.
+The signature features also answer to what they do: `tokenomics value-meter` (bangforbuck), `agent-forensics` (sherlock), `quality-gate` (tastetest), and the new tools to `cost-attribution`, `provider-arbitrage`, `scope-guard`, `spend-simulator` and `dead-work`, and the newest to `fixed-overhead`, `context-carry`, `output-audit`, `cache-misses`, `repeated-instructions` and `plan-fit`.
 
 ### update_prices.ts
 

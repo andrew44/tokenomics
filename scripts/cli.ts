@@ -26,6 +26,9 @@
  *   tokenomics packlight [...]    what every request carries (MCP servers, skills) and which you never use
  *   tokenomics ballast [...]      context carried from one task into the next in a session, and its cost
  *   tokenomics waffle [...]       output spend: long replies, recaps, whole-file rewrites, thinking (--days 7)
+ *   tokenomics coldsnap [...]     every time the prompt cache went cold, why (break, model switch, prefix change), and its cost
+ *   tokenomics parrot [...]       what you keep telling the AI across sessions: rules, corrections, prompts (report)
+ *   tokenomics allyoucaneat [...] pay-as-you-go or a subscription: which plan fits your spend (--plan pro|max5|max20)
  *
  * Signature features: value-meter (bangforbuck), agent-forensics (sherlock), quality-gate (tastetest).
  *   tokenomics update             fetch the latest version and refresh everything
@@ -415,6 +418,7 @@ function overview(): number {
   say('')
   say('Commands: dashboard [--demo] · report · bangforbuck · waistline · sherlock · tastetest · haggle · springclean · groundhog')
   say('          splitthebill · bazaar · blinkers · crystalball · deadwood · packlight · ballast · waffle')
+  say('          coldsnap · parrot · allyoucaneat')
   say('          statusline · router · doggybag · update · uninstall · setup')
   return 0
 }
@@ -437,6 +441,9 @@ const TOOLS: Record<string, [string, string[], string[]]> = {
   packlight: ['packlight.ts', [], []],
   ballast: ['ballast.ts', ['check'], ['check']],
   waffle: ['waffle.ts', [], []],
+  coldsnap: ['coldsnap.ts', [], []],
+  parrot: ['parrot.ts', ['report'], ['report']],
+  allyoucaneat: ['allyoucaneat.ts', [], []],
   // the signature features, by what they do
   'value-meter': ['bangforbuck.ts', ['report', 'session', 'mark', 'ingest'], ['report']],
   'agent-forensics': ['sherlock.ts', [], []],
@@ -451,6 +458,9 @@ const TOOLS: Record<string, [string, string[], string[]]> = {
   'fixed-overhead': ['packlight.ts', [], []],
   'context-carry': ['ballast.ts', ['check'], ['check']],
   'output-audit': ['waffle.ts', [], []],
+  'cache-misses': ['coldsnap.ts', [], []],
+  'repeated-instructions': ['parrot.ts', ['report'], ['report']],
+  'plan-fit': ['allyoucaneat.ts', [], []],
 }
 
 export async function main(argv: string[]): Promise<number> {

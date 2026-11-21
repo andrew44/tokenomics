@@ -108,6 +108,7 @@ The prompt cache lets the AI re-read recent conversation at roughly a tenth of t
 - **Stop cleanly instead of drifting off.** Coming back to a large, cold session means paying to load the whole thing again. Let **doggybag** pack a short note before the cache runs out, then `/clear` and carry on from it.
 - **Don't switch models mid-session.** Each model has its own cache, so switching starts cold. If you want a different model for a different job, do it in a new session.
 - **Don't change the start of the conversation.** Editing the instructions file (for example `CLAUDE.md`) or adding tools mid-session changes the beginning of the prompt, and everything after it misses the cache. Make those changes between sessions.
+- **Find out what's breaking it.** **coldsnap** lists every time your cache went cold, why (a break, a model switch, a changed instruction file) and what each one cost.
 
 ---
 
@@ -189,6 +190,8 @@ Habits are easier to change when you can see the effect.
 - **statusline** shows tokens used, cost so far and the cache timer as you work.
 - **coach** reviews a finished conversation and points out the biggest wastes, such as large pastes, cache rebuilds and long outputs.
 - **spendlens** records every session so you can compare before and after.
+- **parrot** spots the instructions you keep re-typing every session; written into `CLAUDE.md` once, they stop costing you a correction each time.
+- **allyoucaneat** sets your month's usage against pay-as-you-go and each subscription, so you pay for the plan that fits.
 - In Claude Code, `/cost` and `/context` show what the current session has used and what is taking up room.
 
 ---

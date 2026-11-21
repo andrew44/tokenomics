@@ -87,13 +87,16 @@ tokenomics/
 │   │                               value, waste and quality skills (each a SKILL.md over its script)
 │   ├── splitthebill/ bazaar/ blinkers/ crystalball/ deadwood/
 │   │                               intelligence-engine skills
-│   └── packlight/ ballast/ waffle/ overhead, context-carry and output skills
+│   ├── packlight/ ballast/ waffle/ overhead, context-carry and output skills
+│   └── coldsnap/ parrot/ allyoucaneat/
+│                                   cache-miss, repeated-instruction and plan-fit skills
 ├── tokenomics/
 │   ├── engine/                     shared logic: classifier.ts, llm.ts, store.ts, session.ts, evidence.ts,
 │   │                               pricing.ts, currency.ts, diet.ts, budget.ts, events.ts, and for the
 │   │                               value helpers: trace.ts (what the agent did, from a transcript),
 │   │                               outcomes.ts, ledger.ts, forensics.ts, loops.ts, contract.ts,
-│   │                               ballast.ts (task switches, carry cost), verbosity.ts (output split)
+│   │                               ballast.ts (task switches, carry cost), verbosity.ts (output split),
+│   │                               coldcache.ts (cache rebuilds and causes), parrot.ts (repeated phrases)
 │   ├── services/                   the intelligence engine: cost.ts, telemetry.ts, outcome.ts, policy.ts,
 │   │                               insights.ts, value.ts (all five over one session), index.ts
 │   ├── platform/                   common adapter interface + capability registry
@@ -128,10 +131,14 @@ tokenomics/
 │   ├── packlight.ts                fixed overhead: baseline context, MCP servers and skills vs their use
 │   ├── ballast.ts                  context carried between tasks (prompt hook) and session replay
 │   ├── waffle.ts                   output spend: replies, tool input, thinking; long replies, recaps, rewrites
+│   ├── coldsnap.ts                 prompt-cache rebuilds: breaks, model switches, prefix changes, 1-hour what-if
+│   ├── parrot.ts                   repeated rules, corrections and prompts (prompt hook, hashes only) and report
+│   ├── allyoucaneat.ts             plan fit: API-priced spend vs pay-as-you-go, Pro and Max
 │   ├── common.ts                   argument and transcript helpers those tools share
 │   └── update_prices.ts            refreshes data/model-prices.json from Claude's pricing page
 ├── data/model-prices.json          Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly
 ├── data/providers.json             equivalent offerings across providers (bazaar, crystalball)
+├── data/plans.json                 Claude subscription plans and list prices (allyoucaneat)
 ├── dashboard/index.html            the dashboard page
 ├── tests/                          node:test suite (*.test.ts) and the installer check
 ├── package.json / tsconfig.json    dev dependencies (TypeScript, @types/node) and type-check settings

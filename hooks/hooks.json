@@ -8,7 +8,8 @@
       { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" doggybag.ts prompt claude-code", "timeout": 15 } ] },
       { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" haggle.ts prompt claude-code", "timeout": 10 } ] },
       { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" blinkers.ts prompt claude-code", "timeout": 10 } ] },
-      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" ballast.ts claude-code", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" ballast.ts claude-code", "timeout": 10 } ] },
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" parrot.ts claude-code", "timeout": 10 } ] }
     ],
     "PreToolUse": [
       { "matcher": "Read|Bash", "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" diet.ts claude-code", "timeout": 10 } ] },

@@ -1,0 +1,10 @@
+{
+  "about": "Claude subscription plans, for allyoucaneat (plan fit). Monthly list prices in USD, billed monthly, as last known: check claude.com/pricing before you change plan, and add or override plans (a team seat, a negotiated price) by id in ~/.tokenomics/plans.json. Subscriptions are not unlimited: each has usage limits that reset every few hours and weekly, so a price below your pay-as-you-go spend is a candidate, not a promise. kind: metered (pay per token at API prices) or subscription.",
+  "currency": "USD",
+  "plans": [
+    { "id": "api", "name": "Pay as you go (API)", "kind": "metered", "usd_per_month": 0 },
+    { "id": "pro", "name": "Claude Pro", "kind": "subscription", "usd_per_month": 20 },
+    { "id": "max5", "name": "Claude Max 5x", "kind": "subscription", "usd_per_month": 100 },
+    { "id": "max20", "name": "Claude Max 20x", "kind": "subscription", "usd_per_month": 200 }
+  ]
+}

@@ -37,6 +37,7 @@ Every message you send re-sends the **whole conversation**. Long chats, pasted l
 - 📟 **See it live.** A statusline in the terminal (and the same line in the desktop app's band) with context fill, tokens, cost in £/$/€ and a countdown to when the cache goes cold.
 - 🛡️ **Stop waste automatically.** Guard-rails that catch context floods, over-specced models and runaway spend *before* they cost you.
 - 🧑‍🏫 **Get better at it.** A coach that reviews your prompts, a weekly spend report with three fixes tied to your own numbers, and audits of what every request carries before you type and of what the agent writes back.
+- 🦜 **Say it once.** Spots the instructions you repeat every session and writes them into CLAUDE.md or a slash command, finds what keeps breaking the prompt cache, and checks you're on the plan that fits your usage.
 - 💷 **Know what you're getting for it.** Cost per feature shipped and bug fixed, a price agreed before a task starts, a forensic audit of wasted steps, cost-regression checks (in CI too), and proof that a cheaper setup didn't cost you quality.
 - 🧾 **Explain it to finance.** Spend by project, developer, agent, model and provider; what produced nothing this month; the cheapest provider for the same work; and a forecast before you roll AI out to a team.
 - 🔒 **Stays on your machine.** One local SQLite file. No account, no telemetry, no packages to install: it's TypeScript that Node.js runs directly.
@@ -50,8 +51,8 @@ Token counts tell you what AI cost. They don't tell you whether it was worth it.
 | | Stage | What it does | Helpers |
 |---|---|---|---|
 | 👁️ | **1. Observe** | Collect costs, tokens, tool calls, task outcomes and agent behaviour, from every assistant, in one event format. | spendlens · statusline · dashboard |
-| 🧠 | **2. Understand** | Find waste, inefficiency, quality problems and spending patterns. | **sherlock** · splitthebill · deadwood · waistline · springclean · packlight · waffle · coach |
-| ⚙️ | **3. Optimise** | Recommend, or apply automatically, the changes that improve value. | pennywise · bazaar · blinkers · diet · groundhog · budget · haggle · doggybag · ballast |
+| 🧠 | **2. Understand** | Find waste, inefficiency, quality problems and spending patterns. | **sherlock** · splitthebill · deadwood · waistline · springclean · packlight · waffle · coldsnap · coach |
+| ⚙️ | **3. Optimise** | Recommend, or apply automatically, the changes that improve value. | pennywise · bazaar · blinkers · diet · groundhog · budget · haggle · doggybag · ballast · parrot · allyoucaneat |
 | ✅ | **4. Prove** | Measure savings against task success and output quality. | **bangforbuck** · **tastetest** · crystalball |
 
 ### ⭐ Signature features
@@ -186,6 +187,9 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 | 🧳 | **[packlight](docs/reference.md#packlight)** | *What does every request carry before I type?* Measures the fixed load (system prompt, MCP tools, skills, instructions) from your sessions, what re-reading it costs, and which MCP servers and skills you never use. | skill + tool | ✅ | config only |
 | ⚓ | **[ballast](docs/reference.md#ballast)** | *Am I dragging the last task into this one?* Notices when you start a new task in a heavy conversation and says what the old context costs per step, with `/clear` or `/compact` as the way out. | hook + skill | ✅ | — |
 | 🧇 | **[waffle](docs/reference.md#waffle)** | *Am I paying for words I don't read?* Output costs 5x input: splits it into replies, edits and thinking, and costs the long replies, recaps and whole-file rewrites, with the fix for each. | skill + tool | ✅ | — |
+| 🥶 | **[coldsnap](docs/reference.md#coldsnap)** | *Why did the cache go cold?* Every time the prompt cache was rebuilt mid-conversation (a break, a model switch, a changed CLAUDE.md or MCP server), what each cost over a warm read, and whether the 1-hour cache would pay off. | skill + tool | ✅ | — |
+| 🦜 | **[parrot](docs/reference.md#parrot)** | *What do I keep telling it?* Spots the rules, corrections and prompts you repeat session after session (hashes only) and turns each into a CLAUDE.md line or a slash command. | hook + skill | ✅ | — |
+| 🍽️ | **[allyoucaneat](docs/reference.md#allyoucaneat)** | *Am I on the right plan?* Your month of work at API prices against pay-as-you-go, Pro and Max, with the bursts where usage limits bite. | skill + tool | ✅ | — |
 
 > **Skills** run when you ask. **Hooks** run automatically. **Tools** you run yourself. Not sure which you need? → [Skills, tools and hooks](docs/skills-tools-and-hooks.md)
 
@@ -303,6 +307,33 @@ Re-reading it at each of 2,310 requests cost £9.80 (21% of £46.20), about £9.
   github     user                       112 (last 2026-11-19)
 ```
 
+### parrot makes it stick
+
+The third session in a row you type the same rule, it offers to write it down for good:
+
+```text
+parrot: you've told the AI "Always use pnpm, never npm." in 3 sessions in this project. One line in CLAUDE.md
+says it to every session, so you don't have to: ask me to add it.
+```
+
+### coldsnap names what broke the cache
+
+```text
+The cache was rebuilt 7 times, costing £2.10 more than warm reads; £1.85 of it avoidable.
+
+  Breaks longer than the cache lives      4   £1.30
+  Model switched mid-conversation         2   £0.55
+  Compaction (expected)                   1   £0.25
+```
+
+### allyoucaneat checks the plan
+
+```text
+you:            am I on the right plan? I'm on Max 20x.
+allyoucaneat:   Max 20x costs £160, but your work came to about £58 a month at API prices (36% of the price).
+                Max 5x at £80 would still cost more than you use: about £80 a month back.
+```
+
 ### The dashboard shows where it all went
 
 <picture>
@@ -325,7 +356,9 @@ flowchart LR
     DB --> R["📊 spend-report"]
     DB --> W["📈 dashboard"]
     You -.->|live| B["📟 statusline / band"]
-    You -.->|on request| C["🧑‍🏫 coach · 🧳 packlight · 🧇 waffle<br/><i>prompts, fixed load, wordy output</i>"]
+    You -.->|on request| C["🧑‍🏫 coach · 🧳 packlight · 🧇 waffle · 🥶 coldsnap<br/><i>prompts, fixed load, wordy output, cache misses</i>"]
+    You -->|every prompt| P["🦜 parrot<br/><i>said this before?</i>"]
+    DB --> A["🍽️ allyoucaneat<br/><i>right plan?</i>"]
     You -->|every tool call| L["🦫 groundhog · 🤝 haggle<br/><i>going in circles? over the price?</i>"]
     DB --> V["💷 bangforbuck · 📏 waistline · 🕵️ sherlock<br/><i>value, creep, waste</i>"]
     You -->|every edit| BL["🐴 blinkers<br/><i>did you ask for this?</i>"]
