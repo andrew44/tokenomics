@@ -43,6 +43,9 @@ New to tokens, the prompt cache or why context costs money? Read [How tokens wor
 | Keep the AI to what I asked for, and ask before it wanders | [blinkers](#blinkers) | Hook (plus a skill to check a session or branch) |
 | Forecast what a team's AI adoption will cost before we start | [crystalball](#crystalball) | Skill + Tool |
 | See what we spent on work that produced nothing this month | [deadwood](#deadwood) | Skill + Tool |
+| Know what every request carries before I type, and which MCP servers and skills I never use | [packlight](#packlight) | Skill + Tool |
+| Know when to `/clear` or `/compact` instead of dragging the last task along | [ballast](#ballast) | Hook (plus a skill to replay a session) |
+| Stop paying for long replies, recaps and whole-file rewrites | [waffle](#waffle) | Skill + Tool |
 
 ```mermaid
 flowchart TD
@@ -178,6 +181,28 @@ Skills are instructions the assistant follows when you ask. They only run when y
 
 **How:** *"how much did we waste this month?"*. Tool: `tokenomics deadwood`. Details: [deadwood](reference.md#deadwood).
 
+### packlight
+
+**What it does.** Answers *"what does every request carry before I type?"*: measures each session's starting context from your transcripts (system prompt, MCP tools, skills, instructions), what re-reading it costs a month, and which configured MCP servers and installed skills you never used, with the saving from removing them.
+
+**Reach for it when:** sessions start big, you've installed a lot of plugins or MCP servers, or once a quarter as housekeeping.
+
+**How:** *"which MCP servers do I actually use?"*. Tool: `tokenomics packlight`. Details: [packlight](reference.md#packlight).
+
+### waffle
+
+**What it does.** Answers *"am I paying for words I don't read?"*: splits output into replies, tool input and thinking, and costs the long replies, end-of-task recaps and whole-file rewrites, with the CLAUDE.md line or setting that fixes each.
+
+**Reach for it when:** replies feel long, or output is a big share of the spend report.
+
+**How:** *"are the replies too long?"*. Tool: `tokenomics waffle` (one session) or `tokenomics waffle --days 7`. Details: [waffle](reference.md#waffle).
+
+### ballast (skill)
+
+**What it does.** Replays a session to find where you switched to a new task while carrying a heavy context, and what re-reading the old context cost. The [ballast hook](#ballast) warns as it happens.
+
+**How:** *"should I have cleared?"*. Tool: `tokenomics ballast`.
+
 ### blinkers (skill)
 
 **What it does.** Checks a finished session, or a branch against its task, for changes beyond the request (unrequested docs and tests, dependency and config changes, renames and reformatting, files outside the task) and what they cost. The [blinkers hook](#blinkers) catches them live.
@@ -196,7 +221,7 @@ Where each hook fires:
 | Moment | Claude Code event | Copilot CLI event | Hooks |
 |--------|-------------------|-------------------|-------|
 | Session starts (or `/clear`) | `SessionStart` | (none) | doggybag, waistline\* |
-| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, doggybag, haggle\*, blinkers |
+| You send a prompt | `UserPromptSubmit` | `userPromptSubmitted` | spendlens, pennywise\*, budget\*, doggybag, haggle\*, blinkers, ballast\* |
 | A tool is about to run | `PreToolUse` (diet: `Read`, `Bash`; blinkers: edits; the rest: every tool) | `preToolUse` | diet, groundhog, haggle\*, blinkers |
 | A tool has run | (none) | `postToolUse` | spendlens |
 | The assistant finishes a turn | `Stop` | (none) | spendlens, doggybag, bangforbuck, haggle |
@@ -284,6 +309,12 @@ sequenceDiagram
 **Reach for it (keep it on) when:** you want small, reviewable changes; an agent tends to "improve" things along the way.
 
 **When it's in the way:** say *"blinkers off"* in a prompt, or set `TOKENOMICS_BLINKERS=warn` (or `off`). Details: [blinkers](reference.md#blinkers).
+
+### ballast
+
+**What it does.** When you send a prompt in a conversation over 60,000 tokens, checks whether it starts a different task (little in common with your recent prompts and the files touched, or "new task", "unrelated", "something else"). If so, it tells you once what the old context costs to re-read at every step and suggests `/clear` (doggybag keeps your notes) or `/compact`. It also notes each time the context grows past another 60,000. Claude Code only.
+
+**When it's wrong:** ignore it; it won't repeat itself. `TOKENOMICS_BALLAST=off` turns it off, `block` pauses the prompt once instead. Details: [ballast](reference.md#ballast).
 
 ### bangforbuck, sherlock and waistline (hooks)
 

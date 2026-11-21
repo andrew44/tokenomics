@@ -38,7 +38,7 @@ The AI has no memory between messages: **the whole conversation is sent again ev
 
 **Tips**
 
-- **Start a new conversation when you change task.** Fixing a bug and then "while you're here, can you also look at the login page" drags the whole bug-fix history into the login work. In Claude Code, `/clear` starts afresh.
+- **Start a new conversation when you change task.** Fixing a bug and then "while you're here, can you also look at the login page" drags the whole bug-fix history into the login work. In Claude Code, `/clear` starts afresh. The **ballast** hook spots the switch and tells you what carrying on would cost.
 - **Avoid side quests.** A quick unrelated question mid-task ("what's the syntax for X again?") gets re-sent for the rest of the session. Ask it in a separate window.
 - **Summarise and restart long sessions.** If a session has grown huge but you're not finished, compact it (`/compact` in Claude Code) or let **doggybag** pack a short note and `/clear` to continue from it.
 - **Watch the fuel gauge.** The tokenomics **statusline** shows how full the conversation is. When it is past halfway, consider wrapping up or restarting.

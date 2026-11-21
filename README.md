@@ -36,7 +36,7 @@ Every message you send re-sends the **whole conversation**. Long chats, pasted l
 
 - 📟 **See it live.** A statusline in the terminal (and the same line in the desktop app's band) with context fill, tokens, cost in £/$/€ and a countdown to when the cache goes cold.
 - 🛡️ **Stop waste automatically.** Guard-rails that catch context floods, over-specced models and runaway spend *before* they cost you.
-- 🧑‍🏫 **Get better at it.** A coach that reviews your prompts, and a weekly spend report with three fixes tied to your own numbers.
+- 🧑‍🏫 **Get better at it.** A coach that reviews your prompts, a weekly spend report with three fixes tied to your own numbers, and audits of what every request carries before you type and of what the agent writes back.
 - 💷 **Know what you're getting for it.** Cost per feature shipped and bug fixed, a price agreed before a task starts, a forensic audit of wasted steps, cost-regression checks (in CI too), and proof that a cheaper setup didn't cost you quality.
 - 🧾 **Explain it to finance.** Spend by project, developer, agent, model and provider; what produced nothing this month; the cheapest provider for the same work; and a forecast before you roll AI out to a team.
 - 🔒 **Stays on your machine.** One local SQLite file. No account, no telemetry, no packages to install: it's TypeScript that Node.js runs directly.
@@ -50,8 +50,8 @@ Token counts tell you what AI cost. They don't tell you whether it was worth it.
 | | Stage | What it does | Helpers |
 |---|---|---|---|
 | 👁️ | **1. Observe** | Collect costs, tokens, tool calls, task outcomes and agent behaviour, from every assistant, in one event format. | spendlens · statusline · dashboard |
-| 🧠 | **2. Understand** | Find waste, inefficiency, quality problems and spending patterns. | **sherlock** · splitthebill · deadwood · waistline · springclean · coach |
-| ⚙️ | **3. Optimise** | Recommend, or apply automatically, the changes that improve value. | pennywise · bazaar · blinkers · diet · groundhog · budget · haggle · doggybag |
+| 🧠 | **2. Understand** | Find waste, inefficiency, quality problems and spending patterns. | **sherlock** · splitthebill · deadwood · waistline · springclean · packlight · waffle · coach |
+| ⚙️ | **3. Optimise** | Recommend, or apply automatically, the changes that improve value. | pennywise · bazaar · blinkers · diet · groundhog · budget · haggle · doggybag · ballast |
 | ✅ | **4. Prove** | Measure savings against task success and output quality. | **bangforbuck** · **tastetest** · crystalball |
 
 ### ⭐ Signature features
@@ -183,6 +183,9 @@ The `npx skills` commands need [Node.js](https://nodejs.org). See [Installation 
 | 🐴 | **[blinkers](docs/reference.md#blinkers)** | *Is the AI doing more than I asked?* Spots unrequested docs, tests, dependency and config changes, unrelated refactors and stray files, and asks before expanding the scope. | hook + skill | ✅ | ✅ |
 | 🔮 | **[crystalball](docs/reference.md#crystalball)** | *What will this cost?* Simulates a team's monthly AI spend across every model and provider before you adopt an agentic workflow. | skill + tool | ✅ | ✅ |
 | 🪵 | **[deadwood](docs/reference.md#deadwood)** | *What did we pay for that produced nothing?* A monthly report of spend on failed, discarded and abandoned work, repeated debugging and unused files. | skill + tool | ✅ | counted |
+| 🧳 | **[packlight](docs/reference.md#packlight)** | *What does every request carry before I type?* Measures the fixed load (system prompt, MCP tools, skills, instructions) from your sessions, what re-reading it costs, and which MCP servers and skills you never use. | skill + tool | ✅ | config only |
+| ⚓ | **[ballast](docs/reference.md#ballast)** | *Am I dragging the last task into this one?* Notices when you start a new task in a heavy conversation and says what the old context costs per step, with `/clear` or `/compact` as the way out. | hook + skill | ✅ | — |
+| 🧇 | **[waffle](docs/reference.md#waffle)** | *Am I paying for words I don't read?* Output costs 5x input: splits it into replies, edits and thinking, and costs the long replies, recaps and whole-file rewrites, with the fix for each. | skill + tool | ✅ | — |
 
 > **Skills** run when you ask. **Hooks** run automatically. **Tools** you run yourself. Not sure which you need? → [Skills, tools and hooks](docs/skills-tools-and-hooks.md)
 
@@ -279,6 +282,27 @@ documentation, and the task didn't ask for documentation. If this really is need
 expanding the scope.                                                      [Allow this edit?  Yes / No]
 ```
 
+### ballast catches the task switch
+
+You finish a bug fix in a 140,000-token conversation, then ask for something unrelated. Before it starts:
+
+```text
+ballast: this looks like a new task, but the conversation still carries 142,000 tokens from the last one,
+re-read at every step (about £0.03 a step, roughly £0.85 for a task like your last ones (25 steps)).
+/clear starts it light (doggybag keeps your notes), or /compact keeps a summary.
+```
+
+### packlight weighs what you carry
+
+```text
+Every session starts with about 38,400 tokens before your first word (median of 46 sessions).
+Re-reading it at each of 2,310 requests cost £9.80 (21% of £46.20), about £9.80 a month.
+
+  jira       user                       none
+  postgres   this project (.mcp.json)   none
+  github     user                       112 (last 2026-11-19)
+```
+
 ### The dashboard shows where it all went
 
 <picture>
@@ -294,14 +318,14 @@ expanding the scope.                                                      [Allow
 
 ```mermaid
 flowchart LR
-    You(["You + your AI assistant"]) -->|every prompt| G["🪙 pennywise · 💳 budget<br/><i>is this worth it?</i>"]
+    You(["You + your AI assistant"]) -->|every prompt| G["🪙 pennywise · 💳 budget · ⚓ ballast<br/><i>is this worth it? carrying old work?</i>"]
     You -->|every tool call| D["🥗 diet<br/><i>is this too big?</i>"]
     You -->|every turn| S["🔍 spendlens · 🥡 doggybag<br/><i>record it, pack it up</i>"]
     S --> DB[("~/.tokenomics/<br/>spendlens.db")]
     DB --> R["📊 spend-report"]
     DB --> W["📈 dashboard"]
     You -.->|live| B["📟 statusline / band"]
-    You -.->|on request| C["🧑‍🏫 coach"]
+    You -.->|on request| C["🧑‍🏫 coach · 🧳 packlight · 🧇 waffle<br/><i>prompts, fixed load, wordy output</i>"]
     You -->|every tool call| L["🦫 groundhog · 🤝 haggle<br/><i>going in circles? over the price?</i>"]
     DB --> V["💷 bangforbuck · 📏 waistline · 🕵️ sherlock<br/><i>value, creep, waste</i>"]
     You -->|every edit| BL["🐴 blinkers<br/><i>did you ask for this?</i>"]

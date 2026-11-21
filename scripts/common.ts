@@ -1,4 +1,9 @@
-/** Small command-line helpers shared by the intelligence-engine tools (splitthebill, bazaar, crystalball, deadwood, blinkers). */
+/** Small command-line helpers shared by the intelligence-engine tools (splitthebill, bazaar, crystalball, deadwood, blinkers,
+ *  packlight, ballast, waffle). */
+import { readdirSync, statSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+
 import { currencyCode } from '../tokenomics/services/cost.ts'
 import { argValue, today } from '../tokenomics/util.ts'
 import { shiftDay } from '../tokenomics/engine/ledger.ts'
@@ -62,3 +67,32 @@ export function previous(p: { since: string, days: number, label: string }): { s
 export const round2 = (v: number) => Math.round(v * 100) / 100
 export const pctChange = (a: number, b: number) => (b ? Math.round((a - b) / b * 1000) / 10 : null)
 export const write = (s: string) => process.stdout.write(s.endsWith('\n') ? s : s + '\n')
+
+/** Claude Code transcripts (one per session) changed in the last `days` days (0 = all), newest first.
+ *  `root` defaults to ~/.claude/projects; subagent transcripts in a session's own folder are skipped. */
+export function recentTranscripts(days: number, root = join(homedir(), '.claude', 'projects'), limit = 500): string[] {
+  const since = days > 0 ? Date.now() - days * 86_400_000 : 0
+  const found: [string, number][] = []
+  const scan = (dir: string, depth: number) => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      const p = join(dir, e.name)
+      if (e.isDirectory() && depth < 1) scan(p, depth + 1)
+      else if (e.isFile() && e.name.endsWith('.jsonl')) {
+        try {
+          const m = statSync(p).mtimeMs
+          if (m >= since) found.push([p, m])
+        } catch {
+          // vanished
+        }
+      }
+    }
+  }
+  scan(root, 0)
+  return found.sort((a, b) => b[1] - a[1]).slice(0, limit).map(([p]) => p)
+}

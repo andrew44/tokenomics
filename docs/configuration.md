@@ -49,6 +49,9 @@ Settings are environment variables. Set them in your shell profile, or in Claude
 | `TOKENOMICS_WAISTLINE_THRESHOLD` | `15` | Percent rise that counts as a cost regression. |
 | `TOKENOMICS_SPRINGCLEAN_MAX` | `1500` | Tokens one instruction file should stay under. |
 | `TOKENOMICS_TASTETEST_TIMEOUT` | `600` | Seconds each tastetest check may run. |
+| `TOKENOMICS_BALLAST` | `warn` | Context carried between tasks: `warn` (a notice), `block` (pause the prompt once; send it again to go ahead) or `off`. |
+| `TOKENOMICS_BALLAST_MIN_TOKENS` | `60000` | ballast stays quiet below this context size, and speaks again at each multiple of it. |
+| `TOKENOMICS_WAFFLE_LONG` | `500` | Reply length, in tokens, above which waffle counts the excess as avoidable. |
 
 ### Intelligence engine
 

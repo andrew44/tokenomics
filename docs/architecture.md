@@ -85,13 +85,15 @@ tokenomics/
 │   ├── statusline/SKILL.md         installs / removes the statusline, band on/off (/tokenomics:statusline)
 │   ├── bangforbuck/ haggle/ sherlock/ waistline/ tastetest/ springclean/ groundhog/
 │   │                               value, waste and quality skills (each a SKILL.md over its script)
-│   └── splitthebill/ bazaar/ blinkers/ crystalball/ deadwood/
-│                                   intelligence-engine skills
+│   ├── splitthebill/ bazaar/ blinkers/ crystalball/ deadwood/
+│   │                               intelligence-engine skills
+│   └── packlight/ ballast/ waffle/ overhead, context-carry and output skills
 ├── tokenomics/
 │   ├── engine/                     shared logic: classifier.ts, llm.ts, store.ts, session.ts, evidence.ts,
 │   │                               pricing.ts, currency.ts, diet.ts, budget.ts, events.ts, and for the
 │   │                               value helpers: trace.ts (what the agent did, from a transcript),
-│   │                               outcomes.ts, ledger.ts, forensics.ts, loops.ts, contract.ts
+│   │                               outcomes.ts, ledger.ts, forensics.ts, loops.ts, contract.ts,
+│   │                               ballast.ts (task switches, carry cost), verbosity.ts (output split)
 │   ├── services/                   the intelligence engine: cost.ts, telemetry.ts, outcome.ts, policy.ts,
 │   │                               insights.ts, value.ts (all five over one session), index.ts
 │   ├── platform/                   common adapter interface + capability registry
@@ -123,7 +125,10 @@ tokenomics/
 │   ├── blinkers.ts                 scope guard (prompt + pre-edit hooks), session check, branch diff
 │   ├── crystalball.ts              spend simulator for a team scenario
 │   ├── deadwood.ts                 monthly report of spend on work that produced nothing
-│   ├── common.ts                   argument helpers those five share
+│   ├── packlight.ts                fixed overhead: baseline context, MCP servers and skills vs their use
+│   ├── ballast.ts                  context carried between tasks (prompt hook) and session replay
+│   ├── waffle.ts                   output spend: replies, tool input, thinking; long replies, recaps, rewrites
+│   ├── common.ts                   argument and transcript helpers those tools share
 │   └── update_prices.ts            refreshes data/model-prices.json from Claude's pricing page
 ├── data/model-prices.json          Claude prices per model (Haiku 3.5 to Fable 5.2), updated weekly
 ├── data/providers.json             equivalent offerings across providers (bazaar, crystalball)

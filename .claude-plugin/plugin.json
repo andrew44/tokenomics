@@ -1,7 +1,7 @@
 {
   "name": "tokenomics",
-  "version": "2.2.0",
-  "description": "Make every AI token earn its keep: not just cheaper AI, better value from AI. spendlens tags sessions OPEX (run) or CAPEX (build); pennywise routes each prompt to the right model (cheaper for simple, stronger for hard), as a hook or a local routing proxy; diet stops context-flooding tool calls; budget sets daily and per-session limits in pounds; doggybag packs a cheap resume note into the project before the cache goes cold; coach and spend-report skills review your prompts and spend; bangforbuck measures cost per outcome; haggle quotes a task and holds it to an agreed price; sherlock finds wasted agent steps; waistline catches cost regressions (also in CI); tastetest proves a saving kept quality; springclean audits instruction files; groundhog breaks agent loops; splitthebill attributes spend by project, developer, agent, model and provider; bazaar finds the best-value provider; blinkers stops scope creep; crystalball simulates spend before adoption; deadwood reports spend on work that produced nothing; a live cost and cache statusline in the terminal (/tokenomics:statusline), the same line in the desktop app's band, and a dashboard (/tokenomics:dashboard).",
+  "version": "2.3.0",
+  "description": "Make every AI token earn its keep: not just cheaper AI, better value from AI. spendlens tags sessions OPEX (run) or CAPEX (build); pennywise routes each prompt to the right model (cheaper for simple, stronger for hard), as a hook or a local routing proxy; diet stops context-flooding tool calls; budget sets daily and per-session limits in pounds; doggybag packs a cheap resume note into the project before the cache goes cold; coach and spend-report skills review your prompts and spend; bangforbuck measures cost per outcome; haggle quotes a task and holds it to an agreed price; sherlock finds wasted agent steps; waistline catches cost regressions (also in CI); tastetest proves a saving kept quality; springclean audits instruction files; groundhog breaks agent loops; splitthebill attributes spend by project, developer, agent, model and provider; bazaar finds the best-value provider; blinkers stops scope creep; crystalball simulates spend before adoption; deadwood reports spend on work that produced nothing; packlight measures the fixed load every request carries and the MCP servers and skills you never use; ballast warns when a new task drags the last one's context along; waffle costs long replies, recaps and whole-file rewrites; a live cost and cache statusline in the terminal (/tokenomics:statusline), the same line in the desktop app's band, and a dashboard (/tokenomics:dashboard).",
   "types": "./types/index.d.ts",
   "keywords": [
     "tokenomics",
@@ -14,6 +14,9 @@
     "cost",
     "attribution",
     "forecast",
-    "scope"
+    "scope",
+    "mcp",
+    "context",
+    "output"
   ]
 }
